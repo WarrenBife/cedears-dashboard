@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEDEAR//DASH — Monitor de Mercado</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14;--bg2:#13161e;--bg3:#1a1e28;
+    --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+    --text:#e8eaf0;--muted:#6b7280;
+    --green:#22c98a;--green-bg:rgba(34,201,138,0.12);
+    --red:#f0605a;--red-bg:rgba(240,96,90,0.12);
+    --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+    --blue:#4f8ef7;--blue-bg:rgba(79,142,247,0.12);
+    --purple:#a78bfa;--purple-bg:rgba(167,139,250,0.12);
+    --accent:#4f8ef7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;min-height:100vh;}
+
+  /* TOPBAR */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:8px;}
+  .topbar-left{display:flex;align-items:center;gap:14px;}
+  .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);letter-spacing:0.04em;}
+  .tagline{color:var(--muted);font-size:12px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .live-badge{display:flex;align-items:center;gap:5px;background:var(--green-bg);border:1px solid rgba(34,201,138,0.3);color:var(--green);padding:4px 10px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .time-info{color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-align:right;}
+  .btn{background:var(--blue-bg);border:1px solid rgba(79,142,247,0.3);color:var(--blue);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+  .btn:hover{background:rgba(79,142,247,0.25);}
+
+  /* FILTROS GLOBALES */
+  .global-filters{display:flex;align-items:center;gap:8px;padding:8px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .gf-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;}
+  .gf-sep{width:1px;height:18px;background:var(--border2);margin:0 2px;}
+  select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--accent);}
+  #active-filters{display:flex;gap:5px;flex-wrap:wrap;}
+
+  /* MAIN */
+  .main{padding:18px 24px;max-width:1800px;margin:0 auto;}
+
+  /* STATS */
+  .stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
+  .stat-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:5px;}
+  .stat-value{font-size:22px;font-weight:600;font-family:'DM Mono',monospace;}
+  .stat-sub{color:var(--muted);font-size:10px;margin-top:3px;}
+  .c-green{color:var(--green);}.c-red{color:var(--red);}.c-amber{color:var(--amber);}.c-blue{color:var(--blue);}.c-purple{color:var(--purple);}.c-text{color:var(--text);}
+
+  /* PRECIOS EN VIVO */
+  .prices-strip{display:flex;gap:8px;overflow-x:auto;padding:10px 0;margin-bottom:18px;scrollbar-width:none;}
+  .prices-strip::-webkit-scrollbar{display:none;}
+  .price-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:120px;flex-shrink:0;transition:border-color 0.3s;}
+  .price-card.up{border-color:rgba(34,201,138,0.4);}
+  .price-card.down{border-color:rgba(240,96,90,0.4);}
+  .price-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px;}
+  .price-value{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;}
+  .price-change{font-size:11px;font-family:'DM Mono',monospace;margin-top:2px;}
+  .price-updated{font-size:9px;color:var(--muted);margin-top:2px;}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+
+  .panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .panel-head{padding:13px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  .panel-title{font-size:13px;font-weight:500;}
+  .panel-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .panel-body{padding:13px 16px;}
+  .panel-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.015);}
+  .pf-label{color:var(--muted);font-size:10px;white-space:nowrap;}
+  .chart-wrap{position:relative;width:100%;}
+
+  /* SCANNER */
+  .scanner-wrap{max-height:420px;overflow-y:auto;}
+  .scanner-table{width:100%;border-collapse:collapse;}
+  .scanner-table th{text-align:left;padding:7px 9px;color:var(--muted);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--bg2);}
+  .scanner-table td{padding:7px 9px;border-bottom:1px solid var(--border);font-size:12px;}
+  .scanner-table tr:last-child td{border-bottom:none;}
+  .scanner-table tr:hover td{background:var(--bg3);}
+  .ticker-badge{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;background:var(--bg3);border:1px solid var(--border2);padding:2px 6px;border-radius:4px;}
+  .score-pill{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px;min-width:36px;text-align:center;}
+  .pill-green{background:var(--green-bg);color:var(--green);}
+  .pill-amber{background:var(--amber-bg);color:var(--amber);}
+  .pill-red{background:var(--red-bg);color:var(--red);}
+  .pill-blue{background:var(--blue-bg);color:var(--blue);}
+  .pill-purple{background:var(--purple-bg);color:var(--purple);}
+
+  /* SEMAFORO */
+  .sema-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:8px;}
+  .sema-card{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:10px 12px;}
+  .sema-card.has-vol-spike{border-color:rgba(245,166,35,0.4);}
+  .sema-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;}
+  .sema-price{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  .sema-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .sema-key{color:var(--muted);font-size:10px;}
+  .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px;}
+  .dot-green{background:var(--green);}.dot-red{background:var(--red);}.dot-amber{background:var(--amber);}
+  .vol-tag{font-size:9px;background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.3);padding:1px 4px;border-radius:3px;font-family:'DM Mono',monospace;}
+  .trend-up{color:var(--green);}.trend-down{color:var(--red);}
+
+  input[type=range]{accent-color:var(--accent);cursor:pointer;}
+
+  /* LOADING */
+  #loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:14px;}
+  .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #loading-text{color:var(--muted);font-size:13px;font-family:'DM Mono',monospace;}
+  #loading-sub{color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;opacity:0.6;}
+
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+  @media(max-width:1200px){.stats-row{grid-template-columns:repeat(3,1fr);}.grid-2,.grid-3{grid-template-columns:1fr;}}
+  @media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loading-text">Cargando datos de mercado...</div>
+  <div id="loading-sub">Conectando con Google Sheets</div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">CEDEAR//DASH</div>
+    <div class="tagline">Monitor de mercado en tiempo real</div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+    <div class="time-info">
+      <div>Precios: <span id="last-price-update">—</span></div>
+      <div>KPIs: <span id="last-kpi-update">—</span></div>
+    </div>
+    <button class="btn" onclick="actualizarPrecios()">↺ Precios</button>
+  </div>
+</div>
+
+<!-- FILTROS GLOBALES -->
+<div class="global-filters">
+  <span class="gf-label">Filtros</span>
+  <div class="gf-sep"></div>
+  <span class="gf-label">Tipo</span>
+  <select id="gf-tipo" onchange="renderTodo()"><option value="todos">Todos</option><option value="Acción">Acciones</option><option value="ETF">ETFs</option></select>
+  <div class="gf-sep"></div>
+  <span class="gf-label">Market Cap</span>
+  <select id="gf-mcap" onchange="renderTodo()">
+    <option value="todos">Todos</option>
+    <option value="Mega Cap">Mega Cap</option>
+    <option value="Large Cap">Large Cap</option>
+    <option value="Mid Cap">Mid Cap</option>
+    <option value="Small Cap">Small Cap</option>
+  </select>
+  <div class="gf-sep"></div>
+  <span class="gf-label">Sector</span>
+  <select id="gf-sector" onchange="renderTodo()"><option value="todos">Todos</option></select>
+  <div class="gf-sep"></div>
+  <span class="gf-label">Grupo</span>
+  <select id="gf-grupo" onchange="renderTodo()"><option value="todos">Todos</option></select>
+  <div class="gf-sep"></div>
+  <span class="gf-label">Vol inusual</span>
+  <select id="gf-vol" onchange="renderTodo()">
+    <option value="todos">Todos</option>
+    <option value="50">+50%</option>
+    <option value="100">+100%</option>
+    <option value="200">+200%</option>
+  </select>
+  <div id="active-filters"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Tickers activos</div><div class="stat-value c-blue" id="st-total">—</div><div class="stat-sub">con filtros aplicados</div></div>
+    <div class="stat-card"><div class="stat-label">Sobre EMA200</div><div class="stat-value c-green" id="st-ema">—</div><div class="stat-sub">tendencia alcista</div></div>
+    <div class="stat-card"><div class="stat-label">RS Score &gt; 70</div><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div></div>
+    <div class="stat-card"><div class="stat-label">RSI sobrecomprado</div><div class="stat-value c-amber" id="st-rsi-ob">—</div><div class="stat-sub">RSI &gt; 70</div></div>
+    <div class="stat-card"><div class="stat-label">Vol inusual hoy</div><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div></div>
+    <div class="stat-card"><div class="stat-label">Candidatos calidad</div><div class="stat-value c-text" id="st-quality">—</div><div class="stat-sub">RS&gt;60 + vol baja + medias</div></div>
+  </div>
+
+  <!-- PRECIOS EN VIVO -->
+  <div id="prices-strip" class="prices-strip"></div>
+
+  <!-- ROW 1 -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Mapa de fuerza relativa</div><div class="panel-sub">RS Score vs Dist. Máx 52W — tamaño = vol relativa</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="chart-wrap" style="height:290px"><canvas id="bubbleChart"></canvas></div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;color:var(--muted)">
+          <span><span class="dot dot-green" style="display:inline-block"></span>RS &gt; 70</span>
+          <span><span class="dot dot-amber" style="display:inline-block"></span>RS 40–70</span>
+          <span><span class="dot dot-red"   style="display:inline-block"></span>RS &lt; 40</span>
+          <span style="color:var(--amber)">★ vol inusual</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Top / Bottom RS Score</div><div class="panel-sub">Fuerza relativa vs SPY</div></div></div>
+      <div class="panel-filters">
+        <span class="pf-label">Ver:</span>
+        <select id="rs-n" onchange="renderRS()"><option value="15">15</option><option value="20">20</option><option value="30">30</option></select>
+        <select id="rs-mode" onchange="renderRS()"><option value="top">Más fuertes</option><option value="bottom">Más débiles</option></select>
+      </div>
+      <div class="panel-body"><div class="chart-wrap" style="height:290px"><canvas id="rsChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ROW 2 -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Tendencia RS Score</div><div class="panel-sub">Actual vs semana vs mes anterior</div></div></div>
+      <div class="panel-filters">
+        <span class="pf-label">Tickers:</span>
+        <select id="trend-n" onchange="renderTrend()"><option value="20">20</option><option value="30">30</option></select>
+        <select id="trend-orden" onchange="renderTrend()"><option value="top">Mayor RS actual</option><option value="mejora">Mayor mejora vs mes</option></select>
+      </div>
+      <div class="panel-body"><div class="chart-wrap" style="height:290px"><canvas id="trendChart"></canvas></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Volatilidad relativa</div><div class="panel-sub">Vol 20 ruedas / Vol histórica 1 año — naranja = vol inusual</div></div></div>
+      <div class="panel-filters">
+        <span class="pf-label">Ordenar:</span>
+        <select id="vol-orden" onchange="renderVol()"><option value="mayor">Mayor a menor</option><option value="menor">Menor a mayor</option></select>
+        <select id="vol-n" onchange="renderVol()"><option value="30">30</option><option value="50">50</option></select>
+      </div>
+      <div class="panel-body"><div class="chart-wrap" style="height:290px"><canvas id="volChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ROW 3 -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Volumen inusual hoy</div><div class="panel-sub">Desvío vs promedio 20 ruedas</div></div></div>
+      <div class="panel-filters">
+        <span class="pf-label">Umbral:</span>
+        <select id="vinu-umbral" onchange="renderVolInusual()"><option value="30">+30%</option><option value="50" selected>+50%</option><option value="100">+100%</option></select>
+        <select id="vinu-n" onchange="renderVolInusual()"><option value="20">Top 20</option><option value="30">Top 30</option></select>
+      </div>
+      <div class="panel-body"><div class="chart-wrap" style="height:260px"><canvas id="vinuChart"></canvas></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">RSI vs RS Score</div><div class="panel-sub">Zona ideal: RS alto + RSI no sobrecomprado</div></div></div>
+      <div class="panel-body">
+        <div class="chart-wrap" style="height:260px"><canvas id="scatterChart"></canvas></div>
+        <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
+          <span style="color:var(--green)">● RS&gt;60 + RSI&lt;70 (ideal)</span>
+          <span style="color:var(--amber)">● RSI sobrecomprado</span>
+          <span style="color:var(--muted)">● Resto</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4 -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Scanner de calidad</div><div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div></div></div>
+      <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
+        <span class="pf-label">RS mín:</span>
+        <input type="range" id="f-rs" min="0" max="100" value="60" style="width:70px" oninput="document.getElementById('f-rs-val').textContent=this.value;renderScanner()">
+        <span id="f-rs-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">60</span>
+        <span class="pf-label">Vol rel. máx:</span>
+        <input type="range" id="f-vol" min="0.1" max="3" step="0.1" value="1" style="width:70px" oninput="document.getElementById('f-vol-val').textContent=parseFloat(this.value).toFixed(1)+'x';renderScanner()">
+        <span id="f-vol-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:24px">1.0x</span>
+        <label style="display:flex;align-items:center;gap:4px;color:var(--muted);font-size:11px;cursor:pointer;">
+          <input type="checkbox" id="f-vol-inusual" onchange="renderScanner()" style="accent-color:var(--amber)"> Solo vol inusual
+        </label>
+      </div>
+      <div class="scanner-wrap">
+        <table class="scanner-table">
+          <thead><tr>
+            <th>Ticker</th><th>Precio</th><th>Var%</th><th>Sector</th><th>MCap</th>
+            <th>RS</th><th>Δ RS 1m</th><th>RSI</th>
+            <th>Vol Rel</th><th>Vol Inu</th><th>EMA200</th><th>SMA50</th>
+          </tr></thead>
+          <tbody id="scanner-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Semáforo por ticker</div><div class="panel-sub">Borde naranja = volumen inusual hoy</div></div></div>
+      <div class="panel-filters">
+        <span class="pf-label">Ordenar:</span>
+        <select id="sema-sort" onchange="renderSemaforo()">
+          <option value="rs">RS Score</option>
+          <option value="rsi">RSI</option>
+          <option value="vol">Vol Relativa</option>
+          <option value="vol-inusual">Vol Inusual</option>
+        </select>
+      </div>
+      <div style="padding:10px;max-height:460px;overflow-y:auto;">
+        <div class="sema-grid" id="sema-grid"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────
+const SHEET_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_6tf4dlgeuAcuXewZhsY8SBBafwoGnNsVAOXGu5qNJ43luVOjJp_-Y4e7Yypdx-ktYNc5LMoi3Psb/pub?gid=765510709&single=true&output=csv";
+const TD_API_KEY = "d0892af44f7041ab870bd6b8d513e739";
+const PRICE_INTERVAL_MS = 60000; // 60 segundos
+
+// Tickers prioritarios para la tira de precios en vivo
+const TICKERS_LIVE = ["SPY","QQQ","NVDA","AAPL","MSFT","TSLA","MELI","AMZN","GOOGL","META","YPF","GGAL","BMA","GLD","SMH","VALE","XOM","JPM"];
+
+let DATOS = [];
+let PRECIOS_LIVE = {};
+let charts = {};
+let priceTimer = null;
+
+// ── CARGA DE DATOS DESDE SHEETS ──────────────────────────────
+async function cargarDatos() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loading-text').textContent = 'Cargando KPIs desde Google Sheets...';
+  document.getElementById('loading-sub').textContent = 'Esto puede tardar unos segundos';
+
+  try {
+    const resp = await fetch(SHEET_URL + '&t=' + Date.now());
+    const text = await resp.text();
+    const rows = text.trim().split('\n');
+
+    DATOS = rows.map(row => {
+      try {
+        const clean = row.replace(/^"|"$/g, '').replace(/""/g, '"');
+        return JSON.parse(clean);
+      } catch { return null; }
+    }).filter(Boolean);
+
+    document.getElementById('last-kpi-update').textContent = new Date().toLocaleTimeString('es-AR');
+    poblarFiltros();
+    renderTodo();
+    document.getElementById('loading').style.display = 'none';
+
+    // Arrancamos actualización de precios
+    await actualizarPrecios();
+    if(priceTimer) clearInterval(priceTimer);
+    priceTimer = setInterval(actualizarPrecios, PRICE_INTERVAL_MS);
+
+  } catch(e) {
+    document.getElementById('loading-text').textContent = '⚠ Error al cargar datos';
+    document.getElementById('loading-sub').textContent = e.message;
+    console.error(e);
+  }
+}
+
+// ── PRECIOS EN TIEMPO REAL (TWELVE DATA) ─────────────────────
+async function actualizarPrecios() {
+  try {
+    const symbols = TICKERS_LIVE.join(',');
+    const url = `https://api.twelvedata.com/price?symbol=${symbols}&apikey=${TD_API_KEY}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    // También pedimos el % de cambio del día
+    const url2 = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${TD_API_KEY}`;
+    const resp2 = await fetch(url2);
+    const data2 = await resp2.json();
+
+    // Procesamos respuesta
+    TICKERS_LIVE.forEach(ticker => {
+      const priceData  = data[ticker]  || data;
+      const quoteData  = data2[ticker] || data2;
+      const price      = parseFloat(priceData?.price || priceData?.close || 0);
+      const pctChange  = parseFloat(quoteData?.percent_change || 0);
+      if(price > 0) {
+        PRECIOS_LIVE[ticker] = { price, pctChange };
+      }
+    });
+
+    document.getElementById('last-price-update').textContent = new Date().toLocaleTimeString('es-AR');
+    renderPricesStrip();
+    renderScanner(); // Actualizamos scanner con precios nuevos
+
+  } catch(e) {
+    console.warn('Error actualizando precios:', e);
+  }
+}
+
+// ── TIRA DE PRECIOS EN VIVO ───────────────────────────────────
+function renderPricesStrip() {
+  const strip = document.getElementById('prices-strip');
+  strip.innerHTML = TICKERS_LIVE.map(ticker => {
+    const p = PRECIOS_LIVE[ticker];
+    if(!p) return `
+      <div class="price-card">
+        <div class="price-ticker">${ticker}</div>
+        <div class="price-value c-muted" style="color:var(--muted)">—</div>
+      </div>`;
+    const dir = p.pctChange >= 0 ? 'up' : 'down';
+    const cls = p.pctChange >= 0 ? 'c-green' : 'c-red';
+    const arrow = p.pctChange >= 0 ? '▲' : '▼';
+    return `
+      <div class="price-card ${dir}">
+        <div class="price-ticker">${ticker}</div>
+        <div class="price-value ${cls}">$${p.price.toFixed(2)}</div>
+        <div class="price-change ${cls}">${arrow} ${Math.abs(p.pctChange).toFixed(2)}%</div>
+        <div class="price-updated">en vivo</div>
+      </div>`;
+  }).join('');
+}
+
+// ── FILTROS ───────────────────────────────────────────────────
+function poblarFiltros() {
+  const sectores = [...new Set(DATOS.map(d=>d['Sector']).filter(Boolean))].sort();
+  const grupos   = [...new Set(DATOS.map(d=>d['Grupo']).filter(Boolean))].sort();
+  const selS = document.getElementById('gf-sector');
+  while(selS.options.length>1)selS.remove(1);
+  sectores.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;selS.appendChild(o);});
+  const selG = document.getElementById('gf-grupo');
+  while(selG.options.length>1)selG.remove(1);
+  grupos.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;selG.appendChild(o);});
+}
+
+function getDatosFiltrados() {
+  const tipo   = document.getElementById('gf-tipo').value;
+  const mcap   = document.getElementById('gf-mcap').value;
+  const sector = document.getElementById('gf-sector').value;
+  const grupo  = document.getElementById('gf-grupo').value;
+  const volMin = document.getElementById('gf-vol').value;
+  return DATOS.filter(d => {
+    if(tipo   !== 'todos' && d['Tipo'] !== tipo) return false;
+    if(mcap   !== 'todos' && d['Market Cap Cat'] !== mcap) return false;
+    if(sector !== 'todos' && d['Sector'] !== sector) return false;
+    if(grupo  !== 'todos' && d['Grupo'] !== grupo) return false;
+    if(volMin !== 'todos' && (d['Vol Inusual %']===null||d['Vol Inusual %']<parseFloat(volMin))) return false;
+    return true;
+  });
+}
+
+function actualizarBadges() {
+  const vals = [
+    ['gf-tipo','todos'],['gf-mcap','todos'],['gf-sector','todos'],
+    ['gf-grupo','todos'],['gf-vol','todos']
+  ];
+  const labels = vals.map(([id])=>document.getElementById(id))
+    .map((el,i)=>el.value!==vals[i][1]?el.options[el.selectedIndex].text:null)
+    .filter(Boolean);
+  document.getElementById('active-filters').innerHTML = labels.map(l=>
+    `<span style="background:var(--blue-bg);border:1px solid rgba(79,142,247,0.3);color:var(--blue);padding:2px 7px;border-radius:4px;font-size:10px">${l}</span>`
+  ).join('');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function colorRS(s){return s===null||s===undefined?'#6b7280':s>70?'#22c98a':s>40?'#f5a623':'#f0605a';}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// ── STATS ─────────────────────────────────────────────────────
+function renderStats() {
+  const data = getDatosFiltrados();
+  document.getElementById('st-total').textContent   = data.length;
+  document.getElementById('st-ema').textContent     = data.filter(d=>d['Dist EMA200 %']!==null&&d['Dist EMA200 %']>0).length;
+  document.getElementById('st-rs').textContent      = data.filter(d=>d['RS Score']!==null&&d['RS Score']>70).length;
+  document.getElementById('st-rsi-ob').textContent  = data.filter(d=>d['RSI 14']!==null&&d['RSI 14']>70).length;
+  document.getElementById('st-vol').textContent     = data.filter(d=>d['Vol Inusual %']!==null&&d['Vol Inusual %']>50).length;
+  document.getElementById('st-quality').textContent = data.filter(d=>
+    d['RS Score']>=60&&d['Vol Relativa']!==null&&d['Vol Relativa']<1&&
+    d['Dist EMA200 %']>0&&d['Dist SMA50 %']>0
+  ).length;
+}
+
+// ── BUBBLE ────────────────────────────────────────────────────
+function renderBubble() {
+  const data = getDatosFiltrados().filter(d=>d['RS Score']!==null&&d['Dist Máx52W %']!==null&&d['Vol Relativa']!==null);
+  const points = data.map(d=>({
+    x:d['RS Score'], y:d['Dist Máx52W %'],
+    r:Math.max(3,Math.min(18,d['Vol Relativa']*8)),
+    label:d['Ticker'], color:colorRS(d['RS Score']),
+    volInusual:d['Vol Inusual %']!==null&&d['Vol Inusual %']>50
+  }));
+  destroyChart('bubbleChart');
+  charts['bubbleChart']=new Chart(document.getElementById('bubbleChart').getContext('2d'),{
+    type:'bubble',
+    data:{datasets:[{data:points,backgroundColor:points.map(p=>p.volInusual?'#f5a62388':p.color+'55'),borderColor:points.map(p=>p.volInusual?'#f5a623':p.color),borderWidth:points.map(p=>p.volInusual?2:1)}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const p=points[ctx.dataIndex];return ` ${p.label}${p.volInusual?' ★':''}  RS:${ctx.parsed.x}  Dist52W:${ctx.parsed.y.toFixed(1)}%`;}},backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{title:{display:true,text:'RS Score',color:'#6b7280',font:{size:10}},min:-5,max:105,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9}}},y:{title:{display:true,text:'Dist. Máx 52W (%)',color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9},callback:v=>v+'%'}}}}
+  });
+}
+
+// ── RS BARRAS ─────────────────────────────────────────────────
+function renderRS() {
+  const n=parseInt(document.getElementById('rs-n').value);
+  const mode=document.getElementById('rs-mode').value;
+  const data=getDatosFiltrados().filter(d=>d['RS Score']!==null).sort((a,b)=>mode==='top'?b['RS Score']-a['RS Score']:a['RS Score']-b['RS Score']).slice(0,n);
+  const values=data.map(d=>d['RS Score']);
+  destroyChart('rsChart');
+  charts['rsChart']=new Chart(document.getElementById('rsChart').getContext('2d'),{
+    type:'bar',data:{labels:data.map(d=>d['Ticker']),datasets:[{data:values,backgroundColor:values.map(v=>colorRS(v)+'bb'),borderRadius:4,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` RS: ${ctx.parsed.x.toFixed(1)}`},backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9}}},y:{grid:{display:false},ticks:{color:'#e8eaf0',font:{size:10,family:"'DM Mono',monospace"}}}}}
+  });
+}
+
+// ── TENDENCIA ─────────────────────────────────────────────────
+function renderTrend() {
+  const n=parseInt(document.getElementById('trend-n').value);
+  const orden=document.getElementById('trend-orden').value;
+  let data=getDatosFiltrados().filter(d=>d['RS Score']!==null&&d['RS Mes ant.']!==null);
+  if(orden==='mejora')data.sort((a,b)=>(b['RS Score']-b['RS Mes ant.'])-(a['RS Score']-a['RS Mes ant.']));
+  else data.sort((a,b)=>b['RS Score']-a['RS Score']);
+  data=data.slice(0,n);
+  destroyChart('trendChart');
+  charts['trendChart']=new Chart(document.getElementById('trendChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:data.map(d=>d['Ticker']),datasets:[
+      {label:'Mes ant.',data:data.map(d=>d['RS Mes ant.']),backgroundColor:'#4f8ef722',borderColor:'#4f8ef7',borderWidth:1,borderRadius:2},
+      {label:'Semana ant.',data:data.map(d=>d['RS Semana ant.']),backgroundColor:'#f5a62322',borderColor:'#f5a623',borderWidth:1,borderRadius:2},
+      {label:'RS Actual',data:data.map(d=>d['RS Score']),backgroundColor:'#22c98a55',borderColor:'#22c98a',borderWidth:1,borderRadius:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#9ca3af',font:{size:10},boxWidth:8,boxHeight:8}},tooltip:{backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:9,family:"'DM Mono',monospace"},maxRotation:45}},y:{min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9}}}}}
+  });
+}
+
+// ── VOLATILIDAD ───────────────────────────────────────────────
+function renderVol() {
+  const orden=document.getElementById('vol-orden').value;
+  const n=parseInt(document.getElementById('vol-n').value);
+  const data=getDatosFiltrados().filter(d=>d['Vol Relativa']!==null)
+    .sort((a,b)=>orden==='mayor'?b['Vol Relativa']-a['Vol Relativa']:a['Vol Relativa']-b['Vol Relativa']).slice(0,n);
+  const values=data.map(d=>d['Vol Relativa']);
+  const colors=data.map(d=>d['Vol Inusual %']!==null&&d['Vol Inusual %']>50?'#f5a623cc':values[data.indexOf(d)]>1.5?'#f0605acc':values[data.indexOf(d)]>1?'#f5a62366':'#22c98a66');
+  destroyChart('volChart');
+  charts['volChart']=new Chart(document.getElementById('volChart').getContext('2d'),{
+    type:'bar',data:{labels:data.map(d=>d['Ticker']),datasets:[{data:values,backgroundColor:colors,borderRadius:3,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=data[ctx.dataIndex];const vi=d['Vol Inusual %']!==null?`  Vol inusual: +${d['Vol Inusual %'].toFixed(0)}%`:'';return ` Vol rel: ${ctx.parsed.y.toFixed(2)}x${vi}`;}},backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:9,family:"'DM Mono',monospace"},maxRotation:45}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9},callback:v=>v.toFixed(1)+'x'}}}}
+  });
+}
+
+// ── VOL INUSUAL ───────────────────────────────────────────────
+function renderVolInusual() {
+  const umbral=parseFloat(document.getElementById('vinu-umbral').value);
+  const n=parseInt(document.getElementById('vinu-n').value);
+  const data=getDatosFiltrados().filter(d=>d['Vol Inusual %']!==null&&d['Vol Inusual %']>=umbral).sort((a,b)=>b['Vol Inusual %']-a['Vol Inusual %']).slice(0,n);
+  const values=data.map(d=>d['Vol Inusual %']);
+  destroyChart('vinuChart');
+  charts['vinuChart']=new Chart(document.getElementById('vinuChart').getContext('2d'),{
+    type:'bar',data:{labels:data.map(d=>d['Ticker']),datasets:[{data:values,backgroundColor:values.map(v=>v>200?'#f0605acc':v>100?'#f5a623cc':'#4f8ef7cc'),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=data[ctx.dataIndex];return[` Vol inusual: +${ctx.parsed.y.toFixed(0)}%`,` RS Score: ${d['RS Score']}`,` Sector: ${d['Sector']||'—'}`];}},backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{grid:{display:false},ticks:{color:'#9ca3af',font:{size:10,family:"'DM Mono',monospace"},maxRotation:45}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9},callback:v=>'+'+v+'%'}}}}
+  });
+}
+
+// ── SCATTER ───────────────────────────────────────────────────
+function renderScatter() {
+  const data=getDatosFiltrados().filter(d=>d['RSI 14']!==null&&d['RS Score']!==null);
+  const points=data.map(d=>({x:d['RS Score'],y:d['RSI 14'],label:d['Ticker'],color:d['RS Score']>60&&d['RSI 14']<70?'#22c98a':d['RSI 14']>=70?'#f5a623':'#6b7280'}));
+  destroyChart('scatterChart');
+  charts['scatterChart']=new Chart(document.getElementById('scatterChart').getContext('2d'),{
+    type:'scatter',data:{datasets:[{data:points,backgroundColor:points.map(p=>p.color+'66'),borderColor:points.map(p=>p.color),borderWidth:1,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const p=points[ctx.dataIndex];return ` ${p.label}  RS:${ctx.parsed.x.toFixed(1)}  RSI:${ctx.parsed.y.toFixed(1)}`;}},backgroundColor:'#1a1e28',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#9ca3af'}},
+      scales:{x:{title:{display:true,text:'RS Score',color:'#6b7280',font:{size:10}},min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9}}},y:{title:{display:true,text:'RSI 14',color:'#6b7280',font:{size:10}},min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:9}}}}}
+  });
+}
+
+// ── SCANNER ───────────────────────────────────────────────────
+function renderScanner() {
+  const rsMin=parseFloat(document.getElementById('f-rs').value);
+  const volMax=parseFloat(document.getElementById('f-vol').value);
+  const soloVinusual=document.getElementById('f-vol-inusual').checked;
+  let data=getDatosFiltrados().filter(d=>
+    d['RS Score']!==null&&d['RS Score']>=rsMin&&
+    d['Vol Relativa']!==null&&d['Vol Relativa']<=volMax&&
+    d['Dist EMA200 %']!==null&&d['Dist EMA200 %']>0&&
+    d['Dist SMA50 %']!==null&&d['Dist SMA50 %']>0
+  );
+  if(soloVinusual)data=data.filter(d=>d['Vol Inusual %']!==null&&d['Vol Inusual %']>50);
+  data.sort((a,b)=>b['RS Score']-a['RS Score']);
+
+  const pill=(v,hi,mid)=>{if(v===null||v===undefined)return'<span class="score-pill pill-blue">—</span>';const cls=v>=hi?'pill-green':v>=mid?'pill-amber':'pill-red';return`<span class="score-pill ${cls}">${typeof v==='number'?v.toFixed(1):v}</span>`;};
+  const delta=(cur,prev)=>{if(cur===null||prev===null)return'<span style="color:var(--muted)">—</span>';const d=cur-prev;return`<span class="${d>0?'trend-up':'trend-down'}">${d>0?'▲':'▼'} ${Math.abs(d).toFixed(1)}</span>`;};
+  const volInusualCell=(v)=>{if(v===null||v===undefined)return'<span style="color:var(--muted)">—</span>';if(v>200)return`<span class="score-pill pill-red">+${v.toFixed(0)}%</span>`;if(v>100)return`<span class="score-pill pill-amber">+${v.toFixed(0)}%</span>`;if(v>50)return`<span class="score-pill pill-blue">+${v.toFixed(0)}%</span>`;return`<span style="color:var(--muted)">${v.toFixed(0)}%</span>`;};
+  const mcapPill=(v)=>{if(!v||v==='—')return'—';const cls=v==='Mega Cap'?'pill-purple':v==='Large Cap'?'pill-blue':v==='Mid Cap'?'pill-green':'pill-amber';return`<span class="score-pill ${cls}" style="font-size:9px">${v.replace(' Cap','')}</span>`;};
+
+  // Precio en vivo si está disponible
+  const getPrecio=(ticker)=>{
+    const p=PRECIOS_LIVE[ticker];
+    if(p){const cls=p.pctChange>=0?'c-green':'c-red';return`<span class="${cls}" style="font-family:'DM Mono',monospace">$${p.price.toFixed(2)}</span>`;}
+    return d['Precio']!==null?`$${d['Precio'].toFixed(2)}`:'—';
+  };
+  const getVar=(ticker,d)=>{
+    const p=PRECIOS_LIVE[ticker];
+    if(p){const cls=p.pctChange>=0?'c-green':'c-red';return`<span class="${cls}">${p.pctChange>=0?'▲':'▼'}${Math.abs(p.pctChange).toFixed(2)}%</span>`;}
+    if(d['Var Día %']!==null){const cls=d['Var Día %']>=0?'c-green':'c-red';return`<span class="${cls}">${d['Var Día %']>=0?'▲':'▼'}${Math.abs(d['Var Día %']).toFixed(2)}%</span>`;}
+    return'—';
+  };
+
+  const body=document.getElementById('scanner-body');
+  body.innerHTML=data.length===0
+    ?'<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    :data.map(d=>`<tr>
+      <td><span class="ticker-badge">${d['Ticker']}</span></td>
+      <td>${getPrecio(d['Ticker'])}</td>
+      <td>${getVar(d['Ticker'],d)}</td>
+      <td style="color:var(--muted);font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d['Sector']||'—'}</td>
+      <td>${mcapPill(d['Market Cap Cat'])}</td>
+      <td>${pill(d['RS Score'],70,40)}</td>
+      <td>${delta(d['RS Score'],d['RS Mes ant.'])}</td>
+      <td>${pill(d['RSI 14'],70,50)}</td>
+      <td><span class="score-pill ${d['Vol Relativa']<0.6?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!==null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
+      <td>${volInusualCell(d['Vol Inusual %'])}</td>
+      <td style="color:${d['Dist EMA200 %']>0?'var(--green)':'var(--red)'}">${d['Dist EMA200 %']!==null?(d['Dist EMA200 %']>0?'+':'')+d['Dist EMA200 %'].toFixed(1)+'%':'—'}</td>
+      <td style="color:${d['Dist SMA50 %']>0?'var(--green)':'var(--red)'}">${d['Dist SMA50 %']!==null?(d['Dist SMA50 %']>0?'+':'')+d['Dist SMA50 %'].toFixed(1)+'%':'—'}</td>
+    </tr>`).join('');
+}
+
+// ── SEMÁFORO ──────────────────────────────────────────────────
+function renderSemaforo() {
+  let data=getDatosFiltrados();
+  const s=document.getElementById('sema-sort').value;
+  if(s==='rs')data.sort((a,b)=>(b['RS Score']||0)-(a['RS Score']||0));
+  if(s==='rsi')data.sort((a,b)=>(b['RSI 14']||0)-(a['RSI 14']||0));
+  if(s==='vol')data.sort((a,b)=>(a['Vol Relativa']||999)-(b['Vol Relativa']||999));
+  if(s==='vol-inusual')data.sort((a,b)=>(b['Vol Inusual %']||0)-(a['Vol Inusual %']||0));
+  const dot=c=>`<span class="dot ${c===true?'dot-green':c===false?'dot-red':'dot-amber'}"></span>`;
+  const fmt=(v,d=1)=>v!==null&&v!==undefined?v.toFixed(d):'—';
+  document.getElementById('sema-grid').innerHTML=data.map(d=>{
+    const sobreEma=d['Dist EMA200 %']!==null?d['Dist EMA200 %']>0:null;
+    const sobreSma=d['Dist SMA50 %']!==null?d['Dist SMA50 %']>0:null;
+    const rsiOk=d['RSI 14']!==null?(d['RSI 14']>40&&d['RSI 14']<70?null:d['RSI 14']<70):null;
+    const rsOk=d['RS Score']!==null?d['RS Score']>60:null;
+    const volOk=d['Vol Relativa']!==null?d['Vol Relativa']<1:null;
+    const hasVol=d['Vol Inusual %']!==null&&d['Vol Inusual %']>50;
+    const p=PRECIOS_LIVE[d['Ticker']];
+    const precioStr=p?`<span class="${p.pctChange>=0?'c-green':'c-red'}" style="font-size:10px;font-family:'DM Mono',monospace">${p.pctChange>=0?'▲':'▼'}${Math.abs(p.pctChange).toFixed(1)}%</span>`:'';
+    return`<div class="sema-card ${hasVol?'has-vol-spike':''}">
+      <div class="sema-ticker" style="color:${colorRS(d['RS Score'])}">${d['Ticker']}${hasVol?`<span class="vol-tag">VOL</span>`:precioStr}</div>
+      <div class="sema-row"><span class="sema-key">EMA200</span><span>${dot(sobreEma)} ${fmt(d['Dist EMA200 %'])}%</span></div>
+      <div class="sema-row"><span class="sema-key">SMA50</span><span>${dot(sobreSma)} ${fmt(d['Dist SMA50 %'])}%</span></div>
+      <div class="sema-row"><span class="sema-key">RSI 14</span><span>${dot(rsiOk)} ${fmt(d['RSI 14'])}</span></div>
+      <div class="sema-row"><span class="sema-key">RS Score</span><span>${dot(rsOk)} ${fmt(d['RS Score'])}</span></div>
+      <div class="sema-row"><span class="sema-key">Vol Rel.</span><span>${dot(volOk)} ${fmt(d['Vol Relativa'],2)}x</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER TODO ───────────────────────────────────────────────
+function renderTodo() {
+  actualizarBadges();
+  renderStats();
+  renderBubble();
+  renderRS();
+  renderTrend();
+  renderVol();
+  renderVolInusual();
+  renderScatter();
+  renderScanner();
+  renderSemaforo();
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+cargarDatos();
+</script>
+</body>
+</html>
