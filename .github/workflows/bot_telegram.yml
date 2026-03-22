@@ -1,0 +1,24 @@
+name: Bot Telegram TOP 5 RS
+
+on:
+  schedule:
+    - cron: '30 20 * * 1-5'  # 17:30 hora Argentina (UTC-3) de lunes a viernes
+  workflow_dispatch:  # permite correrlo manualmente también
+
+jobs:
+  enviar_bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Correr bot Telegram
+        run: python bot_telegram.py
