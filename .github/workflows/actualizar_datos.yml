@@ -21,7 +21,10 @@ jobs:
       - name: Instalar dependencias
         run: pip install yfinance pandas numpy requests
 
-      - name: Correr script
+      - - name: Correr script
+        run: python actualizar_datos.py
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: python actualizar_datos.py
 
       - name: Commit datos actualizados
