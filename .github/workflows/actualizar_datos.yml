@@ -1,0 +1,33 @@
+name: Actualizar datos CEDEARs
+
+on:
+  schedule:
+    - cron: '0 16 * * 1-5'
+    - cron: '0 23 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install yfinance pandas numpy requests
+
+      - name: Correr script
+        run: python actualizar_datos.py
+
+      - name: Commit datos actualizados
+        run: |
+          git config user.name "Warren Bife Bot"
+          git config user.email "bot@warrenbife.com"
+          git add datos.json
+          git diff --staged --quiet || git commit -m "Auto-update $(date +'%d/%m/%Y %H:%M')"
+          git push
