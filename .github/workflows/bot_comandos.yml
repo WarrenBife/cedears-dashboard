@@ -1,0 +1,36 @@
+name: Bot Telegram - Comandos
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # cada 5 minutos
+  workflow_dispatch:        # permite correrlo manualmente desde GitHub
+
+jobs:
+  comandos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests pytz
+
+      - name: Procesar comandos
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: python bot_telegram.py --comandos
+
+      - name: Guardar offset actualizado
+        run: |
+          if [ -f bot_offset.txt ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add bot_offset.txt
+            git diff --staged --quiet || git commit -m "chore: update bot offset"
+            git push
+          fi
