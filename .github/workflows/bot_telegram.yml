@@ -1,18 +1,20 @@
-name: Bot Telegram TOP 5 RS
+name: Bot Telegram - Alerta Diaria
 
 on:
   schedule:
-    - cron: '30 20 * * 1-5'
-  workflow_dispatch:
+    # Lunes a viernes 20:30hs Argentina (23:30 UTC)
+    - cron: '30 23 * * 1-5'
+  workflow_dispatch:  # Permite ejecutar manualmente
 
 jobs:
-  enviar_bot:
+  enviar-alerta:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout repositorio
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Instalar Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -20,5 +22,8 @@ jobs:
       - name: Instalar dependencias
         run: pip install requests
 
-      - name: Correr bot Telegram
-        run: python bot_telegram.py
+      - name: Enviar alerta diaria
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python bot_telegram.py --alerta
