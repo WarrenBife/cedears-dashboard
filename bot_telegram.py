@@ -144,8 +144,9 @@ def modo_alerta():
         key=lambda d: d['RSI 14']
     )
     if sobrev:
-        msg += '📉 <b>RSI SOBREVENDIDO (≤30)</b>\n'
-        for d in sobrev:
+        sobrev_top = sorted(sobrev, key=lambda d: d.get('Market Cap USD') or 0, reverse=True)[:5]
+        msg += f'📉 <b>RSI SOBREVENDIDO (≤30) — top 5 por MCap</b>\n'
+        for d in sobrev_top:
             msg += f"  <code>{d['Ticker']:<6}</code> RSI {d['RSI 14']:.1f}  RS {d.get('RS Score', 0):.0f}  Mín52W {pct(d.get('Dist Mín52W %'))}\n"
         msg += '\n'
 
@@ -155,8 +156,9 @@ def modo_alerta():
         key=lambda d: d['RSI 14'], reverse=True
     )
     if sobrec:
-        msg += f'🔥 <b>RSI SOBRECOMPRADO (≥70) — {len(sobrec)} tickers</b>\n'
-        for d in sobrec[:10]:
+        sobrec_top = sorted(sobrec, key=lambda d: d.get('Market Cap USD') or 0, reverse=True)[:5]
+        msg += f'🔥 <b>RSI SOBRECOMPRADO (≥70) — top 5 por MCap</b>\n'
+        for d in sobrec_top:
             msg += f"  <code>{d['Ticker']:<6}</code> RSI {d['RSI 14']:.1f}  RS {d.get('RS Score', 0):.0f}  Máx52W {pct(d.get('Dist Máx52W %'))}\n"
         msg += '\n'
 
