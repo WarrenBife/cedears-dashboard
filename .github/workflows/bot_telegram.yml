@@ -2,14 +2,12 @@ name: Bot Telegram - Alerta Diaria
 
 on:
   schedule:
-    # Lunes a viernes 20:30hs Argentina (23:30 UTC)
-    - cron: '30 23 * * 1-5'
-  workflow_dispatch:  # Permite ejecutar manualmente
+    - cron: '30 23 * * 1-5'  # 20:30 Argentina (UTC-3) = 23:30 UTC, lunes a viernes
+  workflow_dispatch:          # permite correrlo manualmente desde GitHub
 
 jobs:
-  enviar-alerta:
+  alerta:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -20,7 +18,7 @@ jobs:
           python-version: '3.11'
 
       - name: Instalar dependencias
-        run: pip install requests
+        run: pip install requests pytz
 
       - name: Enviar alerta diaria
         env:
