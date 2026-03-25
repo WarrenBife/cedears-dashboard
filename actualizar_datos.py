@@ -376,6 +376,50 @@ df = pd.DataFrame(todos_los_datos)
 print(f"\n✅ Datos listos: {len(df)} tickers")
 print(df[["Ticker", "Dist Mín52W %", "Vol Relativa", "RS Score", "Sector", "Market Cap Cat"]].head(10).to_string(index=False))
 
+# ── EXPORTAR A GITHUB ──────────────────────────────────────────
+import json, base64, requests, os
+from datetime import datetime
+
+GITHUB_TOKEN = os.environ.get("PAT_TOKEN")
+GITHUB_USER  = "WarrenBife"
+GITHUB_REPO  = "cedears-dashboard"
+ARCHIVO      = "datos.json"
+
+datos_export = []
+for _, row in df.iterrows():
+    item = {}
+    for col in df.columns:
+        val = row[col]
+        if pd.isna(val) or val == "—":
+            item[col] = None
+        elif isinstance(val, (int, float)):
+            item[col] = round(float(val), 2)
+        else:
+            item[col] = str(val)
+    datos_export.append(item)
+
+json_str       = json.dumps(datos_export, ensure_ascii=False)
+contenido_b64  = base64.b64encode(json_str.encode()).decode()
+headers        = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+url            = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{ARCHIVO}"
+
+resp = requests.get(url, headers=headers)
+sha  = resp.json().get("sha") if resp.status_code == 200 else None
+
+payload = {"message": f"Auto-update {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": contenido_b64}
+if sha:
+    payload["sha"] = sha
+
+resp = requests.put(url, headers=headers, json=payload)
+if resp.status_code in [200, 201]:
+    print(f"\n✅ datos.json actualizado con {len(datos_export)} tickers")
+else:
+    print(f"\n❌ Error subiendo JSON: {resp.status_code} — {resp.json().get('message')}")
+    exit(1)
+
+# ── FIN — el resto de las celdas son solo para Colab ──────────
+import sys; sys.exit(0)
+
 import gspread
 from google.colab import auth
 from google.auth import default
