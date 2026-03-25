@@ -7,9 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1mvZ9kDjxOSMoyYs3bxAiQNVjO5crOjRD
 """
 
-# Instalamos las librerías necesarias
-!pip install yfinance gspread google-auth --quiet
-!pip install gspread-formatting --quiet
+# Dependencias instaladas via workflow (requirements)
 
 # ============================================
 # CONFIGURACIÓN — EDITÁ SOLO ESTA SECCIÓN
