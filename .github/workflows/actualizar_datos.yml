@@ -1,19 +1,19 @@
-name: Actualizar datos CEDEARs
+name: Actualizar datos.json
 
 on:
   schedule:
-    - cron: '0 16 * * 1-5'
-    - cron: '0 23 * * 1-5'
-  workflow_dispatch:
+    - cron: '0 13 * * 1-5'  # 10:00 Argentina (UTC-3) = 13:00 UTC
+    - cron: '0 21 * * 1-5'  # 18:00 Argentina (UTC-3) = 21:00 UTC
+  workflow_dispatch:         # permite correrlo manualmente desde GitHub
 
 jobs:
   actualizar:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -21,15 +21,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install yfinance pandas numpy requests
 
-      - name: Correr script
-        run: python actualizar_datos.py
+      - name: Ejecutar Colab script
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-
-      - name: Commit datos actualizados
-        run: |
-          git config user.name "Warren Bife Bot"
-          git config user.email "bot@warrenbife.com"
-          git add datos.json
-          git diff --staged --quiet || git commit -m "Auto-update $(date +'%d/%m/%Y %H:%M')"
-          git push
+        run: python actualizar_datos.py
