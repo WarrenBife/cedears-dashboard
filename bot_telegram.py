@@ -287,14 +287,41 @@ def procesar_comando(cmd, partes, datos):
 
     elif cmd == '/help':
         return (
-            f'🤖 <b>Warren Bife Bot — Comandos</b>\n\n'
-            f'/top [N]       → Top N por RS Score\n'
-            f'/warren [N]    → Top N por Warren Score\n'
-            f'/ticker AAPL   → Detalle completo de un ticker\n'
-            f'/scanner       → Candidatos calidad (3+ de 4 criterios)\n'
-            f'/vol           → Volumen inusual >30%\n'
-            f'/help          → Este mensaje\n\n'
-            f'📊 <a href="{DASHBOARD_URL}">Abrir Dashboard</a>'
+            f'🤖 <b>Warren Bife Bot — Guía de comandos</b>\n'
+            f'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n'
+
+            f'📊 <b>/top [N]</b>\n'
+            f'Top N tickers por RS Score (fuerza relativa vs el mercado).\n'
+            f'Muestra: ticker, RS Score, Warren Score, RSI.\n'
+            f'Ejemplo: <code>/top 10</code> → top 10. Sin número: top 5.\n\n'
+
+            f'🏆 <b>/warren [N]</b>\n'
+            f'Top N tickers por Warren Score (score compuesto 0-100).\n'
+            f'Fórmula: RS Score + tendencia + posición vs medias + volumen bajo.\n'
+            f'Solo entran tickers con RS &gt; 60. Ideal para encontrar candidatos de calidad.\n'
+            f'Ejemplo: <code>/warren 8</code> → top 8. Sin número: top 5.\n\n'
+
+            f'🔎 <b>/ticker SYMBOL</b>\n'
+            f'Ficha completa de un ticker. Muestra:\n'
+            f'precio, variación del día, RS Score (hoy/ayer/semana/mes),\n'
+            f'Warren Score, RSI 14, distancia a EMA200 y SMA50,\n'
+            f'distancia a máx/mín 52 semanas, volumen relativo e inusual, MCap.\n'
+            f'Ejemplo: <code>/ticker AAPL</code> o <code>/ticker GGAL</code>\n\n'
+
+            f'🔍 <b>/scanner</b>\n'
+            f'Lista tickers que cumplen 3 o más de estos 4 criterios:\n'
+            f'✅ RS Score &gt; 70  ✅ Precio sobre EMA200  ✅ Precio sobre SMA50  ✅ Vol relativo &lt; 0.8x\n'
+            f'Muestra hasta 15 candidatos ordenados por criterios y RS Score.\n\n'
+
+            f'📈 <b>/vol</b>\n'
+            f'Tickers con volumen inusual mayor al 30% sobre su promedio.\n'
+            f'Muestra: ticker, % de desvío, RS Score y Warren Score.\n'
+            f'Útil para detectar movimientos con respaldo de volumen.\n\n'
+
+            f'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+            f'⚠️ <i>Los comandos pueden demorar hasta 15 min en responder\n'
+            f'(el bot corre cada 5 min vía GitHub Actions).</i>\n\n'
+            f'📊 <a href="{DASHBOARD_URL}">Abrir Dashboard completo</a>'
         )
 
     return None
