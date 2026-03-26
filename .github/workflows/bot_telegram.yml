@@ -2,7 +2,7 @@ name: Bot Telegram - Alerta Diaria
 
 on:
   schedule:
-    - cron: '30 23 * * 1-5'  # 20:30 Argentina (UTC-3) = 23:30 UTC, lunes a viernes
+    - cron: '0 21 * * 1-5'   # 18:00 Argentina (UTC-3) = 21:00 UTC, lunes a viernes
   workflow_dispatch:          # permite correrlo manualmente desde GitHub
 
 jobs:
