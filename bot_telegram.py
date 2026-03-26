@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Warren Bife Bot - Telegram
-Uso: python bot_telegram.py --alerta | --comandos
+Warren Bife Bot - Telegram (servicio continuo para Render)
 """
 
-import json
 import os
 import sys
-import requests
+import time
+import threading
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import requests
 import pytz
 
 # ── CONFIGURACIÓN ──────────────────────────────────────────────
@@ -16,9 +17,12 @@ TOKEN         = os.environ.get('TELEGRAM_TOKEN', '')
 CHAT_ID       = os.environ.get('CHAT_ID', '')
 DATOS_URL     = 'https://raw.githubusercontent.com/WarrenBife/cedears-dashboard/main/datos.json'
 DASHBOARD_URL = 'https://warrenbife.github.io/cedears-dashboard'
-OFFSET_FILE   = 'bot_offset.txt'
 TG_API        = f'https://api.telegram.org/bot{TOKEN}'
 MAX_MSG       = 4096
+TZ_ARG        = pytz.timezone('America/Argentina/Buenos_Aires')
+PORT          = int(os.environ.get('PORT', 10000))
+ALERT_HOUR    = 18
+ALERT_MINUTE  = 0
 
 # ── DATOS ──────────────────────────────────────────────────────
 def cargar_datos():
@@ -64,51 +68,31 @@ def delta_rs(d):
 def enviar(texto, chat_id=None):
     cid = chat_id or CHAT_ID
     for i in range(0, len(texto), MAX_MSG):
-        requests.post(f'{TG_API}/sendMessage', json={
-            'chat_id': cid,
-            'text': texto[i:i + MAX_MSG],
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True
-        }, timeout=15)
-
-def get_updates(offset=None):
-    params = {'timeout': 0, 'allowed_updates': ['message']}
-    if offset:
-        params['offset'] = offset
-    try:
-        r = requests.get(f'{TG_API}/getUpdates', params=params, timeout=15)
-        return r.json().get('result', [])
-    except Exception as e:
-        print(f'Error getUpdates: {e}')
-        return []
-
-def load_offset():
-    try:
-        with open(OFFSET_FILE) as f:
-            return int(f.read().strip())
-    except:
-        return None
-
-def save_offset(offset):
-    with open(OFFSET_FILE, 'w') as f:
-        f.write(str(offset))
+        try:
+            requests.post(f'{TG_API}/sendMessage', json={
+                'chat_id': cid,
+                'text': texto[i:i + MAX_MSG],
+                'parse_mode': 'HTML',
+                'disable_web_page_preview': True
+            }, timeout=15)
+        except Exception as e:
+            print(f'Error enviando mensaje: {e}')
 
 # ══════════════════════════════════════════════════════════════
-# MODO 1 — ALERTA DIARIA
+# ALERTA DIARIA
 # ══════════════════════════════════════════════════════════════
 def modo_alerta():
     datos = cargar_datos()
     for d in datos:
         d['_ws'] = calc_warren(d)
 
-    tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
-    fecha  = datetime.now(tz_arg).strftime('%d/%m/%Y %H:%M')
+    fecha = datetime.now(TZ_ARG).strftime('%d/%m/%Y %H:%M')
 
-    msg = f'🤖 <b>Warren Bife Bot</b> — {fecha} ARG\n'
+    msg  = f'🤖 <b>Warren Bife Bot</b> — {fecha} ARG\n'
     msg += f'📊 <i>{len(datos)} tickers analizados</i>\n'
     msg += '━' * 30 + '\n\n'
 
-    # ── Mayor aumento RS (vs ayer)
+    # Mayor aumento RS
     con_delta = [d for d in datos if d.get('RS Score') is not None and d.get('RS Ayer') is not None]
     top_delta = sorted(con_delta, key=lambda d: d['RS Score'] - d['RS Ayer'], reverse=True)
     top_delta = [d for d in top_delta[:5] if d['RS Score'] - d['RS Ayer'] > 0]
@@ -119,7 +103,7 @@ def modo_alerta():
             msg += f"  <code>{d['Ticker']:<6}</code> RS <b>{d['RS Score']:.0f}</b>  (+{diff:.1f})  WS {d['_ws']}\n"
         msg += '\n'
 
-    # ── Top Warren Score
+    # Top Warren Score
     top_ws = sorted([d for d in datos if d['_ws'] > 0], key=lambda d: d['_ws'], reverse=True)[:5]
     if top_ws:
         msg += '🏆 <b>TOP 5 WARREN SCORE</b>\n'
@@ -127,7 +111,7 @@ def modo_alerta():
             msg += f"  <code>{d['Ticker']:<6}</code> {d['_ws']:>3}  {barra(d['_ws'])}  RS {d.get('RS Score', 0):.0f}  {delta_rs(d)}\n"
         msg += '\n'
 
-    # ── Volumen inusual
+    # Volumen inusual
     vol = sorted(
         [d for d in datos if d.get('Vol Inusual %') is not None and d['Vol Inusual %'] > 50],
         key=lambda d: d['Vol Inusual %'], reverse=True
@@ -138,7 +122,7 @@ def modo_alerta():
             msg += f"  <code>{d['Ticker']:<6}</code> +{d['Vol Inusual %']:.0f}%  RS {d.get('RS Score', 0):.0f}\n"
         msg += '\n'
 
-    # ── RSI sobrevendido
+    # RSI sobrevendido
     sobrev = sorted(
         [d for d in datos if d.get('RSI 14') is not None and d['RSI 14'] <= 30],
         key=lambda d: d['RSI 14']
@@ -150,7 +134,7 @@ def modo_alerta():
             msg += f"  <code>{d['Ticker']:<6}</code> RSI {d['RSI 14']:.1f}  RS {d.get('RS Score', 0):.0f}  Mín52W {pct(d.get('Dist Mín52W %'))}\n"
         msg += '\n'
 
-    # ── RSI sobrecomprado
+    # RSI sobrecomprado
     sobrec = sorted(
         [d for d in datos if d.get('RSI 14') is not None and d['RSI 14'] >= 70],
         key=lambda d: d['RSI 14'], reverse=True
@@ -162,7 +146,6 @@ def modo_alerta():
             msg += f"  <code>{d['Ticker']:<6}</code> RSI {d['RSI 14']:.1f}  RS {d.get('RS Score', 0):.0f}  Máx52W {pct(d.get('Dist Máx52W %'))}\n"
         msg += '\n'
 
-    # ── Footer
     msg += '━' * 30 + '\n'
     msg += f'📊 <a href="{DASHBOARD_URL}">Abrir Dashboard</a>\n'
     msg += '💬 /top · /warren · /ticker · /scanner · /vol · /help'
@@ -170,47 +153,9 @@ def modo_alerta():
     enviar(msg)
     print(f'✅ Alerta enviada — {fecha}')
 
-
 # ══════════════════════════════════════════════════════════════
-# MODO 2 — COMANDOS INTERACTIVOS
+# COMANDOS
 # ══════════════════════════════════════════════════════════════
-def modo_comandos():
-    offset  = load_offset()
-    updates = get_updates(offset)
-
-    if not updates:
-        print('Sin nuevos mensajes')
-        return
-
-    datos = None  # carga lazy
-
-    for upd in updates:
-        offset = upd['update_id'] + 1
-        msg    = upd.get('message', {})
-        texto  = msg.get('text', '').strip()
-        cid    = str(msg.get('chat', {}).get('id', ''))
-
-        if not texto or not texto.startswith('/'):
-            continue
-
-        # Carga lazy de datos
-        if datos is None:
-            datos = cargar_datos()
-            for d in datos:
-                d['_ws'] = calc_warren(d)
-
-        partes = texto.split()
-        cmd    = partes[0].lower().split('@')[0]  # /top@BotName → /top
-
-        resp = procesar_comando(cmd, partes, datos)
-        if resp:
-            enviar(resp, cid)
-            print(f'✅ {cmd} → chat {cid}')
-
-    save_offset(offset)
-    print(f'Offset guardado: {offset}')
-
-
 def procesar_comando(cmd, partes, datos):
     if cmd == '/top':
         n   = int(partes[1]) if len(partes) > 1 and partes[1].isdigit() else 5
@@ -319,27 +264,96 @@ def procesar_comando(cmd, partes, datos):
             f'Útil para detectar movimientos con respaldo de volumen.\n\n'
 
             f'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
-            f'⚠️ <i>Los comandos pueden demorar hasta 15 min en responder\n'
-            f'(el bot corre cada 5 min vía GitHub Actions).</i>\n\n'
             f'📊 <a href="{DASHBOARD_URL}">Abrir Dashboard completo</a>'
         )
 
     return None
 
+# ══════════════════════════════════════════════════════════════
+# LOOP DE POLLING (tiempo real)
+# ══════════════════════════════════════════════════════════════
+def polling_loop():
+    offset = None
+    print('🤖 Bot iniciado — escuchando mensajes en tiempo real...')
+    while True:
+        try:
+            params = {'timeout': 30, 'allowed_updates': ['message']}
+            if offset:
+                params['offset'] = offset
+            r = requests.get(f'{TG_API}/getUpdates', params=params, timeout=40)
+            updates = r.json().get('result', [])
+
+            if updates:
+                datos = None
+                for upd in updates:
+                    offset = upd['update_id'] + 1
+                    msg    = upd.get('message', {})
+                    texto  = msg.get('text', '').strip()
+                    cid    = str(msg.get('chat', {}).get('id', ''))
+
+                    if not texto or not texto.startswith('/'):
+                        continue
+
+                    if datos is None:
+                        datos = cargar_datos()
+                        for d in datos:
+                            d['_ws'] = calc_warren(d)
+
+                    partes = texto.split()
+                    cmd    = partes[0].lower().split('@')[0]
+                    resp   = procesar_comando(cmd, partes, datos)
+                    if resp:
+                        enviar(resp, cid)
+                        print(f'✅ {cmd} → chat {cid}')
+
+        except Exception as e:
+            print(f'Error en polling: {e}')
+            time.sleep(5)
+
+# ══════════════════════════════════════════════════════════════
+# SCHEDULER DE ALERTA DIARIA (18:00 ARG, lun-vie)
+# ══════════════════════════════════════════════════════════════
+def alert_scheduler():
+    enviada_hoy = None
+    print(f'📅 Scheduler iniciado — alerta diaria a las {ALERT_HOUR:02d}:{ALERT_MINUTE:02d} ARG (lun-vie)')
+    while True:
+        try:
+            now = datetime.now(TZ_ARG)
+            hoy = now.date()
+            dow = now.weekday()  # 0=lun … 4=vie
+            if (dow < 5
+                    and now.hour == ALERT_HOUR
+                    and now.minute < 5
+                    and enviada_hoy != hoy):
+                print(f'📨 Enviando alerta diaria — {now.strftime("%d/%m/%Y %H:%M")}')
+                modo_alerta()
+                enviada_hoy = hoy
+        except Exception as e:
+            print(f'Error en scheduler: {e}')
+        time.sleep(30)
+
+# ══════════════════════════════════════════════════════════════
+# SERVIDOR HTTP (mantiene el servicio activo en Render)
+# ══════════════════════════════════════════════════════════════
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'Warren Bife Bot OK')
+    def log_message(self, *args):
+        pass  # silenciar logs HTTP
 
 # ── MAIN ───────────────────────────────────────────────────────
 if __name__ == '__main__':
     if not TOKEN:
-        print('❌ Variable TELEGRAM_TOKEN no configurada')
+        print('❌ TELEGRAM_TOKEN no configurado')
+        sys.exit(1)
+    if not CHAT_ID:
+        print('❌ CHAT_ID no configurado')
         sys.exit(1)
 
-    if '--alerta' in sys.argv:
-        if not CHAT_ID:
-            print('❌ Variable CHAT_ID no configurada')
-            sys.exit(1)
-        modo_alerta()
-    elif '--comandos' in sys.argv:
-        modo_comandos()
-    else:
-        print('Uso: python bot_telegram.py --alerta | --comandos')
-        sys.exit(1)
+    threading.Thread(target=alert_scheduler, daemon=True).start()
+    threading.Thread(target=polling_loop,    daemon=True).start()
+
+    print(f'🌐 Servidor HTTP en puerto {PORT}')
+    HTTPServer(('0.0.0.0', PORT), HealthHandler).serve_forever()
