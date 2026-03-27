@@ -33,7 +33,7 @@ TICKERS = {
         "PYPL", "SQ", "COIN", "MSTR", "PLTR", "PANW", "CSCO", "IBM",
         "ORCL", "SAP", "INFY", "ACN", "ADP", "MSI", "GRMN",
         "EBAY", "ETSY", "PINS", "SNAP", "SPOT", "ZM", "RBLX",
-        "ROKU", "EA", "SONY", "NTCO", "SE", "JD", "BIDU", "BABA",
+        "ROKU", "SONY", "NTCO", "SE", "JD", "BIDU", "BABA",
         "NTES", "PDD", "TCOM", "AI", "PATH", "UPST", "HOOD",
         "RKLB", "ASTS", "ALAB", "RGTI", "OKLO", "IREN",
         "IBIT", "ETHA", "ARKK", "CRWV", "TEM", "SATL"
