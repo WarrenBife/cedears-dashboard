@@ -242,7 +242,11 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(ayer["rs_score"],   1),
         round(semana["rs_score"], 1),
         round(mes["rs_score"],    1),
-        sobre_sma
+        sobre_sma,
+        round(float(ultimo["fr"]), 6),
+        round(float(ayer["fr"]),   6),
+        round(float(semana["fr"]), 6),
+        round(float(mes["fr"]),    6),
     )
 
 def clasificar_market_cap(mc):
@@ -304,7 +308,8 @@ def calcular_kpis(ticker_symbol, hist_spy):
         vol_inu = calcular_volumen_inusual(volume, 20)
 
         # RS Score
-        score_actual, score_ayer, score_semana, score_mes, sobre_sma = calcular_rs_score(
+        score_actual, score_ayer, score_semana, score_mes, sobre_sma, \
+        fr_hoy, fr_ayer, fr_semana, fr_mes = calcular_rs_score(
             close, hist_spy["Close"]
         )
 
@@ -328,6 +333,10 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "RS Semana ant.":  score_semana,
             "RS Mes ant.":     score_mes,
             "FR > SMA50":      sobre_sma,
+            "FR Hoy":          fr_hoy,
+            "FR Ayer":         fr_ayer,
+            "FR Semana ant.":  fr_semana,
+            "FR Mes ant.":     fr_mes,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
@@ -448,6 +457,7 @@ columnas = [
     "Mín 52W", "Dist Mín52W %",
     "RSI 14", "Vol Relativa", "Vol Inusual %",
     "RS Score", "RS Ayer", "RS Semana ant.", "RS Mes ant.", "FR > SMA50",
+    "FR Hoy", "FR Ayer", "FR Semana ant.", "FR Mes ant.",
     "Market Cap USD", "Market Cap Cat", "Sector", "Tipo",
     "ETF Sector", "Vs Sector %"
 ]
