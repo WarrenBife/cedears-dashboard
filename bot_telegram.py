@@ -5,6 +5,7 @@ Warren Bife Bot - Telegram (servicio continuo para Render)
 
 import os
 import sys
+sys.stdout.reconfigure(line_buffering=True)  # logs en tiempo real en Render
 import time
 import threading
 from datetime import datetime
