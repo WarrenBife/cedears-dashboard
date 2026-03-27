@@ -168,10 +168,14 @@ import numpy as np
 from datetime import datetime
 
 def calcular_rsi(close, periodo=14):
+    # Wilder's Smoothing (RMA) — igual a TradingView
     delta = close.diff()
-    ganancia = delta.clip(lower=0).rolling(window=periodo).mean()
-    perdida = (-delta.clip(upper=0)).rolling(window=periodo).mean()
-    rs = ganancia / perdida
+    ganancia = delta.clip(lower=0)
+    perdida = (-delta.clip(upper=0))
+    alpha = 1 / periodo
+    avg_gan = ganancia.ewm(alpha=alpha, min_periods=periodo, adjust=False).mean()
+    avg_per = perdida.ewm(alpha=alpha, min_periods=periodo, adjust=False).mean()
+    rs = avg_gan / avg_per
     return round((100 - (100 / (1 + rs))).iloc[-1], 2)
 
 def calcular_volatilidad_relativa(close, ruedas_corto=5, ruedas_largo=252):
