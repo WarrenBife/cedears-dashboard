@@ -451,7 +451,7 @@ except:
 
 columnas = [
     "Grupo", "Ticker", "Precio", "Var Día %",
-    "EMA200", "Dist EMA200 %",
+    "EMA200", "EMA200 Slope", "Dist EMA200 %",
     "SMA50",  "Dist SMA50 %",
     "Máx 52W", "Dist Máx52W %",
     "Mín 52W", "Dist Mín52W %",
