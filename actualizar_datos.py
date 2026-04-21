@@ -288,7 +288,10 @@ def calcular_kpis(ticker_symbol, hist_spy):
         precio_actual = round(close.iloc[-1], 2)
 
         # Medias móviles
-        ema200      = round(close.ewm(span=200, adjust=False).mean().iloc[-1], 2)
+        ema200_series = close.ewm(span=200, adjust=False).mean()
+        ema200        = round(ema200_series.iloc[-1], 2)
+        ema200_ref    = ema200_series.iloc[-10] if len(ema200_series) >= 10 else ema200_series.iloc[0]
+        ema200_slope  = round(float(ema200_series.iloc[-1]) - float(ema200_ref), 4)
         sma50       = round(close.rolling(window=50).mean().iloc[-1], 2)
         dist_ema200 = round((precio_actual - ema200) / ema200 * 100, 2)
         dist_sma50  = round((precio_actual - sma50)  / sma50  * 100, 2)
@@ -318,6 +321,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Precio":          precio_actual,
             "Var Día %":       var_dia,
             "EMA200":          ema200,
+            "EMA200 Slope":    ema200_slope,
             "Dist EMA200 %":   dist_ema200,
             "SMA50":           sma50,
             "Dist SMA50 %":    dist_sma50,
