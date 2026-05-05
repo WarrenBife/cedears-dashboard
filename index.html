@@ -332,7 +332,7 @@ async function cargarDatos() {
   document.getElementById('loading-sub').textContent = 'Esto puede tardar unos segundos';
 
   try {
-    const resp = await fetch(SHEET_URL + '&t=' + Date.now());
+    const resp = await fetch(SHEET_URL + '?t=' + Date.now());
    DATOS = await resp.json();
 
     document.getElementById('last-kpi-update').textContent = new Date().toLocaleTimeString('es-AR');
