@@ -390,13 +390,14 @@
             <thead><tr>
               <th>Ticker</th>
               <th>Warren Score</th>
-              <th style="min-width:100px">Progreso</th>
               <th>RS</th>
               <th>Vol Rel</th>
+              <th>Vol 5d/40d</th>
               <th>EMA200</th>
               <th>SMA50</th>
               <th>+25%mín</th>
               <th>Vol&lt;0.8</th>
+              <th>Secado</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -962,8 +963,9 @@ function renderWarrenScore() {
     const cRS   = d['RS Score']      !== null && d['RS Score']       > 70;
     const cVol  = d['Vol Relativa']  !== null && d['Vol Relativa']   < 0.8;
     const cMin  = d['Dist Mín52W %'] !== null && d['Dist Mín52W %'] >= 25;
+    const cSec  = d['Vol 5d/40d']    !== null && d['Vol 5d/40d']     < 1;
     const cumple = [cRS, cEma, cSma, cVol].filter(Boolean).length;
-    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cumple };
+    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cSec, cumple };
   }).filter(x => x.cumple >= minCrit)
     .sort((a, b) => b.score - a.score)
     .slice(0, topN);
@@ -973,24 +975,26 @@ function renderWarrenScore() {
     const cls = s >= 80 ? 'pill-green' : s >= 60 ? 'pill-blue' : 'pill-amber';
     return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
   };
-  const bar = s => `<div style="background:var(--bg3);border-radius:4px;height:6px;width:100%;overflow:hidden;">
-    <div style="height:6px;width:${s}%;border-radius:4px;background:${s>=80?'var(--green)':s>=60?'var(--blue)':'var(--amber)'};"></div>
-  </div>`;
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
-    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin }) => `<tr>
+    ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin, cSec }) => {
+        const volSec = d['Vol 5d/40d'];
+        const volSecCls = volSec === null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
+        return `<tr>
         <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
         <td>${scoreBadge(score)}</td>
-        <td style="min-width:90px;padding-right:12px">${bar(score)}</td>
         <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!==null?d['RS Score'].toFixed(1):'—'}</span></td>
         <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!==null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
+        <td><span class="score-pill ${volSecCls}">${volSec !== null ? volSec.toFixed(2)+'x' : '—'}</span></td>
         <td style="text-align:center">${dot(cEma)}</td>
         <td style="text-align:center">${dot(cSma)}</td>
         <td style="text-align:center">${dot(cMin)}</td>
         <td style="text-align:center">${dot(cVol)}</td>
-      </tr>`).join('');
+        <td style="text-align:center">${dot(cSec)}</td>
+      </tr>`;
+      }).join('');
 }
 
 let trendSort = { col: 'dmes', asc: false };
