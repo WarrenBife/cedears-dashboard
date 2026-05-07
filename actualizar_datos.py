@@ -310,6 +310,11 @@ def calcular_kpis(ticker_symbol, hist_spy):
         vol_rel = calcular_volatilidad_relativa(close)
         vol_inu = calcular_volumen_inusual(volume, 20)
 
+        # Secado de volumen: promedio 5d vs promedio 40d
+        vol_5d  = volume.iloc[-5:].mean()  if len(volume) >= 5  else None
+        vol_40d = volume.iloc[-40:].mean() if len(volume) >= 40 else None
+        vol_secado = round(float(vol_5d) / float(vol_40d), 4) if vol_5d and vol_40d and vol_40d > 0 else None
+
         # RS Score
         score_actual, score_ayer, score_semana, score_mes, sobre_sma, \
         fr_hoy, fr_ayer, fr_semana, fr_mes = calcular_rs_score(
@@ -332,6 +337,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "RSI 14":          rsi,
             "Vol Relativa":    vol_rel,
             "Vol Inusual %":   vol_inu,
+            "Vol 5d/40d":      vol_secado,
             "RS Score":        score_actual,
             "RS Ayer":         score_ayer,
             "RS Semana ant.":  score_semana,
@@ -459,7 +465,7 @@ columnas = [
     "SMA50",  "Dist SMA50 %",
     "Máx 52W", "Dist Máx52W %",
     "Mín 52W", "Dist Mín52W %",
-    "RSI 14", "Vol Relativa", "Vol Inusual %",
+    "RSI 14", "Vol Relativa", "Vol Inusual %", "Vol 5d/40d",
     "RS Score", "RS Ayer", "RS Semana ant.", "RS Mes ant.", "FR > SMA50",
     "FR Hoy", "FR Ayer", "FR Semana ant.", "FR Mes ant.",
     "Market Cap USD", "Market Cap Cat", "Sector", "Tipo",

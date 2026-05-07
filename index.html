@@ -937,14 +937,16 @@ function calcWarrenScore(d) {
   const rs = d['RS Score'];
   if (rs === null || rs <= 60) return 0;
   let score = Math.min(40, rs - 60);
-  const ema      = d['Dist EMA200 %'];
-  const sma      = d['Dist SMA50 %'];
+  const ema       = d['Dist EMA200 %'];
+  const sma       = d['Dist SMA50 %'];
   const dist52min = d['Dist Mín52W %'];
-  const vol      = d['Vol Relativa'];
+  const vol       = d['Vol Relativa'];
+  const volSec    = d['Vol 5d/40d'];
   if (ema !== null && ema > 0)               score += 20;
   if (sma !== null && sma > 0)               score += 10;
   if (dist52min !== null && dist52min >= 25)  score += 10;
-  if (vol !== null)                          score += Math.max(0, (0.8 - vol) / 0.8 * 20);
+  if (vol !== null)                          score += Math.max(0, (0.8 - vol) / 0.8 * 10);
+  if (volSec !== null && volSec < 1)         score += 10;
   return Math.round(score);
 }
 
