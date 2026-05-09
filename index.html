@@ -319,6 +319,10 @@
     <input type="checkbox" id="gf-ema200-asc" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
     <span class="gf-label">EMA200 en ascenso</span>
   </label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+    <input type="checkbox" id="gf-solo-cedear" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
+    <span class="gf-label">Solo CEDEARs</span>
+  </label>
   <div id="active-filters"></div>
 </div>
 
@@ -743,6 +747,7 @@ async function cargarDatos() {
     document.getElementById('gf-vol').value     = 'todos';
     document.getElementById('gf-no-max52').checked = false;
     document.getElementById('gf-ema200-asc').checked = false;
+    document.getElementById('gf-solo-cedear').checked = false;
     poblarFiltros();
     renderTodo();
     document.getElementById('loading').style.display = 'none';
@@ -783,15 +788,17 @@ function getDatosFiltrados() {
   const mcap   = document.getElementById('gf-mcap').value;
   const sector = document.getElementById('gf-sector').value;
   const volMin   = document.getElementById('gf-vol').value;
-  const noMax52   = document.getElementById('gf-no-max52').checked;
-  const ema200Asc = document.getElementById('gf-ema200-asc').checked;
+  const noMax52    = document.getElementById('gf-no-max52').checked;
+  const ema200Asc  = document.getElementById('gf-ema200-asc').checked;
+  const soloCedear = document.getElementById('gf-solo-cedear').checked;
   return DATOS.filter(d => {
     if (tipo   !== 'todos' && d['Tipo'] !== tipo) return false;
     if (mcap   !== 'todos' && d['Market Cap Cat'] !== mcap) return false;
     if (sector !== 'todos' && d['Sector'] !== sector) return false;
     if (volMin !== 'todos' && (d['Vol Inusual %'] === null || d['Vol Inusual %'] < parseFloat(volMin))) return false;
-    if (noMax52   && !(d['Ruedas desde Máx52W'] !== null && d['Ruedas desde Máx52W'] > 10)) return false;
-    if (ema200Asc && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
+    if (noMax52    && !(d['Ruedas desde Máx52W'] !== null && d['Ruedas desde Máx52W'] > 10)) return false;
+    if (ema200Asc  && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
+    if (soloCedear && !(d['Grupo'] && (d['Grupo'].includes('CEDEAR') || d['Grupo'].includes('ADR')))) return false;
     if (quickFilter === 'ema'    && !(d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0)) return false;
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
