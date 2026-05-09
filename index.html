@@ -796,7 +796,11 @@ function getDatosFiltrados() {
     if (mcap   !== 'todos' && d['Market Cap Cat'] !== mcap) return false;
     if (sector !== 'todos' && d['Sector'] !== sector) return false;
     if (volMin !== 'todos' && (d['Vol Inusual %'] === null || d['Vol Inusual %'] < parseFloat(volMin))) return false;
-    if (noMax52    && !(d['Ruedas desde Máx52W'] !== null && d['Ruedas desde Máx52W'] > 10)) return false;
+    if (noMax52) {
+      const ruedas = d['Ruedas desde Máx52W'];
+      if (ruedas !== null) { if (ruedas <= 10) return false; }
+      else { if (d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] >= -3) return false; }
+    }
     if (ema200Asc  && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
     if (soloCedear && !(d['Grupo'] && (d['Grupo'].includes('CEDEAR') || d['Grupo'].includes('ADR')))) return false;
     if (quickFilter === 'ema'    && !(d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0)) return false;
