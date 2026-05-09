@@ -797,8 +797,8 @@ function getDatosFiltrados() {
     if (sector !== 'todos' && d['Sector'] !== sector) return false;
     if (volMin !== 'todos' && (d['Vol Inusual %'] === null || d['Vol Inusual %'] < parseFloat(volMin))) return false;
     if (noMax52) {
-      const ruedas = d['Ruedas_Max52W'];
-      if (ruedas !== null) { if (ruedas <= 10) return false; }
+      const rec = d['Max52W_Recent'];
+      if (rec !== null && rec !== undefined) { if (rec === 1) return false; }
       else { if (d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] >= -3) return false; }
     }
     if (ema200Asc  && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
