@@ -357,6 +357,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
         max_reciente  = float(close.tail(10).max())
         max_anterior  = float(close.tail(252).iloc[:-10].max()) if len(close) >= 20 else 0.0
         max52w_recent = 1 if max_reciente >= max_anterior else 0
+        _max52w_recent_global[ticker_symbol] = max52w_recent
 
         # Variación del día
         var_dia = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2)
@@ -409,6 +410,9 @@ def calcular_kpis(ticker_symbol, hist_spy):
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
         return None
 
+# Global dict para capturar Max52W_Recent fuera del return dict
+_max52w_recent_global = {}
+
 # ── DESCARGA SPY ──────────────────────────────────────────────
 print("⏳ Descargando SPY como referencia...")
 hist_spy = yf.Ticker("SPY").history(period="2y")
@@ -453,6 +457,7 @@ for grupo, tickers in TICKERS.items():
         todos_los_datos.append(datos)
 
 df = pd.DataFrame(todos_los_datos)
+df['Max52W_Recent'] = df['Ticker'].map(_max52w_recent_global).fillna(0).astype(int)
 print(f"\n✅ Datos listos: {len(df)} tickers")
 print(df[["Ticker", "Dist Mín52W %", "Vol Relativa", "RS Score", "Sector", "Market Cap Cat"]].head(10).to_string(index=False))
 
