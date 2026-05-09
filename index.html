@@ -797,7 +797,7 @@ function getDatosFiltrados() {
     if (sector !== 'todos' && d['Sector'] !== sector) return false;
     if (volMin !== 'todos' && (d['Vol Inusual %'] === null || d['Vol Inusual %'] < parseFloat(volMin))) return false;
     if (noMax52) {
-      const ruedas = d['Ruedas desde Máx52W'];
+      const ruedas = d['Ruedas_Max52W'];
       if (ruedas !== null) { if (ruedas <= 10) return false; }
       else { if (d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] >= -3) return false; }
     }

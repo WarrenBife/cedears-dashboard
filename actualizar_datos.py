@@ -353,8 +353,12 @@ def calcular_kpis(ticker_symbol, hist_spy):
         dist_max52 = round((precio_actual - max_52w) / max_52w * 100, 2)
         min_52w    = round(close_252.min(), 2)
         dist_min52 = round((precio_actual - min_52w) / min_52w * 100, 2)
-        idx_max    = close_252.values.argmax()
-        ruedas_desde_max = int(len(close_252) - 1 - idx_max)
+        try:
+            arr = list(close_252)
+            pos_max = len(arr) - 1 - next(i for i, v in enumerate(reversed(arr)) if v == max(arr))
+            ruedas_desde_max = int(pos_max)
+        except:
+            ruedas_desde_max = None
 
         # Variación del día
         var_dia = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2)
@@ -386,7 +390,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Dist SMA50 %":    dist_sma50,
             "Máx 52W":         max_52w,
             "Dist Máx52W %":   dist_max52,
-            "Ruedas desde Máx52W": ruedas_desde_max,
+            "Ruedas_Max52W": ruedas_desde_max,
             "Mín 52W":         min_52w,
             "Dist Mín52W %":   dist_min52,
             "RSI 14":          rsi,
@@ -518,7 +522,7 @@ columnas = [
     "Grupo", "Ticker", "Precio", "Var Día %",
     "EMA200", "EMA200 Slope", "Dist EMA200 %",
     "SMA50",  "Dist SMA50 %",
-    "Máx 52W", "Dist Máx52W %", "Ruedas desde Máx52W",
+    "Máx 52W", "Dist Máx52W %", "Ruedas_Max52W",
     "Mín 52W", "Dist Mín52W %",
     "RSI 14", "Vol Relativa", "Vol Inusual %", "Vol 5d/40d",
     "RS Score", "RS Ayer", "RS Semana ant.", "RS Mes ant.", "FR > SMA50",
