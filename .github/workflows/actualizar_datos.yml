@@ -2,7 +2,7 @@ name: Actualizar datos.json
 
 on:
   schedule:
-    - cron: '0 13-22 * * 1-5'  # cada hora de 10:00 a 19:00 Argentina (13:00-22:00 UTC)
+    - cron: '0 13,15,17,19,21 * * 1-5'  # cada 2 horas de 10:00 a 18:00 Argentina (13,15,17,19,21 UTC)
   workflow_dispatch:         # permite correrlo manualmente desde GitHub
 
 jobs:

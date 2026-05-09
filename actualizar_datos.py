@@ -165,7 +165,58 @@ ETF_SECTOR = {
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import requests
+import io
 from datetime import datetime
+
+# ── FETCH INDEX COMPONENTS ────────────────────────────────────
+def obtener_tickers_indices():
+    result = {}
+
+    # S&P 500 desde Wikipedia
+    try:
+        sp500 = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+        tickers_sp500 = sp500['Symbol'].str.replace('.', '-', regex=False).tolist()
+        result['S&P 500'] = tickers_sp500
+        print(f"✅ S&P 500: {len(tickers_sp500)} tickers")
+    except Exception as e:
+        print(f"⚠️ Error S&P 500: {e}")
+
+    # NASDAQ-100 desde Wikipedia
+    try:
+        tables = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')
+        for t in tables:
+            if 'Ticker' in t.columns:
+                tickers_qqq = t['Ticker'].dropna().tolist()
+                result['NASDAQ-100'] = tickers_qqq
+                print(f"✅ NASDAQ-100: {len(tickers_qqq)} tickers")
+                break
+    except Exception as e:
+        print(f"⚠️ Error NASDAQ-100: {e}")
+
+    # Russell 1000 desde iShares CSV
+    try:
+        url_r1000 = "https://www.ishares.com/us/products/239707/ISHARES-RUSSELL-1000-ETF/1467271812596.ajax?fileType=csv&fileName=IWB_holdings&dataType=fund"
+        resp = requests.get(url_r1000, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+        df_r = pd.read_csv(io.StringIO(resp.text), skiprows=9)
+        tickers_r1000 = df_r['Ticker'].dropna().tolist()
+        tickers_r1000 = [t.strip() for t in tickers_r1000 if isinstance(t, str) and t.strip().replace('-','').isalpha() and len(t.strip()) <= 5]
+        result['Russell 1000'] = tickers_r1000
+        print(f"✅ Russell 1000: {len(tickers_r1000)} tickers")
+    except Exception as e:
+        print(f"⚠️ Error Russell 1000: {e}")
+
+    return result
+
+print("⏳ Obteniendo componentes de índices (S&P500, NASDAQ-100, Russell 1000)...")
+tickers_indices = obtener_tickers_indices()
+for grupo, lista in tickers_indices.items():
+    if grupo not in TICKERS:
+        TICKERS[grupo] = lista
+    else:
+        TICKERS[grupo] = list(dict.fromkeys(TICKERS[grupo] + lista))
+
+print(f"✅ Total grupos: {len(TICKERS)} — tickers únicos estimados: {len(set(t for v in TICKERS.values() for t in v))}")
 
 def calcular_rsi(close, periodo=14):
     # Wilder's Smoothing (RMA) — igual a TradingView
