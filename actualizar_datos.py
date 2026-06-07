@@ -165,58 +165,7 @@ ETF_SECTOR = {
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import requests
-import io
 from datetime import datetime
-
-# ── FETCH INDEX COMPONENTS ────────────────────────────────────
-def obtener_tickers_indices():
-    result = {}
-
-    # S&P 500 desde Wikipedia
-    try:
-        sp500 = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
-        tickers_sp500 = sp500['Symbol'].str.replace('.', '-', regex=False).tolist()
-        result['S&P 500'] = tickers_sp500
-        print(f"✅ S&P 500: {len(tickers_sp500)} tickers")
-    except Exception as e:
-        print(f"⚠️ Error S&P 500: {e}")
-
-    # NASDAQ-100 desde Wikipedia
-    try:
-        tables = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')
-        for t in tables:
-            if 'Ticker' in t.columns:
-                tickers_qqq = t['Ticker'].dropna().tolist()
-                result['NASDAQ-100'] = tickers_qqq
-                print(f"✅ NASDAQ-100: {len(tickers_qqq)} tickers")
-                break
-    except Exception as e:
-        print(f"⚠️ Error NASDAQ-100: {e}")
-
-    # Russell 1000 desde iShares CSV
-    try:
-        url_r1000 = "https://www.ishares.com/us/products/239707/ISHARES-RUSSELL-1000-ETF/1467271812596.ajax?fileType=csv&fileName=IWB_holdings&dataType=fund"
-        resp = requests.get(url_r1000, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
-        df_r = pd.read_csv(io.StringIO(resp.text), skiprows=9)
-        tickers_r1000 = df_r['Ticker'].dropna().tolist()
-        tickers_r1000 = [t.strip() for t in tickers_r1000 if isinstance(t, str) and t.strip().replace('-','').isalpha() and len(t.strip()) <= 5]
-        result['Russell 1000'] = tickers_r1000
-        print(f"✅ Russell 1000: {len(tickers_r1000)} tickers")
-    except Exception as e:
-        print(f"⚠️ Error Russell 1000: {e}")
-
-    return result
-
-print("⏳ Obteniendo componentes de índices (S&P500, NASDAQ-100, Russell 1000)...")
-tickers_indices = obtener_tickers_indices()
-for grupo, lista in tickers_indices.items():
-    if grupo not in TICKERS:
-        TICKERS[grupo] = lista
-    else:
-        TICKERS[grupo] = list(dict.fromkeys(TICKERS[grupo] + lista))
-
-print(f"✅ Total grupos: {len(TICKERS)} — tickers únicos estimados: {len(set(t for v in TICKERS.values() for t in v))}")
 
 def calcular_rsi(close, periodo=14):
     # Wilder's Smoothing (RMA) — igual a TradingView
@@ -300,6 +249,124 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(float(mes["fr"]),    6),
     )
 
+def detectar_vcp(hist, pivot_order=3):
+    try:
+        h = hist['High'].values
+        l = hist['Low'].values
+        c = hist['Close'].values
+        v = hist['Volume'].values
+        # Últimas 90 ruedas
+        if len(c) > 90:
+            h = h[-90:]; l = l[-90:]; c = c[-90:]; v = v[-90:]
+        if len(c) < 30:
+            return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+
+        def find_pivots(arr, order, mode):
+            pivots = []
+            for i in range(order, len(arr) - order):
+                w = arr[i-order:i+order+1]
+                if mode == 'H' and arr[i] >= max(w):
+                    pivots.append((i, float(arr[i])))
+                elif mode == 'L' and arr[i] <= min(w):
+                    pivots.append((i, float(arr[i])))
+            return pivots
+
+        ph = find_pivots(h, pivot_order, 'H')
+        pl = find_pivots(l, pivot_order, 'L')
+
+        if not ph or not pl:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': 0,
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+
+        all_piv = [(i, 'H', val) for i, val in ph] + [(i, 'L', val) for i, val in pl]
+        all_piv.sort()
+
+        contractions = []
+        i = 0
+        while i < len(all_piv):
+            if all_piv[i][1] == 'H':
+                hi, _, hval = all_piv[i]
+                for j in range(i + 1, len(all_piv)):
+                    if all_piv[j][1] == 'L' and all_piv[j][0] > hi:
+                        li, _, lval = all_piv[j]
+                        if hval > lval:
+                            pct     = (hval - lval) / hval * 100
+                            seg_vol = float(np.mean(v[hi:li+1])) if li > hi else float(v[hi])
+                            contractions.append({'high': hval, 'low': lval, 'pct': pct, 'avg_vol': seg_vol})
+                        i = j
+                        break
+                else:
+                    i += 1
+            else:
+                i += 1
+
+        if len(contractions) < 2:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+
+        pcts = [ct['pct'] for ct in contractions]
+        vols = [ct['avg_vol'] for ct in contractions]
+        n_c  = len(contractions)
+        pairs = n_c - 1
+
+        pct_dec = sum(1 for k in range(pairs) if pcts[k] > pcts[k+1]) / pairs
+        vol_dec = sum(1 for k in range(pairs) if vols[k] > vols[k+1]) / pairs
+
+        last_pct       = pcts[-1]
+        last_piv_high  = contractions[-1]['high']
+        dist_pivot     = (float(c[-1]) - last_piv_high) / last_piv_high * 100
+
+        score = 0
+        score += round(pct_dec * 35)
+        score += round(vol_dec * 20)
+        if last_pct <= 5:    score += 20
+        elif last_pct <= 10: score += 15
+        elif last_pct <= 15: score += 10
+        elif last_pct <= 20: score += 5
+        if   -3  <= dist_pivot <= 1:   score += 15
+        elif -5  <= dist_pivot < -3:   score += 12
+        elif -8  <= dist_pivot < -5:   score += 8
+        elif -15 <= dist_pivot < -8:   score += 4
+        if n_c >= 4:   score += 10
+        elif n_c == 3: score += 7
+        elif n_c == 2: score += 4
+        score = min(100, score)
+
+        return {
+            'VCP Score':          score,
+            'VCP Detected':       score >= 60,
+            'VCP Contractions':   n_c,
+            'VCP Tightness':      round(last_pct, 2),
+            'VCP Dist Pivot %':   round(dist_pivot, 2),
+            'VCP Vol Decreasing': vol_dec >= 0.5,
+        }
+    except:
+        return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
+                'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+
+def calcular_sesiones_10(close, volume):
+    """
+    Últimas 10 sesiones: días positivos/negativos y volumen acumulado por tipo.
+    Un día es positivo si cierre > cierre anterior.
+    """
+    if len(close) < 11 or len(volume) < 10:
+        return None, None, None, None
+    precios = close.tail(11).values
+    vols    = volume.tail(10).values
+    dias_pos, dias_neg = 0, 0
+    vol_pos,  vol_neg  = 0.0, 0.0
+    for i in range(10):
+        cambio = precios[i + 1] - precios[i]
+        v      = float(vols[i])
+        if cambio > 0:
+            dias_pos += 1
+            vol_pos  += v
+        elif cambio < 0:
+            dias_neg += 1
+            vol_neg  += v
+    return dias_pos, dias_neg, round(vol_pos), round(vol_neg)
+
 def clasificar_market_cap(mc):
     if mc is None:     return "—"
     if mc >= 200e9:    return "Mega Cap"
@@ -342,22 +409,16 @@ def calcular_kpis(ticker_symbol, hist_spy):
         ema200_series = close.ewm(span=200, adjust=False).mean()
         ema200        = round(ema200_series.iloc[-1], 2)
         ema200_ref    = ema200_series.iloc[-10] if len(ema200_series) >= 10 else ema200_series.iloc[0]
-        ema200_slope  = round(float(ema200_series.iloc[-1]) - float(ema200_ref), 4)
-        sma50       = round(close.rolling(window=50).mean().iloc[-1], 2)
-        dist_ema200 = round((precio_actual - ema200) / ema200 * 100, 2)
-        dist_sma50  = round((precio_actual - sma50)  / sma50  * 100, 2)
+        ema200_slope  = round(ema200 - float(ema200_ref), 4)
+        sma50         = round(close.rolling(window=50).mean().iloc[-1], 2)
+        dist_ema200   = round((precio_actual - ema200) / ema200 * 100, 2)
+        dist_sma50    = round((precio_actual - sma50)  / sma50  * 100, 2)
 
         # Máximo y mínimo 52 semanas
-        close_252  = close.tail(252)
-        max_52w    = round(float(close_252.max()), 2)
+        max_52w    = round(close.tail(252).max(), 2)
         dist_max52 = round((precio_actual - max_52w) / max_52w * 100, 2)
-        min_52w    = round(float(close_252.min()), 2)
+        min_52w    = round(close.tail(252).min(), 2)
         dist_min52 = round((precio_actual - min_52w) / min_52w * 100, 2)
-        # ¿Hizo máximo 52W en las últimas 10 ruedas?
-        max_reciente  = float(close.tail(10).max())
-        max_anterior  = float(close.tail(252).iloc[:-10].max()) if len(close) >= 20 else 0.0
-        max52w_recent = 1 if max_reciente >= max_anterior else 0
-        _max52w_recent_global[ticker_symbol] = max52w_recent
 
         # Variación del día
         var_dia = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2)
@@ -367,16 +428,17 @@ def calcular_kpis(ticker_symbol, hist_spy):
         vol_rel = calcular_volatilidad_relativa(close)
         vol_inu = calcular_volumen_inusual(volume, 20)
 
-        # Secado de volumen: promedio 5d vs promedio 40d
-        vol_5d  = volume.iloc[-5:].mean()  if len(volume) >= 5  else None
-        vol_40d = volume.iloc[-40:].mean() if len(volume) >= 40 else None
-        vol_secado = round(float(vol_5d) / float(vol_40d), 4) if vol_5d and vol_40d and vol_40d > 0 else None
+        # Sesiones 10 ruedas
+        dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
 
         # RS Score
         score_actual, score_ayer, score_semana, score_mes, sobre_sma, \
         fr_hoy, fr_ayer, fr_semana, fr_mes = calcular_rs_score(
             close, hist_spy["Close"]
         )
+
+        # VCP
+        vcp = detectar_vcp(hist)
 
         return {
             "Ticker":          ticker_symbol,
@@ -389,29 +451,34 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Dist SMA50 %":    dist_sma50,
             "Máx 52W":         max_52w,
             "Dist Máx52W %":   dist_max52,
-            "Max52W_Recent": max52w_recent,
             "Mín 52W":         min_52w,
             "Dist Mín52W %":   dist_min52,
             "RSI 14":          rsi,
             "Vol Relativa":    vol_rel,
             "Vol Inusual %":   vol_inu,
-            "Vol 5d/40d":      vol_secado,
             "RS Score":        score_actual,
             "RS Ayer":         score_ayer,
             "RS Semana ant.":  score_semana,
             "RS Mes ant.":     score_mes,
-            "FR > SMA50":      sobre_sma,
-            "FR Hoy":          fr_hoy,
-            "FR Ayer":         fr_ayer,
-            "FR Semana ant.":  fr_semana,
-            "FR Mes ant.":     fr_mes,
+            "FR > SMA50":          sobre_sma,
+            "FR Hoy":              fr_hoy,
+            "FR Ayer":             fr_ayer,
+            "FR Semana ant.":      fr_semana,
+            "FR Mes ant.":         fr_mes,
+            "VCP Score":           vcp['VCP Score'],
+            "VCP Detected":        vcp['VCP Detected'],
+            "VCP Contractions":    vcp['VCP Contractions'],
+            "VCP Tightness":       vcp['VCP Tightness'],
+            "VCP Dist Pivot %":    vcp['VCP Dist Pivot %'],
+            "VCP Vol Decreasing":  vcp['VCP Vol Decreasing'],
+            "Días + 10s":          dias_pos_10,
+            "Días - 10s":          dias_neg_10,
+            "Vol días + 10s":      vol_pos_10,
+            "Vol días - 10s":      vol_neg_10,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
         return None
-
-# Global dict para capturar Max52W_Recent fuera del return dict
-_max52w_recent_global = {}
 
 # ── DESCARGA SPY ──────────────────────────────────────────────
 print("⏳ Descargando SPY como referencia...")
@@ -457,7 +524,6 @@ for grupo, tickers in TICKERS.items():
         todos_los_datos.append(datos)
 
 df = pd.DataFrame(todos_los_datos)
-df['Max52W_Recent'] = df['Ticker'].map(_max52w_recent_global).fillna(0).astype(int)
 print(f"\n✅ Datos listos: {len(df)} tickers")
 print(df[["Ticker", "Dist Mín52W %", "Vol Relativa", "RS Score", "Sector", "Market Cap Cat"]].head(10).to_string(index=False))
 
@@ -475,8 +541,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
@@ -525,9 +595,9 @@ columnas = [
     "Grupo", "Ticker", "Precio", "Var Día %",
     "EMA200", "EMA200 Slope", "Dist EMA200 %",
     "SMA50",  "Dist SMA50 %",
-    "Máx 52W", "Dist Máx52W %", "Max52W_Recent",
+    "Máx 52W", "Dist Máx52W %",
     "Mín 52W", "Dist Mín52W %",
-    "RSI 14", "Vol Relativa", "Vol Inusual %", "Vol 5d/40d",
+    "RSI 14", "Vol Relativa", "Vol Inusual %",
     "RS Score", "RS Ayer", "RS Semana ant.", "RS Mes ant.", "FR > SMA50",
     "FR Hoy", "FR Ayer", "FR Semana ant.", "FR Mes ant.",
     "Market Cap USD", "Market Cap Cat", "Sector", "Tipo",
@@ -617,8 +687,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
@@ -651,8 +725,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
@@ -698,8 +776,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
@@ -732,8 +814,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
@@ -791,8 +877,12 @@ for _, row in df.iterrows():
     item = {}
     for col in df.columns:
         val = row[col]
-        if pd.isna(val) or val == "—":
+        if pd.isna(val) if not isinstance(val, bool) else False:
             item[col] = None
+        elif val == "—":
+            item[col] = None
+        elif isinstance(val, bool):
+            item[col] = val
         elif isinstance(val, (int, float)):
             item[col] = round(float(val), 2)
         else:
