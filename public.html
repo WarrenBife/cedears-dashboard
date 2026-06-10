@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Warren Bife Indicator</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0d0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1034,8 +1034,8 @@ function renderWarrenScore() {
         return `<tr>
         <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
         <td>${scoreBadge(score)}</td>
-        <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!==null?d['RS Score'].toFixed(1):'—'}</span></td>
-        <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!==null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
+        <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!=null?d['RS Score'].toFixed(1):'—'}</span></td>
+        <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!=null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
         <td><span class="score-pill ${volSecCls}">${volSec != null ? volSec.toFixed(2)+'x' : '—'}</span></td>
         <td style="text-align:center">${dot(cEma)}</td>
         <td style="text-align:center">${dot(cSma)}</td>
@@ -2512,7 +2512,7 @@ function toggleTCField() {
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('./service-worker.js')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });
