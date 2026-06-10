@@ -1157,7 +1157,7 @@ function renderTrend() {
         <div style="font-size:9px;color:#6b7280;margin-top:2px">${d['Sector']||''}</div>
       </td>
       <td style="padding:4px 10px;vertical-align:middle">${sparklineSVG(vals, 90, 32)}</td>
-      <td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'].toFixed(1)}</td>
+      <td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
       ${deltaCell(dMes)}
       ${deltaCell(dSem)}
     </tr>`;
@@ -1588,17 +1588,18 @@ function renderComparador() {
 }
 
 function renderTodo() {
+  const safe = (fn) => { try { fn(); } catch(e) { console.error(fn.name + ' error:', e); } };
   actualizarBadges();
   renderStats();
   renderTickerStrip();
-  renderResurgimiento();
-  renderWarrenScore();
-  renderTrend();
-  renderSesionesVol();
-  renderVolInusual();
-  renderCartelera();
-  renderScanner();
-  renderSemaforo();
+  safe(renderResurgimiento);
+  safe(renderWarrenScore);
+  safe(renderTrend);
+  safe(renderSesionesVol);
+  safe(renderVolInusual);
+  safe(renderCartelera);
+  safe(renderScanner);
+  safe(renderSemaforo);
   poblarComparador();
 }
 
