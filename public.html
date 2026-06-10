@@ -68,7 +68,8 @@
   .panel:hover::before{opacity:1;}
   .panel-head,.panel-body,.panel-filters,.chart-wrap,.warren-table-wrap,.scanner-wrap,.sema-grid{position:relative;z-index:1;}
   .panel-head{padding:13px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px;}
-  .panel-title{font-size:13px;font-weight:500;}
+  .panel-title{font-size:13px;font-weight:600;color:#22c98a;text-shadow:0 0 7px rgba(34,201,138,0.6),0 0 20px rgba(34,201,138,0.3),0 0 40px rgba(34,201,138,0.15);letter-spacing:0.03em;}
+  .panel:hover .panel-title{text-shadow:0 0 7px rgba(34,201,138,0.8),0 0 25px rgba(34,201,138,0.5),0 0 50px rgba(34,201,138,0.25);}
   .panel-sub{font-size:11px;color:var(--muted);margin-top:2px;}
   .panel-body{padding:13px 16px;}
   .panel-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.015);}
@@ -205,6 +206,9 @@
 </head>
 <body>
 
+<!-- ── MARKET FX CANVAS ─────────────────────────────────────── -->
+<canvas id="market-fx" style="position:fixed;inset:0;pointer-events:none;z-index:250;"></canvas>
+
 <!-- ── LANDING PAGE ──────────────────────────────────────────── -->
 <div id="view-home">
   <canvas id="home-candles"></canvas>
@@ -311,6 +315,14 @@
     <input type="checkbox" id="gf-no-max52" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
     <span class="gf-label">Sin máx 52W reciente</span>
   </label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+    <input type="checkbox" id="gf-ema200-asc" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
+    <span class="gf-label">EMA200 en ascenso</span>
+  </label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+    <input type="checkbox" id="gf-solo-cedear" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
+    <span class="gf-label">Solo CEDEARs</span>
+  </label>
   <div id="active-filters"></div>
 </div>
 
@@ -332,20 +344,31 @@
   <div class="grid-2">
     <div class="panel">
       <div class="panel-head">
-        <div><div class="panel-title">Mapa de fuerza relativa</div><div class="panel-sub">RS Score vs Dist. Máx 52W — tamaño = market cap</div></div>
+        <div><div class="panel-title">Mapa de Re-surgimiento</div><div class="panel-sub">RS actual vs RS semana anterior — arriba de la diagonal = ganando terreno</div></div>
       </div>
-      <div class="panel-filters">
-        <span class="pf-label">RS mín:</span>
-        <input type="range" id="bubble-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('bubble-rs-min-val').textContent=this.value;renderBubble()">
-        <span id="bubble-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
+      <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
+        <span class="pf-label">Mostrar:</span>
+        <select id="resurg-filter" onchange="renderResurgimiento()">
+          <option value="all">Todos</option>
+          <option value="up">Solo suben ▲</option>
+          <option value="momentum">Momentum creciente ↑↑</option>
+          <option value="resurg">Re-surgiendo</option>
+          <option value="pierde">Perdiendo fuerza ▼</option>
+        </select>
+        <span class="pf-label" style="margin-left:6px">Vol acumulado:</span>
+        <select id="resurg-vol-filter" onchange="renderResurgimiento()">
+          <option value="all">Todos</option>
+          <option value="vol-pos">Más en días ▲</option>
+          <option value="vol-neg">Más en días ▼</option>
+        </select>
       </div>
       <div class="panel-body">
-        <div class="chart-wrap" style="height:450px"><canvas id="bubbleChart"></canvas></div>
-        <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;color:var(--muted)">
-          <span><span class="dot dot-green" style="display:inline-block"></span>RS &gt; 70</span>
-          <span><span class="dot dot-amber" style="display:inline-block"></span>RS 40–70</span>
-          <span><span class="dot dot-red" style="display:inline-block"></span>RS &lt; 40</span>
-          <span style="color:var(--amber)">★ vol inusual</span>
+        <div class="chart-wrap" style="height:450px"><canvas id="resurgChart"></canvas></div>
+        <div style="display:flex;gap:18px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
+          <span style="color:#22c98a">● RS subiendo</span>
+          <span style="color:#6b7280">● Sin cambio</span>
+          <span style="color:#f0605a">● RS bajando</span>
+          <span style="color:#6b7280;margin-left:4px">— diagonal = sin cambio</span>
         </div>
       </div>
     </div>
@@ -363,13 +386,14 @@
             <thead><tr>
               <th>Ticker</th>
               <th>Warren Score</th>
-              <th style="min-width:100px">Progreso</th>
               <th>RS</th>
               <th>Vol Rel</th>
+              <th>Vol 5d/40d</th>
               <th>EMA200</th>
               <th>SMA50</th>
               <th>+25%mín</th>
               <th>Vol&lt;0.8</th>
+              <th>Secado</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -387,10 +411,9 @@
         <span class="pf-label">RS mín:</span>
         <input type="range" id="trend-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('trend-rs-min-val').textContent=this.value;renderTrend()">
         <span id="trend-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
-        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:10px;color:#9ca3af">
-          <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#22c98a;display:inline-block"></span>Subió</span>
-          <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#f0605a;display:inline-block"></span>Bajó</span>
-          <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:2px;background:#1a1e28;border:1px solid #333;display:inline-block"></span>Sin cambio</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:10px;color:#9ca3af">
+          <span style="display:inline-flex;align-items:center;gap:4px"><svg width="28" height="12"><polyline points="0,10 9,6 18,3 27,1" fill="none" stroke="#22c98a" stroke-width="1.5" stroke-linecap="round"/></svg>Alcista</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><svg width="28" height="12"><polyline points="0,1 9,4 18,7 27,10" fill="none" stroke="#f0605a" stroke-width="1.5" stroke-linecap="round"/></svg>Bajista</span>
         </span>
       </div>
       <div class="panel-body">
@@ -398,16 +421,27 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Volatilidad relativa</div><div class="panel-sub">Vol 5 ruedas / Vol histórica 1 año — naranja = vol inusual</div></div></div>
-      <div class="panel-filters">
-        <span class="pf-label">Ordenar:</span>
-        <select id="vol-orden" onchange="renderVol()"><option value="mayor">Mayor a menor</option><option value="menor" selected>Menor a mayor</option></select>
-        <select id="vol-n" onchange="renderVol()"><option value="30">30</option><option value="50">50</option></select>
-        <span class="pf-label">RS mín:</span>
-        <input type="range" id="vol-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('vol-rs-min-val').textContent=this.value;renderVol()">
-        <span id="vol-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
+      <div class="panel-head"><div><div class="panel-title">Sesiones & Volumen</div><div class="panel-sub">Ranking por días ▲ × ratio de volumen — últimas 10 ruedas</div></div></div>
+      <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
+        <span class="pf-label">Top:</span>
+        <select id="sv-n" onchange="renderSesionesVol()"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option></select>
+        <span class="pf-label">Días ▲ mín:</span>
+        <input type="range" id="sv-dias-min" min="0" max="10" value="0" style="width:70px" oninput="document.getElementById('sv-dias-min-val').textContent=this.value;renderSesionesVol()">
+        <span id="sv-dias-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
+        <span class="pf-label" style="margin-left:4px">RS mín:</span>
+        <input type="range" id="sv-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('sv-rs-min-val').textContent=this.value;renderSesionesVol()">
+        <span id="sv-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
       </div>
-      <div class="panel-body"><div class="chart-wrap" style="height:320px"><canvas id="volChart"></canvas></div></div>
+      <div class="panel-body">
+        <div class="chart-wrap" style="height:480px"><canvas id="svChart"></canvas></div>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
+          <span style="color:#22c98a">● 8–10 días ▲</span>
+          <span style="color:#4f8ef7">● 6–7 días ▲</span>
+          <span style="color:#f5a623">● 4–5 días ▲</span>
+          <span style="color:#f0605a">● 0–3 días ▲</span>
+          <span style="color:var(--muted);margin-left:4px">barra = Vol ▲/▼ · orden = días × vol</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -422,14 +456,9 @@
       <div class="panel-body"><div class="chart-wrap" style="height:260px"><canvas id="vinuChart"></canvas></div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">RSI vs RS Score</div><div class="panel-sub">Zona ideal: RS alto + RSI no sobrecomprado</div></div></div>
-      <div class="panel-body">
-        <div class="chart-wrap" style="height:260px"><canvas id="scatterChart"></canvas></div>
-        <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
-          <span style="color:var(--green)">● RS&gt;60 + RSI&lt;70 (ideal)</span>
-          <span style="color:var(--amber)">● RSI sobrecomprado</span>
-          <span style="color:var(--muted)">● Resto</span>
-        </div>
+      <div class="panel-head"><div><div class="panel-title">Cartelera del día</div><div class="panel-sub">Principales movimientos y extremos RSI</div></div></div>
+      <div class="panel-body" style="padding:0;">
+        <div id="cartelera-body" style="display:grid;grid-template-columns:1fr 1fr;max-height:320px;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -467,6 +496,8 @@
             <th onclick="sortScanner('RSI 14')" style="cursor:pointer" class="scanner-th">RSI <span id="sort-ind-RSI 14"></span></th>
             <th onclick="sortScanner('Vol Relativa')" style="cursor:pointer" class="scanner-th">Vol Rel <span id="sort-ind-Vol Relativa"></span></th>
             <th onclick="sortScanner('Vol Inusual %')" style="cursor:pointer" class="scanner-th">Vol Inu <span id="sort-ind-Vol Inusual %"></span></th>
+            <th onclick="sortScanner('ses10')" style="cursor:pointer" class="scanner-th" title="Días ▲ / Días ▼ de las últimas 10 sesiones">10s ▲▼ <span id="sort-ind-ses10"></span></th>
+            <th onclick="sortScanner('volratio')" style="cursor:pointer" class="scanner-th" title="Vol acumulado días ▲ / Vol acumulado días ▼ (últimas 10 sesiones)">Vol ▲/▼ <span id="sort-ind-volratio"></span></th>
             <th onclick="sortScanner('Dist EMA200 %')" style="cursor:pointer" class="scanner-th">EMA200 <span id="sort-ind-Dist EMA200 %"></span></th>
             <th onclick="sortScanner('Dist SMA50 %')" style="cursor:pointer" class="scanner-th">SMA50 <span id="sort-ind-Dist SMA50 %"></span></th>
           </tr></thead>
@@ -475,18 +506,17 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Semáforo por ticker</div><div class="panel-sub">Borde naranja = volumen inusual hoy</div></div></div>
+      <div class="panel-head"><div><div class="panel-title">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
       <div class="panel-filters">
-        <span class="pf-label">Ordenar:</span>
+        <span class="pf-label">Ordenar sectores:</span>
         <select id="sema-sort" onchange="renderSemaforo()">
-          <option value="rs">RS Score</option>
-          <option value="rsi">RSI</option>
-          <option value="vol">Vol Relativa</option>
-          <option value="vol-inusual">Vol Inusual</option>
+          <option value="best-rs">Mejor RS del sector</option>
+          <option value="avg-rs">RS promedio</option>
+          <option value="nombre">Nombre A→Z</option>
         </select>
       </div>
       <div style="padding:10px;max-height:460px;overflow-y:auto;">
-        <div class="sema-grid" id="sema-grid"></div>
+        <div id="sema-grid"></div>
       </div>
     </div>
   </div>
@@ -701,6 +731,7 @@ async function actualizarPrecios() {
         new Date().toLocaleTimeString('es-AR') + ' (precios vivos)';
       renderTodo();
       if (document.getElementById('view-cartera').style.display !== 'none') renderCartera();
+      marketFX.update();
     }
   } catch(e) {
     // Servidor local no disponible — continúa con datos del JSON
@@ -720,6 +751,8 @@ async function cargarDatos() {
     document.getElementById('gf-mcap').value    = 'todos';
     document.getElementById('gf-vol').value     = 'todos';
     document.getElementById('gf-no-max52').checked = false;
+    document.getElementById('gf-ema200-asc').checked = false;
+    document.getElementById('gf-solo-cedear').checked = false;
     poblarFiltros();
     renderTodo();
     document.getElementById('loading').style.display = 'none';
@@ -731,6 +764,8 @@ async function cargarDatos() {
       const st = document.getElementById('c-precios-status');
       if (st) st.textContent = 'Precios: ' + new Date().toLocaleTimeString('es-AR');
     }
+    // Efecto visual según SPY
+    marketFX.update();
     // Actualizar precios inmediatamente y luego cada 5 min
     actualizarPrecios();
     if (preciosTimer) clearInterval(preciosTimer);
@@ -758,13 +793,21 @@ function getDatosFiltrados() {
   const mcap   = document.getElementById('gf-mcap').value;
   const sector = document.getElementById('gf-sector').value;
   const volMin   = document.getElementById('gf-vol').value;
-  const noMax52  = document.getElementById('gf-no-max52').checked;
+  const noMax52    = document.getElementById('gf-no-max52').checked;
+  const ema200Asc  = document.getElementById('gf-ema200-asc').checked;
+  const soloCedear = document.getElementById('gf-solo-cedear').checked;
   return DATOS.filter(d => {
     if (tipo   !== 'todos' && d['Tipo'] !== tipo) return false;
     if (mcap   !== 'todos' && d['Market Cap Cat'] !== mcap) return false;
     if (sector !== 'todos' && d['Sector'] !== sector) return false;
     if (volMin !== 'todos' && (d['Vol Inusual %'] === null || d['Vol Inusual %'] < parseFloat(volMin))) return false;
-    if (noMax52 && !(d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] < -3)) return false;
+    if (noMax52) {
+      const rec = d['Max52W_Recent'];
+      if (rec !== null && rec !== undefined) { if (rec === 1) return false; }
+      else { if (d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] >= -3) return false; }
+    }
+    if (ema200Asc  && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
+    if (soloCedear && !(d['Grupo'] && (d['Grupo'].includes('CEDEAR') || d['Grupo'].includes('ADR')))) return false;
     if (quickFilter === 'ema'    && !(d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0)) return false;
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
@@ -816,6 +859,14 @@ const N = t => NOMBRES[t] || t;
 function colorRS(s) { return s === null || s === undefined ? '#6b7280' : s > 70 ? '#22c98a' : s > 40 ? '#f5a623' : '#f0605a'; }
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
+function deltaColor(delta) {
+  if (delta === null || delta === undefined || isNaN(delta)) return 'rgba(107,114,128,0.8)';
+  const t = Math.min(1, Math.abs(delta) / 20);
+  if (delta > 0)
+    return `rgba(${Math.round(107+(34-107)*t)},${Math.round(114+(201-114)*t)},${Math.round(128+(138-128)*t)},0.9)`;
+  return `rgba(${Math.round(107+(240-107)*t)},${Math.round(114+(96-114)*t)},${Math.round(128+(90-128)*t)},0.9)`;
+}
+
 function renderStats() {
   const data = getDatosFiltrados();
   document.getElementById('st-total').textContent   = data.length;
@@ -829,22 +880,106 @@ function renderStats() {
   ).length;
 }
 
-function renderBubble() {
-  const rsMin = parseFloat(document.getElementById('bubble-rs-min').value);
-  const data = getDatosFiltrados().filter(d => d['RS Score'] !== null && d['Dist Máx52W %'] !== null && d['Vol Relativa'] !== null && d['RS Score'] >= rsMin);
-  const points = data.map(d => ({
-    x: d['RS Score'], y: d['Dist Máx52W %'],
-    r: d['Market Cap USD'] ? Math.max(4, Math.min(25, Math.log10(d['Market Cap USD'] / 1e8) * 5)) : 6,
-    label: d['Ticker'], color: colorRS(d['RS Score']),
-    volInusual: d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50
-  }));
-  destroyChart('bubbleChart');
-  charts['bubbleChart'] = new Chart(document.getElementById('bubbleChart').getContext('2d'), {
+function renderResurgimiento() {
+  const filterMode   = document.getElementById('resurg-filter').value;
+  const volFilterMode = document.getElementById('resurg-vol-filter').value;
+
+  const raw = getDatosFiltrados().filter(d =>
+    d['RS Score'] !== null && d['RS Semana ant.'] !== null
+  );
+
+  const data = raw.filter(d => {
+    const delta = d['RS Score'] - d['RS Semana ant.'];
+    if (filterMode === 'up')       { if (!(delta > 0)) return false; }
+    else if (filterMode === 'momentum') { if (!(d['RS Mes ant.'] !== null && d['RS Score'] > d['RS Semana ant.'] && d['RS Semana ant.'] > d['RS Mes ant.'])) return false; }
+    else if (filterMode === 'resurg')   { if (!(delta > 0 && d['RS Semana ant.'] < 55)) return false; }
+    else if (filterMode === 'pierde')   { if (!(delta < 0 && d['RS Semana ant.'] > 50)) return false; }
+    if (volFilterMode === 'vol-pos') { if (!((d['Vol días + 10s'] || 0) > (d['Vol días - 10s'] || 0))) return false; }
+    if (volFilterMode === 'vol-neg') { if (!((d['Vol días - 10s'] || 0) > (d['Vol días + 10s'] || 0))) return false; }
+    return true;
+  });
+
+  const points = data.map(d => {
+    const delta   = d['RS Score'] - d['RS Semana ant.'];
+    const r       = Math.max(4, Math.min(14, 4 + Math.abs(delta) / 2.5));
+    const vPos    = d['Vol días + 10s'];
+    const vNeg    = d['Vol días - 10s'];
+    const dPos    = d['Días + 10s'];
+    const dNeg    = d['Días - 10s'];
+    const volRatio = (vPos !== null && vNeg !== null && vNeg > 0) ? vPos / vNeg : null;
+    return {
+      x: d['RS Semana ant.'], y: d['RS Score'], r,
+      label: d['Ticker'],
+      rsAct: d['RS Score'], rsSem: d['RS Semana ant.'], delta,
+      diasPos: dPos, diasNeg: dNeg, volRatio,
+    };
+  });
+
+  const borderColors = points.map(p => deltaColor(p.delta));
+  const bgColors     = points.map(p => deltaColor(p.delta).replace('0.9)', '0.35)'));
+
+  destroyChart('resurgChart');
+  charts['resurgChart'] = new Chart(document.getElementById('resurgChart').getContext('2d'), {
     type: 'bubble',
-    data: { datasets: [{ data: points, backgroundColor: points.map(p => p.volInusual ? '#f5a62388' : p.color + '55'), borderColor: points.map(p => p.volInusual ? '#f5a623' : p.color), borderWidth: points.map(p => p.volInusual ? 2 : 1) }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => { const p = points[ctx.dataIndex]; return [` ${N(p.label)}${p.volInusual?' ★':''}`, ` RS: ${ctx.parsed.x}  Dist52W: ${ctx.parsed.y.toFixed(1)}%`]; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
-      scales: { x: { title: { display: true, text: 'RS Score', color: '#6b7280', font: { size: 10 } }, min: -5, max: 105, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } } }, y: { title: { display: true, text: 'Dist. Máx 52W (%)', color: '#6b7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v + '%' } } } }
+    data: { datasets: [{ data: points, backgroundColor: bgColors, borderColor: borderColors, borderWidth: 1.5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const p = points[ctx.dataIndex];
+              const sign = p.delta >= 0 ? '+' : '';
+              const lines = [
+                ` ${N(p.label)}`,
+                ` RS actual:  ${p.rsAct.toFixed(1)}`,
+                ` RS sem.ant: ${p.rsSem.toFixed(1)}`,
+                ` Δ semana:   ${sign}${p.delta.toFixed(1)}`,
+              ];
+              if (p.diasPos !== null && p.diasPos !== undefined) {
+                const total = (p.diasPos || 0) + (p.diasNeg || 0);
+                lines.push(` Sesiones:   ▲${p.diasPos} ▼${p.diasNeg} / ${total}`);
+              }
+              if (p.volRatio !== null && p.volRatio !== undefined) {
+                lines.push(` Vol ▲/▼:    ${p.volRatio.toFixed(2)}x`);
+              }
+              return lines;
+            }
+          },
+          backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af'
+        }
+      },
+      scales: {
+        x: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } }, title: { display: true, text: 'RS Score semana anterior', color: '#6b7280', font: { size: 10 } } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } }, title: { display: true, text: 'RS Score actual', color: '#6b7280', font: { size: 10 } } }
+      }
+    },
+    plugins: [{
+      id: 'resurgDiagonal',
+      afterDraw(chart) {
+        const {ctx, scales: {x, y}, chartArea} = chart;
+        ctx.save();
+        // Línea diagonal y = x (sin cambio)
+        ctx.beginPath();
+        ctx.moveTo(x.getPixelForValue(0), y.getPixelForValue(0));
+        ctx.lineTo(x.getPixelForValue(100), y.getPixelForValue(100));
+        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Etiquetas de cuadrantes
+        ctx.font = '9px DM Mono, monospace';
+        ctx.fillStyle = 'rgba(107,114,128,0.38)';
+        ctx.fillText('RE-SURGIENDO ↑', chartArea.left + 6,  chartArea.top + 14);
+        ctx.fillText('CONSOLIDADOS ↑', chartArea.left + (chartArea.right - chartArea.left) / 2 + 8, chartArea.top + 14);
+        ctx.fillText('DÉBILES',        chartArea.left + 6,  chartArea.bottom - 7);
+        ctx.fillText('PERDIENDO ↓',    chartArea.left + (chartArea.right - chartArea.left) / 2 + 8, chartArea.bottom - 7);
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -852,14 +987,16 @@ function calcWarrenScore(d) {
   const rs = d['RS Score'];
   if (rs === null || rs <= 60) return 0;
   let score = Math.min(40, rs - 60);
-  const ema      = d['Dist EMA200 %'];
-  const sma      = d['Dist SMA50 %'];
+  const ema       = d['Dist EMA200 %'];
+  const sma       = d['Dist SMA50 %'];
   const dist52min = d['Dist Mín52W %'];
-  const vol      = d['Vol Relativa'];
+  const vol       = d['Vol Relativa'];
+  const volSec    = d['Vol 5d/40d'];
   if (ema !== null && ema > 0)               score += 20;
   if (sma !== null && sma > 0)               score += 10;
   if (dist52min !== null && dist52min >= 25)  score += 10;
-  if (vol !== null)                          score += Math.max(0, (0.8 - vol) / 0.8 * 20);
+  if (vol !== null)                          score += Math.max(0, (0.8 - vol) / 0.8 * 10);
+  if (volSec !== null && volSec < 1)         score += 10;
   return Math.round(score);
 }
 
@@ -875,8 +1012,9 @@ function renderWarrenScore() {
     const cRS   = d['RS Score']      !== null && d['RS Score']       > 70;
     const cVol  = d['Vol Relativa']  !== null && d['Vol Relativa']   < 0.8;
     const cMin  = d['Dist Mín52W %'] !== null && d['Dist Mín52W %'] >= 25;
+    const cSec  = d['Vol 5d/40d']    !== null && d['Vol 5d/40d']     < 1;
     const cumple = [cRS, cEma, cSma, cVol].filter(Boolean).length;
-    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cumple };
+    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cSec, cumple };
   }).filter(x => x.cumple >= minCrit)
     .sort((a, b) => b.score - a.score)
     .slice(0, topN);
@@ -886,73 +1024,84 @@ function renderWarrenScore() {
     const cls = s >= 80 ? 'pill-green' : s >= 60 ? 'pill-blue' : 'pill-amber';
     return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
   };
-  const bar = s => `<div style="background:var(--bg3);border-radius:4px;height:6px;width:100%;overflow:hidden;">
-    <div style="height:6px;width:${s}%;border-radius:4px;background:${s>=80?'var(--green)':s>=60?'var(--blue)':'var(--amber)'};"></div>
-  </div>`;
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
-    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin }) => `<tr>
+    ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin, cSec }) => {
+        const volSec = d['Vol 5d/40d'] ?? null;
+        const volSecCls = volSec == null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
+        return `<tr>
         <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
         <td>${scoreBadge(score)}</td>
-        <td style="min-width:90px;padding-right:12px">${bar(score)}</td>
         <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!==null?d['RS Score'].toFixed(1):'—'}</span></td>
         <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!==null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
+        <td><span class="score-pill ${volSecCls}">${volSec != null ? volSec.toFixed(2)+'x' : '—'}</span></td>
         <td style="text-align:center">${dot(cEma)}</td>
         <td style="text-align:center">${dot(cSma)}</td>
         <td style="text-align:center">${dot(cMin)}</td>
         <td style="text-align:center">${dot(cVol)}</td>
-      </tr>`).join('');
+        <td style="text-align:center">${dot(cSec)}</td>
+      </tr>`;
+      }).join('');
 }
 
 let trendSort = { col: 'dmes', asc: false };
 
 function setTrendSort(col) {
-  const defaultAsc = { h4: true, h3: false, h2: false, actual: false, dmes: false, dsem: false };
-  trendSort.asc = trendSort.col === col ? !trendSort.asc : defaultAsc[col];
+  trendSort.asc = trendSort.col === col ? !trendSort.asc : false;
   trendSort.col = col;
   renderTrend();
+}
+
+function sparklineSVG(values, w, h) {
+  w = w || 90; h = h || 32;
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const pad = 3, W = w - pad * 2, H = h - pad * 2;
+  const pts = values.map((v, i) => [
+    pad + (i / (values.length - 1)) * W,
+    pad + (1 - (v - min) / range) * H
+  ]);
+  let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    const cx = ((pts[i-1][0] + pts[i][0]) / 2).toFixed(1);
+    d += ` C ${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
+  }
+  const up = values[values.length - 1] >= values[0];
+  const col = up ? '#22c98a' : '#f0605a';
+  const fill = up ? 'rgba(34,201,138,0.10)' : 'rgba(240,96,90,0.10)';
+  const areaD = d + ` L ${pts[pts.length-1][0].toFixed(1)},${h} L ${pts[0][0].toFixed(1)},${h} Z`;
+  const [lx, ly] = pts[pts.length - 1];
+  // Week labels (x positions)
+  const labels = ['4s', '3s', '2s', 'hoy'];
+  const labelsSVG = pts.map((p, i) => `<text x="${p[0].toFixed(1)}" y="${h+9}" text-anchor="middle" font-size="7" fill="#4b5563" font-family="DM Mono,monospace">${labels[i]}</text>`).join('');
+  return `<svg width="${w}" height="${h+11}" style="display:block;overflow:visible">
+    <path d="${areaD}" fill="${fill}" stroke="none"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.map((p, i) => i === pts.length-1
+      ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="${col}" stroke="#13161e" stroke-width="1.5"/>`
+      : `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.5" fill="${col}" opacity="0.5"/>`
+    ).join('')}
+    ${labelsSVG}
+  </svg>`;
 }
 
 function renderTrend() {
   const n     = parseInt(document.getElementById('trend-n').value);
   const rsMin = parseFloat(document.getElementById('trend-rs-min').value);
 
-  const periodFns = [
-    d => d['RS Mes ant.'],
-    d => Math.round((d['RS Mes ant.'] + d['RS Semana ant.']) / 2 * 10) / 10,
-    d => d['RS Semana ant.'],
-    d => d['RS Score']
-  ];
-
   const universe = getDatosFiltrados().filter(d =>
     d['RS Score'] !== null && d['RS Mes ant.'] !== null && d['RS Semana ant.'] !== null
   );
 
-  // rank 1 = mayor RS Score en cada período
-  const rankMaps = periodFns.map(fn => {
-    const sorted = [...universe].sort((a, b) => fn(b) - fn(a));
-    const map = {};
-    sorted.forEach((d, i) => { map[d['Ticker']] = i + 1; });
-    return map;
-  });
-
-  function sortVal(d, col) {
-    const r = rankMaps.map(m => m[d['Ticker']]);
-    switch (col) {
-      case 'h4':     return r[0];
-      case 'h3':     return r[0] - r[1];
-      case 'h2':     return r[1] - r[2];
-      case 'actual': return r[2] - r[3];
-      case 'dmes':   return r[0] - r[3];
-      case 'dsem':   return r[2] - r[3];
-    }
-  }
-
   let data = universe.filter(d => d['RS Score'] > d['RS Mes ant.'] && d['RS Score'] >= rsMin);
+
   data.sort((a, b) => {
-    const va = sortVal(a, trendSort.col), vb = sortVal(b, trendSort.col);
+    let va, vb;
+    if (trendSort.col === 'rs')        { va = a['RS Score'];                            vb = b['RS Score']; }
+    else if (trendSort.col === 'dmes') { va = a['RS Score'] - a['RS Mes ant.'];         vb = b['RS Score'] - b['RS Mes ant.']; }
+    else                               { va = a['RS Score'] - a['RS Semana ant.'];      vb = b['RS Score'] - b['RS Semana ant.']; }
     return trendSort.asc ? va - vb : vb - va;
   });
   data = data.slice(0, n);
@@ -963,96 +1112,135 @@ function renderTrend() {
     return;
   }
 
-  const CS_FIRST = 'width:85px;height:42px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;';
-  const CS       = 'width:155px;height:42px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;';
+  const thBase = 'font-size:10px;font-weight:normal;padding:0 10px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s';
 
-  function rankCell(rank, diff, isFirst) {
-    if (isFirst) {
-      return `<td style="padding:2px 3px"><div style="${CS_FIRST}background:#1a1e28;color:#6b7280;font-size:14px;font-family:'DM Mono',monospace">#${rank}</div></td>`;
-    }
-    const intens  = Math.min(1, Math.abs(diff) / 10);
-    let bg, divider;
-    if (diff === 0) {
-      bg = '#1a1e28'; divider = 'rgba(255,255,255,0.07)';
-    } else if (diff > 0) {
-      const r = Math.round(13  + (34  - 13)  * intens);
-      const g = Math.round(22  + (201 - 22)  * intens);
-      const b = Math.round(30  + (138 - 30)  * intens);
-      bg = `rgb(${r},${g},${b})`; divider = 'rgba(0,0,0,0.2)';
-    } else {
-      const r = Math.round(13  + (240 - 13)  * intens);
-      const g = Math.round(22  + (96  - 22)  * intens);
-      const b = Math.round(30  + (90  - 30)  * intens);
-      bg = `rgb(${r},${g},${b})`; divider = 'rgba(0,0,0,0.2)';
-    }
-    const textColor = intens > 0.5 ? '#0d0f14' : '#e8eaf0';
-    const arrow = diff > 0 ? `▲${diff}` : diff < 0 ? `▼${Math.abs(diff)}` : '—';
-    return `<td style="padding:2px 3px"><div style="${CS}background:${bg};color:${textColor};font-family:'DM Mono',monospace;gap:0;padding:0 11px">
-      <span style="font-size:14px;flex-shrink:0">#${rank}</span>
-      <span style="width:1px;height:20px;background:${divider};margin:0 9px;flex-shrink:0"></span>
-      <span style="font-size:13px;flex-shrink:0">${arrow}</span>
-    </div></td>`;
+  function th(col, label, align) {
+    const active = trendSort.col === col;
+    const ind = active ? (trendSort.asc ? ' ▲' : ' ▼') : '';
+    return `<th style="${thBase};text-align:${align||'right'};color:${active ? '#e8eaf0' : '#6b7280'}"
+      onclick="setTrendSort('${col}')"
+      onmouseover="this.style.color='#9ca3af'"
+      onmouseout="this.style.color='${active ? '#e8eaf0' : '#6b7280'}'">${label}${ind}</th>`;
   }
 
-  function deltaCell(diff, rsScore) {
-    const tdStyle = 'padding:2px 6px;font-family:\'DM Mono\',monospace;white-space:nowrap;vertical-align:middle';
-    if (diff === 0) return `<td style="${tdStyle}"><div style="color:#6b7280;font-size:12px">—</div><div style="color:#6b7280;font-size:10px">RS: ${rsScore.toFixed(1)}</div></td>`;
-    const color = diff > 0 ? '#22c98a' : '#f0605a';
-    const sign  = diff > 0 ? `▲+${diff}` : `▼${diff}`;
-    return `<td style="${tdStyle}"><div style="color:${color};font-size:12px">${sign}</div><div style="color:#6b7280;font-size:10px">RS: ${rsScore.toFixed(1)}</div></td>`;
+  function rsColor(v) {
+    if (v >= 80) return '#22c98a';
+    if (v >= 60) return '#4f8ef7';
+    if (v >= 40) return '#f5a623';
+    return '#f0605a';
   }
 
-  const sortCols = [
-    { key: 'h4', label: 'Hace 4 sem' }, { key: 'h3', label: 'Hace 3 sem' },
-    { key: 'h2', label: 'Hace 2 sem' }, { key: 'actual', label: 'Actual' },
-    { key: 'dmes', label: 'Δ vs mes' }, { key: 'dsem', label: 'Δ vs sem' }
-  ];
-  const thBase = 'font-size:10px;font-weight:normal;padding:0 3px 8px;text-align:center;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s';
-  const thCols = sortCols.map(c => {
-    const active = trendSort.col === c.key;
-    const color  = active ? '#e8eaf0' : '#6b7280';
-    const ind    = active ? (trendSort.asc ? ' ▲' : ' ▼') : '';
-    return `<th style="${thBase};color:${color}" onclick="setTrendSort('${c.key}')" onmouseover="this.style.color='#9ca3af'" onmouseout="this.style.color='${active ? '#e8eaf0' : '#6b7280'}'">${c.label}${ind}</th>`;
-  }).join('');
+  function deltaCell(delta) {
+    if (delta === null || isNaN(delta)) return '<td style="text-align:right;padding:0 10px;font-size:11px;color:#6b7280">—</td>';
+    const color = delta >= 0 ? '#22c98a' : '#f0605a';
+    const sign  = delta >= 0 ? '+' : '';
+    return `<td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${sign}${delta.toFixed(1)}</td>`;
+  }
+
   const header = `<tr>
-    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 3px 8px;text-align:left;padding-left:0">Ticker</th>
-    ${thCols}
+    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 10px 10px 0;text-align:left">Ticker</th>
+    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 10px 10px;text-align:center">Tendencia</th>
+    ${th('rs', 'RS Score')}
+    ${th('dmes', 'Δ mes')}
+    ${th('dsem', 'Δ sem')}
   </tr>`;
 
   const rows = data.map(d => {
-    const ranks = rankMaps.map(m => m[d['Ticker']]);
-    const diffs = [null, ranks[0]-ranks[1], ranks[1]-ranks[2], ranks[2]-ranks[3]];
-    const deltaMes = ranks[0] - ranks[3];
-    const deltaSem = ranks[2] - ranks[3];
-    const cells = ranks.map((r, i) => rankCell(r, diffs[i], i === 0)).join('');
-    return `<tr>
-      <td style="color:#e8eaf0;font-size:12px;font-family:'DM Mono',monospace;padding:2px 10px 2px 0;white-space:nowrap" title="${N(d['Ticker'])}">${d['Ticker']}</td>
-      ${cells}
-      ${deltaCell(deltaMes, d['RS Score'])}
-      ${deltaCell(deltaSem, d['RS Score'])}
+    const interp = Math.round((d['RS Mes ant.'] + d['RS Semana ant.']) / 2 * 10) / 10;
+    const vals   = [d['RS Mes ant.'], interp, d['RS Semana ant.'], d['RS Score']];
+    const dMes   = d['RS Score'] - d['RS Mes ant.'];
+    const dSem   = d['RS Score'] - d['RS Semana ant.'];
+    const rsCol  = rsColor(d['RS Score']);
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+      <td style="padding:7px 10px 7px 0;white-space:nowrap;vertical-align:middle">
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:#e8eaf0" title="${N(d['Ticker'])}">${d['Ticker']}</div>
+        <div style="font-size:9px;color:#6b7280;margin-top:2px">${d['Sector']||''}</div>
+      </td>
+      <td style="padding:4px 10px;vertical-align:middle">${sparklineSVG(vals, 90, 32)}</td>
+      <td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'].toFixed(1)}</td>
+      ${deltaCell(dMes)}
+      ${deltaCell(dSem)}
     </tr>`;
   });
 
-  container.innerHTML = `<table style="border-collapse:separate;border-spacing:0;width:100%">
+  container.innerHTML = `<table style="border-collapse:collapse;width:100%">
     <thead style="position:sticky;top:0;background:#13161e;z-index:1">${header}</thead>
     <tbody>${rows.join('')}</tbody>
   </table>`;
 }
 
-function renderVol() {
-  const orden = document.getElementById('vol-orden').value;
-  const n     = parseInt(document.getElementById('vol-n').value);
-  const rsMin = parseFloat(document.getElementById('vol-rs-min').value);
-  const data = getDatosFiltrados().filter(d => d['Vol Relativa'] !== null && (d['RS Score'] === null || d['RS Score'] >= rsMin))
-    .sort((a, b) => orden === 'mayor' ? b['Vol Relativa'] - a['Vol Relativa'] : a['Vol Relativa'] - b['Vol Relativa']).slice(0, n);
-  const values = data.map(d => d['Vol Relativa']);
-  const colors = data.map((d, i) => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50 ? '#f5a623cc' : values[i] > 1.5 ? '#f0605acc' : values[i] > 1 ? '#f5a62366' : '#22c98a66');
-  destroyChart('volChart');
-  charts['volChart'] = new Chart(document.getElementById('volChart').getContext('2d'), {
-    type: 'bar', data: { labels: data.map(d => d['Ticker']), datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, borderSkipped: false }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => N(items[0].label), label: ctx => { const d = data[ctx.dataIndex]; const vi = d['Vol Inusual %'] !== null ? `  Vol inusual: +${d['Vol Inusual %'].toFixed(0)}%` : ''; return ` Vol rel: ${ctx.parsed.y.toFixed(2)}x${vi}`; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
-      scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9, family: "'DM Mono',monospace" }, maxRotation: 45 } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v.toFixed(1) + 'x' } } } }
+function renderSesionesVol() {
+  const n       = parseInt(document.getElementById('sv-n').value);
+  const diasMin = parseInt(document.getElementById('sv-dias-min').value);
+  const rsMin   = parseFloat(document.getElementById('sv-rs-min').value);
+
+  const CAP = 7;
+  const daysColor = dp => dp >= 8 ? '#22c98a' : dp >= 6 ? '#4f8ef7' : dp >= 4 ? '#f5a623' : '#f0605a';
+
+  const rows = getDatosFiltrados()
+    .filter(d =>
+      d['Días + 10s'] !== null && d['Días + 10s'] !== undefined &&
+      d['Vol días + 10s'] !== null && d['Vol días + 10s'] > 0 &&
+      d['Días + 10s'] >= diasMin &&
+      (d['RS Score'] === null || d['RS Score'] >= rsMin)
+    )
+    .map(d => {
+      const vPos     = d['Vol días + 10s'] || 0;
+      const vNeg     = d['Vol días - 10s'] || 0;
+      const rawRatio = vNeg > 0 ? vPos / vNeg : CAP;
+      const ratio    = Math.min(rawRatio, CAP);
+      return { d, ratio, rawRatio, score: d['Días + 10s'] * ratio, diasPos: d['Días + 10s'], diasNeg: d['Días - 10s'] || 0 };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+
+  const labels = rows.map(r => r.d['Ticker']);
+  const values = rows.map(r => r.ratio);
+  const colors = rows.map(r => daysColor(r.diasPos));
+
+  destroyChart('svChart');
+  charts['svChart'] = new Chart(document.getElementById('svChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.map(c => c + 'aa'), borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => N(items[0].label),
+            label: ctx => {
+              const r = rows[ctx.dataIndex];
+              const ratioStr = r.rawRatio >= CAP ? `≥${CAP}x (sin días ▼)` : r.ratio.toFixed(2) + 'x';
+              return [
+                ` Días ▲: ${r.diasPos}  Días ▼: ${r.diasNeg}`,
+                ` Vol ▲/▼: ${ratioStr}`,
+                ` Score: ${r.score.toFixed(1)}`,
+                ` RS: ${r.d['RS Score'] !== null ? r.d['RS Score'].toFixed(1) : '—'}`,
+              ];
+            }
+          },
+          backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af'
+        }
+      },
+      scales: {
+        x: {
+          min: 0,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v === CAP ? `≥${CAP}x` : v.toFixed(1) + 'x' },
+          title: { display: true, text: 'Vol ▲ / Vol ▼', color: '#6b7280', font: { size: 10 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#9ca3af', font: { size: 9, family: "'DM Mono',monospace" } }
+        }
+      }
+    }
   });
 }
 
@@ -1070,16 +1258,55 @@ function renderVolInusual() {
   });
 }
 
-function renderScatter() {
-  const data = getDatosFiltrados().filter(d => d['RSI 14'] !== null && d['RS Score'] !== null);
-  const points = data.map(d => ({ x: d['RS Score'], y: d['RSI 14'], label: d['Ticker'], color: d['RS Score'] > 60 && d['RSI 14'] < 70 ? '#22c98a' : d['RSI 14'] >= 70 ? '#f5a623' : '#6b7280' }));
-  destroyChart('scatterChart');
-  charts['scatterChart'] = new Chart(document.getElementById('scatterChart').getContext('2d'), {
-    type: 'scatter', data: { datasets: [{ data: points, backgroundColor: points.map(p => p.color + '66'), borderColor: points.map(p => p.color), borderWidth: 1, pointRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => { const p = points[ctx.dataIndex]; return [`${N(p.label)}`, ` RS: ${ctx.parsed.x.toFixed(1)}  RSI: ${ctx.parsed.y.toFixed(1)}`]; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
-      scales: { x: { title: { display: true, text: 'RS Score', color: '#6b7280', font: { size: 10 } }, min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } } }, y: { title: { display: true, text: 'RSI 14', color: '#6b7280', font: { size: 10 } }, min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } } } } }
-  });
+function renderCartelera() {
+  const data = getDatosFiltrados();
+
+  function varPill(v) {
+    if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    const c    = v >= 0 ? 'var(--green)' : 'var(--red)';
+    const sign = v >= 0 ? '+' : '';
+    return `<span style="color:${c};font-family:'DM Mono',monospace;font-size:12px;font-weight:600">${sign}${v.toFixed(2)}%</span>`;
+  }
+
+  function rsiPill(v) {
+    if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    const cls = v >= 70 ? 'pill-red' : v <= 30 ? 'pill-green' : 'pill-amber';
+    return `<span class="score-pill ${cls}" style="font-size:11px">${v.toFixed(1)}</span>`;
+  }
+
+  function badge(ticker) {
+    return `<span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>`;
+  }
+
+  function miniList(title, items, valueFn) {
+    const rows = items.map((d, i) =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);min-width:12px;text-align:right">${i+1}</span>
+          ${badge(d['Ticker'])}
+        </div>
+        ${valueFn(d)}
+      </div>`
+    ).join('');
+    return `<div style="border-right:1px solid rgba(255,255,255,0.04);">
+      <div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">${title}</div>
+      ${rows || '<div style="padding:10px 12px;color:var(--muted);font-size:11px">Sin datos</div>'}
+    </div>`;
+  }
+
+  const withVar = data.filter(d => d['Var Día %'] !== null && d['Var Día %'] !== undefined);
+  const withRSI = data.filter(d => d['RSI 14']   !== null && d['RSI 14']   !== undefined);
+
+  const ganadores  = [...withVar].sort((a,b) => b['Var Día %'] - a['Var Día %']).slice(0,5);
+  const perdedores = [...withVar].sort((a,b) => a['Var Día %'] - b['Var Día %']).slice(0,5);
+  const sobrecomp  = [...withRSI].sort((a,b) => b['RSI 14']   - a['RSI 14']  ).slice(0,5);
+  const sobrevend  = [...withRSI].sort((a,b) => a['RSI 14']   - b['RSI 14']  ).slice(0,5);
+
+  document.getElementById('cartelera-body').innerHTML =
+    miniList('🟢 Top Ganadores',  ganadores,  d => varPill(d['Var Día %'])) +
+    miniList('🔴 Top Perdedores', perdedores, d => varPill(d['Var Día %'])) +
+    miniList('🟠 Sobrecomprados', sobrecomp,  d => rsiPill(d['RSI 14']))   +
+    miniList('🔵 Sobrevendidos',  sobrevend,  d => rsiPill(d['RSI 14']));
 }
 
 let scannerSort = { col: 'RS Score', asc: false };
@@ -1115,6 +1342,12 @@ function renderScanner() {
     } else if (col === 'delta-mes') {
       va = (a['RS Score'] !== null && a['RS Mes ant.'] !== null) ? a['RS Score'] - a['RS Mes ant.'] : -Infinity;
       vb = (b['RS Score'] !== null && b['RS Mes ant.'] !== null) ? b['RS Score'] - b['RS Mes ant.'] : -Infinity;
+    } else if (col === 'ses10') {
+      va = (a['Días + 10s'] !== null && a['Días + 10s'] !== undefined) ? a['Días + 10s'] : -Infinity;
+      vb = (b['Días + 10s'] !== null && b['Días + 10s'] !== undefined) ? b['Días + 10s'] : -Infinity;
+    } else if (col === 'volratio') {
+      va = (a['Vol días + 10s'] && a['Vol días - 10s']) ? a['Vol días + 10s'] / a['Vol días - 10s'] : -Infinity;
+      vb = (b['Vol días + 10s'] && b['Vol días - 10s']) ? b['Vol días + 10s'] / b['Vol días - 10s'] : -Infinity;
     } else {
       va = a[col] ?? -Infinity;
       vb = b[col] ?? -Infinity;
@@ -1122,7 +1355,7 @@ function renderScanner() {
     return asc ? va - vb : vb - va;
   });
 
-  ['Precio','Var Día %','RS Score','delta-hoy','delta-mes','RSI 14','Vol Relativa','Vol Inusual %','Dist EMA200 %','Dist SMA50 %'].forEach(k => {
+  ['Precio','Var Día %','RS Score','delta-hoy','delta-mes','RSI 14','Vol Relativa','Vol Inusual %','ses10','volratio','Dist EMA200 %','Dist SMA50 %'].forEach(k => {
     const el = document.getElementById('sort-ind-' + k);
     if (el) el.textContent = col === k ? (asc ? '▲' : '▼') : '';
   });
@@ -1136,7 +1369,7 @@ function renderScanner() {
 
   const body = document.getElementById('scanner-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    ? '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(d => `<tr>
       <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
       <td>${getPrecio(d)}</td>
@@ -1149,28 +1382,52 @@ function renderScanner() {
       <td>${pill(d['RSI 14'], 70, 50)}</td>
       <td><span class="score-pill ${d['Vol Relativa'] < 0.6 ? 'pill-green' : d['Vol Relativa'] < 1 ? 'pill-amber' : 'pill-red'}">${d['Vol Relativa'] !== null ? d['Vol Relativa'].toFixed(2) + 'x' : '—'}</span></td>
       <td>${volInusualCell(d['Vol Inusual %'])}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${(()=>{ const p=d['Días + 10s'],n=d['Días - 10s']; if(p===null||p===undefined)return '<span style="color:var(--muted)">—</span>'; return `<span style="color:var(--green)">▲${p}</span> <span style="color:var(--muted);">/</span> <span style="color:var(--red)">▼${n}</span>`; })()}</td>
+      <td>${(()=>{ const vp=d['Vol días + 10s'],vn=d['Vol días - 10s']; if(!vp||!vn||vn===0)return '<span style="color:var(--muted)">—</span>'; const r=vp/vn; const cls=r>1.5?'pill-green':r>1?'pill-amber':r<0.67?'pill-red':'pill-blue'; return `<span class="score-pill ${cls}">${r.toFixed(2)}x</span>`; })()}</td>
       <td style="color:${d['Dist EMA200 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist EMA200 %'] !== null ? (d['Dist EMA200 %'] > 0 ? '+' : '') + d['Dist EMA200 %'].toFixed(1) + '%' : '—'}</td>
       <td style="color:${d['Dist SMA50 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist SMA50 %'] !== null ? (d['Dist SMA50 %'] > 0 ? '+' : '') + d['Dist SMA50 %'].toFixed(1) + '%' : '—'}</td>
     </tr>`).join('');
 }
 
 function renderSemaforo() {
-  let data = getDatosFiltrados();
-  const s = document.getElementById('sema-sort').value;
-  if (s === 'rs') data.sort((a, b) => (b['RS Score'] || 0) - (a['RS Score'] || 0));
-  if (s === 'rsi') data.sort((a, b) => (b['RSI 14'] || 0) - (a['RSI 14'] || 0));
-  if (s === 'vol') data.sort((a, b) => (a['Vol Relativa'] || 999) - (b['Vol Relativa'] || 999));
-  if (s === 'vol-inusual') data.sort((a, b) => (b['Vol Inusual %'] || 0) - (a['Vol Inusual %'] || 0));
+  const data = getDatosFiltrados();
+  const sortMode = document.getElementById('sema-sort').value;
   const dot = c => `<span class="dot ${c === true ? 'dot-green' : c === false ? 'dot-red' : 'dot-amber'}"></span>`;
   const fmt = (v, d = 1) => v !== null && v !== undefined ? v.toFixed(d) : '—';
-  document.getElementById('sema-grid').innerHTML = data.map(d => {
+
+  // Agrupar por sector
+  const sectores = {};
+  data.forEach(d => {
+    const s = d['Sector'] || 'Sin sector';
+    if (!sectores[s]) sectores[s] = [];
+    sectores[s].push(d);
+  });
+
+  // Dentro de cada sector: top 3 por RS Score
+  Object.keys(sectores).forEach(s => {
+    sectores[s].sort((a, b) => (b['RS Score'] || 0) - (a['RS Score'] || 0));
+    sectores[s] = sectores[s].slice(0, 3);
+  });
+
+  // Ordenar sectores
+  let sectorList = Object.keys(sectores);
+  if (sortMode === 'best-rs') {
+    sectorList.sort((a, b) => (sectores[b][0]['RS Score'] || 0) - (sectores[a][0]['RS Score'] || 0));
+  } else if (sortMode === 'avg-rs') {
+    const avg = s => sectores[s].reduce((sum, d) => sum + (d['RS Score'] || 0), 0) / sectores[s].length;
+    sectorList.sort((a, b) => avg(b) - avg(a));
+  } else {
+    sectorList.sort();
+  }
+
+  function semaCard(d) {
     const sobreEma = d['Dist EMA200 %'] !== null ? d['Dist EMA200 %'] > 0 : null;
     const sobreSma = d['Dist SMA50 %'] !== null ? d['Dist SMA50 %'] > 0 : null;
-    const rsiOk = d['RSI 14'] !== null ? (d['RSI 14'] > 40 && d['RSI 14'] < 70 ? null : d['RSI 14'] < 70) : null;
-    const rsOk = d['RS Score'] !== null ? d['RS Score'] > 60 : null;
-    const volOk = d['Vol Relativa'] !== null ? d['Vol Relativa'] < 1 : null;
-    const hasVol = d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50;
-    const varStr = d['Var Día %'] !== null && d['Var Día %'] !== undefined
+    const rsiOk    = d['RSI 14'] !== null ? (d['RSI 14'] > 40 && d['RSI 14'] < 70 ? null : d['RSI 14'] < 70) : null;
+    const rsOk     = d['RS Score'] !== null ? d['RS Score'] > 60 : null;
+    const volOk    = d['Vol Relativa'] !== null ? d['Vol Relativa'] < 1 : null;
+    const hasVol   = d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50;
+    const varStr   = d['Var Día %'] !== null && d['Var Día %'] !== undefined
       ? `<span class="${d['Var Día %'] >= 0 ? 'c-green' : 'c-red'}" style="font-size:10px;font-family:'DM Mono',monospace">${d['Var Día %'] >= 0 ? '▲' : '▼'}${Math.abs(d['Var Día %']).toFixed(1)}%</span>` : '';
     return `<div class="sema-card ${hasVol ? 'has-vol-spike' : ''}">
       <div class="sema-ticker" style="color:${colorRS(d['RS Score'])}" title="${N(d['Ticker'])}">${d['Ticker']}${hasVol ? `<span class="vol-tag">VOL</span>` : varStr}</div>
@@ -1179,6 +1436,19 @@ function renderSemaforo() {
       <div class="sema-row"><span class="sema-key">RSI 14</span><span>${dot(rsiOk)} ${fmt(d['RSI 14'])}</span></div>
       <div class="sema-row"><span class="sema-key">RS Score</span><span>${dot(rsOk)} ${fmt(d['RS Score'])}</span></div>
       <div class="sema-row"><span class="sema-key">Vol Rel.</span><span>${dot(volOk)} ${fmt(d['Vol Relativa'], 2)}x</span></div>
+    </div>`;
+  }
+
+  document.getElementById('sema-grid').innerHTML = sectorList.map(sector => {
+    const tickers = sectores[sector];
+    const avgRS = tickers.reduce((sum, d) => sum + (d['RS Score'] || 0), 0) / tickers.length;
+    return `<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">${sector}</span>
+        <span style="font-size:10px;font-family:'DM Mono',monospace;color:${colorRS(avgRS)};background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:4px">RS̄ ${avgRS.toFixed(1)}</span>
+        <span style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></span>
+      </div>
+      <div class="sema-grid">${tickers.map(semaCard).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -1321,12 +1591,12 @@ function renderTodo() {
   actualizarBadges();
   renderStats();
   renderTickerStrip();
-  renderBubble();
+  renderResurgimiento();
   renderWarrenScore();
   renderTrend();
-  renderVol();
+  renderSesionesVol();
   renderVolInusual();
-  renderScatter();
+  renderCartelera();
   renderScanner();
   renderSemaforo();
   poblarComparador();
@@ -1760,6 +2030,88 @@ function initHomeLiveWidgets() {
 initHomeTitle();
 initHomeLiveWidgets();
 
+// ── MARKET FX (tormenta / soleado según SPY) ──────────────────
+const marketFX = (() => {
+  const canvas = document.getElementById('market-fx');
+  const ctx    = canvas.getContext('2d');
+  let   rafId  = null;
+  let   drops  = [];
+  let   sparks = [];
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function initDrops() {
+    drops = Array.from({length: 90}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      len:   12 + Math.random() * 18,
+      speed:  9 + Math.random() * 10,
+      alpha: 0.08 + Math.random() * 0.18,
+    }));
+  }
+
+  function initSparks() {
+    sparks = Array.from({length: 55}, () => ({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * 120,
+      r:    1 + Math.random() * 2.5,
+      vy:   0.6 + Math.random() * 1.4,
+      vx:   (Math.random() - 0.5) * 0.6,
+      alpha: 0.1 + Math.random() * 0.25,
+    }));
+  }
+
+  function drawStorm() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const vg = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.height*.25, canvas.width/2, canvas.height/2, canvas.height);
+    vg.addColorStop(0, 'transparent');
+    vg.addColorStop(1, 'rgba(180,15,15,0.13)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drops.forEach(d => {
+      ctx.strokeStyle = `rgba(220,45,45,${d.alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 3, d.y + d.len); ctx.stroke();
+      d.y += d.speed; d.x -= 1.5;
+      if (d.y > canvas.height + d.len) { d.y = -d.len; d.x = Math.random() * (canvas.width + 60); }
+    });
+    rafId = requestAnimationFrame(drawStorm);
+  }
+
+  function drawSunny() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const vg = ctx.createRadialGradient(canvas.width/2, -40, 0, canvas.width/2, -40, canvas.height * .75);
+    vg.addColorStop(0, 'rgba(34,201,138,0.09)');
+    vg.addColorStop(1, 'transparent');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    sparks.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(34,201,138,${p.alpha})`; ctx.fill();
+      p.y -= p.vy; p.x += p.vx;
+      if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+    });
+    rafId = requestAnimationFrame(drawSunny);
+  }
+
+  function clear() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  return {
+    update() {
+      if (typeof DATOS === 'undefined' || !DATOS.length) return;
+      const spy = DATOS.find(d => d['Ticker'] === 'SPY');
+      if (!spy) return;
+      const v = spy['Var Día %'];
+      clear();
+      if (v <= -1)      { initDrops();  drawStorm(); }
+      else if (v >= 1)  { initSparks(); drawSunny(); }
+    }
+  };
+})();
+
 // ── SPOTLIGHT EFFECT (panels + home buttons) ──────────────────
 document.addEventListener('mousemove', e => {
   document.querySelectorAll('.panel, .home-btn').forEach(el => {
@@ -1774,7 +2126,7 @@ initHomeAnimation();
 if (!DATOS.length) {
   fetch(DATOS_URL + '?t=' + Date.now())
     .then(r => r.json())
-    .then(d => { if (Array.isArray(d) && d.length && !DATOS.length) DATOS = d; })
+    .then(d => { if (Array.isArray(d) && d.length && !DATOS.length) { DATOS = d; marketFX.update(); } })
     .catch(() => {});
 }
 
