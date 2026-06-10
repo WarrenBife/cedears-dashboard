@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Warren Bife Indicator</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0d0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -344,39 +344,31 @@
   <div class="grid-2">
     <div class="panel">
       <div class="panel-head">
-        <div><div class="panel-title">Explorador de activos</div><div class="panel-sub" id="explorador-sub">RS Score vs Dist. Máx 52W — tamaño = Market Cap</div></div>
+        <div><div class="panel-title">Mapa de Re-surgimiento</div><div class="panel-sub">RS actual vs RS semana anterior — arriba de la diagonal = ganando terreno</div></div>
       </div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
-        <span class="pf-label">Eje X:</span>
-        <select id="exp-x" onchange="renderExplorador()">
-          <option value="RS Score" selected>RS Score</option>
-          <option value="RSI 14">RSI 14</option>
-          <option value="Dist Máx52W %">Dist Máx52W %</option>
-          <option value="Dist EMA200 %">Dist EMA200 %</option>
+        <span class="pf-label">Mostrar:</span>
+        <select id="resurg-filter" onchange="renderResurgimiento()">
+          <option value="all">Todos</option>
+          <option value="up">Solo suben ▲</option>
+          <option value="momentum">Momentum creciente ↑↑</option>
+          <option value="resurg">Re-surgiendo</option>
+          <option value="pierde">Perdiendo fuerza ▼</option>
         </select>
-        <span class="pf-label">Eje Y:</span>
-        <select id="exp-y" onchange="renderExplorador()">
-          <option value="RS Score">RS Score</option>
-          <option value="RSI 14">RSI 14</option>
-          <option value="Dist Máx52W %" selected>Dist Máx52W %</option>
-          <option value="Dist EMA200 %">Dist EMA200 %</option>
+        <span class="pf-label" style="margin-left:6px">Vol acumulado:</span>
+        <select id="resurg-vol-filter" onchange="renderResurgimiento()">
+          <option value="all">Todos</option>
+          <option value="vol-pos">Más en días ▲</option>
+          <option value="vol-neg">Más en días ▼</option>
         </select>
-        <span class="pf-label">Tamaño:</span>
-        <select id="exp-size" onchange="renderExplorador()">
-          <option value="Market Cap" selected>Market Cap</option>
-          <option value="Vol Inusual">Vol Inusual</option>
-        </select>
-        <span class="pf-label">RS mín:</span>
-        <input type="range" id="bubble-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('bubble-rs-min-val').textContent=this.value;renderExplorador()">
-        <span id="bubble-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
       </div>
       <div class="panel-body">
-        <div class="chart-wrap" style="height:450px"><canvas id="bubbleChart"></canvas></div>
-        <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;color:var(--muted)">
-          <span><span class="dot dot-green" style="display:inline-block"></span>RS &gt; 70</span>
-          <span><span class="dot dot-amber" style="display:inline-block"></span>RS 40–70</span>
-          <span><span class="dot dot-red" style="display:inline-block"></span>RS &lt; 40</span>
-          <span style="color:var(--amber)">★ vol inusual</span>
+        <div class="chart-wrap" style="height:450px"><canvas id="resurgChart"></canvas></div>
+        <div style="display:flex;gap:18px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
+          <span style="color:#22c98a">● RS subiendo</span>
+          <span style="color:#6b7280">● Sin cambio</span>
+          <span style="color:#f0605a">● RS bajando</span>
+          <span style="color:#6b7280;margin-left:4px">— diagonal = sin cambio</span>
         </div>
       </div>
     </div>
@@ -429,16 +421,27 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Volatilidad relativa</div><div class="panel-sub">Vol 5 ruedas / Vol histórica 1 año — naranja = vol inusual</div></div></div>
-      <div class="panel-filters">
-        <span class="pf-label">Ordenar:</span>
-        <select id="vol-orden" onchange="renderVol()"><option value="mayor">Mayor a menor</option><option value="menor" selected>Menor a mayor</option></select>
-        <select id="vol-n" onchange="renderVol()"><option value="30">30</option><option value="50">50</option></select>
-        <span class="pf-label">RS mín:</span>
-        <input type="range" id="vol-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('vol-rs-min-val').textContent=this.value;renderVol()">
-        <span id="vol-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
+      <div class="panel-head"><div><div class="panel-title">Sesiones & Volumen</div><div class="panel-sub">Ranking por días ▲ × ratio de volumen — últimas 10 ruedas</div></div></div>
+      <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
+        <span class="pf-label">Top:</span>
+        <select id="sv-n" onchange="renderSesionesVol()"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option></select>
+        <span class="pf-label">Días ▲ mín:</span>
+        <input type="range" id="sv-dias-min" min="0" max="10" value="0" style="width:70px" oninput="document.getElementById('sv-dias-min-val').textContent=this.value;renderSesionesVol()">
+        <span id="sv-dias-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
+        <span class="pf-label" style="margin-left:4px">RS mín:</span>
+        <input type="range" id="sv-rs-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('sv-rs-min-val').textContent=this.value;renderSesionesVol()">
+        <span id="sv-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
       </div>
-      <div class="panel-body"><div class="chart-wrap" style="height:320px"><canvas id="volChart"></canvas></div></div>
+      <div class="panel-body">
+        <div class="chart-wrap" style="height:480px"><canvas id="svChart"></canvas></div>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
+          <span style="color:#22c98a">● 8–10 días ▲</span>
+          <span style="color:#4f8ef7">● 6–7 días ▲</span>
+          <span style="color:#f5a623">● 4–5 días ▲</span>
+          <span style="color:#f0605a">● 0–3 días ▲</span>
+          <span style="color:var(--muted);margin-left:4px">barra = Vol ▲/▼ · orden = días × vol</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -493,6 +496,8 @@
             <th onclick="sortScanner('RSI 14')" style="cursor:pointer" class="scanner-th">RSI <span id="sort-ind-RSI 14"></span></th>
             <th onclick="sortScanner('Vol Relativa')" style="cursor:pointer" class="scanner-th">Vol Rel <span id="sort-ind-Vol Relativa"></span></th>
             <th onclick="sortScanner('Vol Inusual %')" style="cursor:pointer" class="scanner-th">Vol Inu <span id="sort-ind-Vol Inusual %"></span></th>
+            <th onclick="sortScanner('ses10')" style="cursor:pointer" class="scanner-th" title="Días ▲ / Días ▼ de las últimas 10 sesiones">10s ▲▼ <span id="sort-ind-ses10"></span></th>
+            <th onclick="sortScanner('volratio')" style="cursor:pointer" class="scanner-th" title="Vol acumulado días ▲ / Vol acumulado días ▼ (últimas 10 sesiones)">Vol ▲/▼ <span id="sort-ind-volratio"></span></th>
             <th onclick="sortScanner('Dist EMA200 %')" style="cursor:pointer" class="scanner-th">EMA200 <span id="sort-ind-Dist EMA200 %"></span></th>
             <th onclick="sortScanner('Dist SMA50 %')" style="cursor:pointer" class="scanner-th">SMA50 <span id="sort-ind-Dist SMA50 %"></span></th>
           </tr></thead>
@@ -854,6 +859,14 @@ const N = t => NOMBRES[t] || t;
 function colorRS(s) { return s === null || s === undefined ? '#6b7280' : s > 70 ? '#22c98a' : s > 40 ? '#f5a623' : '#f0605a'; }
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
+function deltaColor(delta) {
+  if (delta === null || delta === undefined || isNaN(delta)) return 'rgba(107,114,128,0.8)';
+  const t = Math.min(1, Math.abs(delta) / 20);
+  if (delta > 0)
+    return `rgba(${Math.round(107+(34-107)*t)},${Math.round(114+(201-114)*t)},${Math.round(128+(138-128)*t)},0.9)`;
+  return `rgba(${Math.round(107+(240-107)*t)},${Math.round(114+(96-114)*t)},${Math.round(128+(90-128)*t)},0.9)`;
+}
+
 function renderStats() {
   const data = getDatosFiltrados();
   document.getElementById('st-total').textContent   = data.length;
@@ -867,81 +880,106 @@ function renderStats() {
   ).length;
 }
 
-function renderExplorador() {
-  const xField   = document.getElementById('exp-x').value;
-  const yField   = document.getElementById('exp-y').value;
-  const sizeOpt  = document.getElementById('exp-size').value;
-  const rsMin    = parseFloat(document.getElementById('bubble-rs-min').value);
-  const sizeLabel = sizeOpt === 'Market Cap' ? 'Market Cap' : 'Vol Inusual';
+function renderResurgimiento() {
+  const filterMode   = document.getElementById('resurg-filter').value;
+  const volFilterMode = document.getElementById('resurg-vol-filter').value;
 
-  document.getElementById('explorador-sub').textContent =
-    `${xField} vs ${yField} — tamaño = ${sizeLabel}`;
-
-  const data = getDatosFiltrados().filter(d =>
-    d[xField] !== null && d[yField] !== null &&
-    d['RS Score'] !== null && d['RS Score'] >= rsMin
+  const raw = getDatosFiltrados().filter(d =>
+    d['RS Score'] !== null && d['RS Semana ant.'] !== null
   );
 
+  const data = raw.filter(d => {
+    const delta = d['RS Score'] - d['RS Semana ant.'];
+    if (filterMode === 'up')       { if (!(delta > 0)) return false; }
+    else if (filterMode === 'momentum') { if (!(d['RS Mes ant.'] !== null && d['RS Score'] > d['RS Semana ant.'] && d['RS Semana ant.'] > d['RS Mes ant.'])) return false; }
+    else if (filterMode === 'resurg')   { if (!(delta > 0 && d['RS Semana ant.'] < 55)) return false; }
+    else if (filterMode === 'pierde')   { if (!(delta < 0 && d['RS Semana ant.'] > 50)) return false; }
+    if (volFilterMode === 'vol-pos') { if (!((d['Vol días + 10s'] || 0) > (d['Vol días - 10s'] || 0))) return false; }
+    if (volFilterMode === 'vol-neg') { if (!((d['Vol días - 10s'] || 0) > (d['Vol días + 10s'] || 0))) return false; }
+    return true;
+  });
+
   const points = data.map(d => {
-    let r;
-    if (sizeOpt === 'Market Cap') {
-      r = d['Market Cap USD'] ? Math.max(4, Math.min(25, Math.log10(d['Market Cap USD'] / 1e8) * 5)) : 6;
-    } else {
-      const vi = d['Vol Inusual %'];
-      r = vi !== null ? Math.max(4, Math.min(25, 4 + (vi / 100) * 21)) : 4;
-    }
+    const delta   = d['RS Score'] - d['RS Semana ant.'];
+    const r       = Math.max(4, Math.min(14, 4 + Math.abs(delta) / 2.5));
+    const vPos    = d['Vol días + 10s'];
+    const vNeg    = d['Vol días - 10s'];
+    const dPos    = d['Días + 10s'];
+    const dNeg    = d['Días - 10s'];
+    const volRatio = (vPos !== null && vNeg !== null && vNeg > 0) ? vPos / vNeg : null;
     return {
-      x: d[xField], y: d[yField], r,
-      label: d['Ticker'], rs: d['RS Score'],
-      color: colorRS(d['RS Score']),
-      volInusual: d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50,
-      xVal: d[xField], yVal: d[yField],
-      sizeVal: sizeOpt === 'Market Cap' ? d['Market Cap USD'] : d['Vol Inusual %'],
+      x: d['RS Semana ant.'], y: d['RS Score'], r,
+      label: d['Ticker'],
+      rsAct: d['RS Score'], rsSem: d['RS Semana ant.'], delta,
+      diasPos: dPos, diasNeg: dNeg, volRatio,
     };
   });
 
-  const isPct   = f => f === 'Dist Máx52W %' || f === 'Dist EMA200 %';
-  const isFixed = f => f === 'RS Score' || f === 'RSI 14';
+  const borderColors = points.map(p => deltaColor(p.delta));
+  const bgColors     = points.map(p => deltaColor(p.delta).replace('0.9)', '0.35)'));
 
-  function axisOpts(field) {
-    const base = {
-      grid: { color: 'rgba(255,255,255,0.04)' },
-      ticks: { color: '#6b7280', font: { size: 9 } },
-      title: { display: true, text: field, color: '#6b7280', font: { size: 10 } },
-    };
-    if (isFixed(field)) { base.min = 0; base.max = 100; }
-    if (isPct(field))   { base.ticks = { ...base.ticks, callback: v => v + '%' }; }
-    return base;
-  }
-
-  destroyChart('bubbleChart');
-  charts['bubbleChart'] = new Chart(document.getElementById('bubbleChart').getContext('2d'), {
+  destroyChart('resurgChart');
+  charts['resurgChart'] = new Chart(document.getElementById('resurgChart').getContext('2d'), {
     type: 'bubble',
-    data: { datasets: [{ data: points, backgroundColor: points.map(p => p.volInusual ? '#f5a62388' : p.color + '55'), borderColor: points.map(p => p.volInusual ? '#f5a623' : p.color), borderWidth: points.map(p => p.volInusual ? 2 : 1) }] },
+    data: { datasets: [{ data: points, backgroundColor: bgColors, borderColor: borderColors, borderWidth: 1.5 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             label: ctx => {
               const p = points[ctx.dataIndex];
-              const fmt = (v, f) => isPct(f) ? v.toFixed(1) + '%' : v.toFixed(1);
-              const sizeStr = sizeOpt === 'Market Cap'
-                ? (p.sizeVal ? (p.sizeVal / 1e9).toFixed(1) + 'B' : '—')
-                : (p.sizeVal !== null && p.sizeVal !== undefined ? p.sizeVal.toFixed(0) + '%' : '—');
-              return [
-                ` ${N(p.label)}${p.volInusual ? ' ★' : ''}`,
-                ` ${xField}: ${fmt(p.xVal, xField)}   ${yField}: ${fmt(p.yVal, yField)}`,
-                ` ${sizeLabel}: ${sizeStr}`,
+              const sign = p.delta >= 0 ? '+' : '';
+              const lines = [
+                ` ${N(p.label)}`,
+                ` RS actual:  ${p.rsAct.toFixed(1)}`,
+                ` RS sem.ant: ${p.rsSem.toFixed(1)}`,
+                ` Δ semana:   ${sign}${p.delta.toFixed(1)}`,
               ];
+              if (p.diasPos !== null && p.diasPos !== undefined) {
+                const total = (p.diasPos || 0) + (p.diasNeg || 0);
+                lines.push(` Sesiones:   ▲${p.diasPos} ▼${p.diasNeg} / ${total}`);
+              }
+              if (p.volRatio !== null && p.volRatio !== undefined) {
+                lines.push(` Vol ▲/▼:    ${p.volRatio.toFixed(2)}x`);
+              }
+              return lines;
             }
           },
           backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af'
         }
       },
-      scales: { x: axisOpts(xField), y: axisOpts(yField) }
-    }
+      scales: {
+        x: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } }, title: { display: true, text: 'RS Score semana anterior', color: '#6b7280', font: { size: 10 } } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 } }, title: { display: true, text: 'RS Score actual', color: '#6b7280', font: { size: 10 } } }
+      }
+    },
+    plugins: [{
+      id: 'resurgDiagonal',
+      afterDraw(chart) {
+        const {ctx, scales: {x, y}, chartArea} = chart;
+        ctx.save();
+        // Línea diagonal y = x (sin cambio)
+        ctx.beginPath();
+        ctx.moveTo(x.getPixelForValue(0), y.getPixelForValue(0));
+        ctx.lineTo(x.getPixelForValue(100), y.getPixelForValue(100));
+        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Etiquetas de cuadrantes
+        ctx.font = '9px DM Mono, monospace';
+        ctx.fillStyle = 'rgba(107,114,128,0.38)';
+        ctx.fillText('RE-SURGIENDO ↑', chartArea.left + 6,  chartArea.top + 14);
+        ctx.fillText('CONSOLIDADOS ↑', chartArea.left + (chartArea.right - chartArea.left) / 2 + 8, chartArea.top + 14);
+        ctx.fillText('DÉBILES',        chartArea.left + 6,  chartArea.bottom - 7);
+        ctx.fillText('PERDIENDO ↓',    chartArea.left + (chartArea.right - chartArea.left) / 2 + 8, chartArea.bottom - 7);
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -991,14 +1029,14 @@ function renderWarrenScore() {
   body.innerHTML = data.length === 0
     ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin, cSec }) => {
-        const volSec = d['Vol 5d/40d'];
-        const volSecCls = volSec === null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
+        const volSec = d['Vol 5d/40d'] ?? null;
+        const volSecCls = volSec == null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
         return `<tr>
         <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
         <td>${scoreBadge(score)}</td>
-        <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!==null?d['RS Score'].toFixed(1):'—'}</span></td>
-        <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!==null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
-        <td><span class="score-pill ${volSecCls}">${volSec !== null ? volSec.toFixed(2)+'x' : '—'}</span></td>
+        <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!=null?d['RS Score'].toFixed(1):'—'}</span></td>
+        <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!=null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
+        <td><span class="score-pill ${volSecCls}">${volSec != null ? volSec.toFixed(2)+'x' : '—'}</span></td>
         <td style="text-align:center">${dot(cEma)}</td>
         <td style="text-align:center">${dot(cSma)}</td>
         <td style="text-align:center">${dot(cMin)}</td>
@@ -1131,20 +1169,78 @@ function renderTrend() {
   </table>`;
 }
 
-function renderVol() {
-  const orden = document.getElementById('vol-orden').value;
-  const n     = parseInt(document.getElementById('vol-n').value);
-  const rsMin = parseFloat(document.getElementById('vol-rs-min').value);
-  const data = getDatosFiltrados().filter(d => d['Vol Relativa'] !== null && (d['RS Score'] === null || d['RS Score'] >= rsMin))
-    .sort((a, b) => orden === 'mayor' ? b['Vol Relativa'] - a['Vol Relativa'] : a['Vol Relativa'] - b['Vol Relativa']).slice(0, n);
-  const values = data.map(d => d['Vol Relativa']);
-  const colors = data.map((d, i) => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50 ? '#f5a623cc' : values[i] > 1.5 ? '#f0605acc' : values[i] > 1 ? '#f5a62366' : '#22c98a66');
-  destroyChart('volChart');
-  charts['volChart'] = new Chart(document.getElementById('volChart').getContext('2d'), {
-    type: 'bar', data: { labels: data.map(d => d['Ticker']), datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, borderSkipped: false }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => N(items[0].label), label: ctx => { const d = data[ctx.dataIndex]; const vi = d['Vol Inusual %'] !== null ? `  Vol inusual: +${d['Vol Inusual %'].toFixed(0)}%` : ''; return ` Vol rel: ${ctx.parsed.y.toFixed(2)}x${vi}`; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
-      scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9, family: "'DM Mono',monospace" }, maxRotation: 45 } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v.toFixed(1) + 'x' } } } }
+function renderSesionesVol() {
+  const n       = parseInt(document.getElementById('sv-n').value);
+  const diasMin = parseInt(document.getElementById('sv-dias-min').value);
+  const rsMin   = parseFloat(document.getElementById('sv-rs-min').value);
+
+  const CAP = 7;
+  const daysColor = dp => dp >= 8 ? '#22c98a' : dp >= 6 ? '#4f8ef7' : dp >= 4 ? '#f5a623' : '#f0605a';
+
+  const rows = getDatosFiltrados()
+    .filter(d =>
+      d['Días + 10s'] !== null && d['Días + 10s'] !== undefined &&
+      d['Vol días + 10s'] !== null && d['Vol días + 10s'] > 0 &&
+      d['Días + 10s'] >= diasMin &&
+      (d['RS Score'] === null || d['RS Score'] >= rsMin)
+    )
+    .map(d => {
+      const vPos     = d['Vol días + 10s'] || 0;
+      const vNeg     = d['Vol días - 10s'] || 0;
+      const rawRatio = vNeg > 0 ? vPos / vNeg : CAP;
+      const ratio    = Math.min(rawRatio, CAP);
+      return { d, ratio, rawRatio, score: d['Días + 10s'] * ratio, diasPos: d['Días + 10s'], diasNeg: d['Días - 10s'] || 0 };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+
+  const labels = rows.map(r => r.d['Ticker']);
+  const values = rows.map(r => r.ratio);
+  const colors = rows.map(r => daysColor(r.diasPos));
+
+  destroyChart('svChart');
+  charts['svChart'] = new Chart(document.getElementById('svChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.map(c => c + 'aa'), borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => N(items[0].label),
+            label: ctx => {
+              const r = rows[ctx.dataIndex];
+              const ratioStr = r.rawRatio >= CAP ? `≥${CAP}x (sin días ▼)` : r.ratio.toFixed(2) + 'x';
+              return [
+                ` Días ▲: ${r.diasPos}  Días ▼: ${r.diasNeg}`,
+                ` Vol ▲/▼: ${ratioStr}`,
+                ` Score: ${r.score.toFixed(1)}`,
+                ` RS: ${r.d['RS Score'] !== null ? r.d['RS Score'].toFixed(1) : '—'}`,
+              ];
+            }
+          },
+          backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af'
+        }
+      },
+      scales: {
+        x: {
+          min: 0,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#6b7280', font: { size: 9 }, callback: v => v === CAP ? `≥${CAP}x` : v.toFixed(1) + 'x' },
+          title: { display: true, text: 'Vol ▲ / Vol ▼', color: '#6b7280', font: { size: 10 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#9ca3af', font: { size: 9, family: "'DM Mono',monospace" } }
+        }
+      }
+    }
   });
 }
 
@@ -1246,6 +1342,12 @@ function renderScanner() {
     } else if (col === 'delta-mes') {
       va = (a['RS Score'] !== null && a['RS Mes ant.'] !== null) ? a['RS Score'] - a['RS Mes ant.'] : -Infinity;
       vb = (b['RS Score'] !== null && b['RS Mes ant.'] !== null) ? b['RS Score'] - b['RS Mes ant.'] : -Infinity;
+    } else if (col === 'ses10') {
+      va = (a['Días + 10s'] !== null && a['Días + 10s'] !== undefined) ? a['Días + 10s'] : -Infinity;
+      vb = (b['Días + 10s'] !== null && b['Días + 10s'] !== undefined) ? b['Días + 10s'] : -Infinity;
+    } else if (col === 'volratio') {
+      va = (a['Vol días + 10s'] && a['Vol días - 10s']) ? a['Vol días + 10s'] / a['Vol días - 10s'] : -Infinity;
+      vb = (b['Vol días + 10s'] && b['Vol días - 10s']) ? b['Vol días + 10s'] / b['Vol días - 10s'] : -Infinity;
     } else {
       va = a[col] ?? -Infinity;
       vb = b[col] ?? -Infinity;
@@ -1253,7 +1355,7 @@ function renderScanner() {
     return asc ? va - vb : vb - va;
   });
 
-  ['Precio','Var Día %','RS Score','delta-hoy','delta-mes','RSI 14','Vol Relativa','Vol Inusual %','Dist EMA200 %','Dist SMA50 %'].forEach(k => {
+  ['Precio','Var Día %','RS Score','delta-hoy','delta-mes','RSI 14','Vol Relativa','Vol Inusual %','ses10','volratio','Dist EMA200 %','Dist SMA50 %'].forEach(k => {
     const el = document.getElementById('sort-ind-' + k);
     if (el) el.textContent = col === k ? (asc ? '▲' : '▼') : '';
   });
@@ -1267,7 +1369,7 @@ function renderScanner() {
 
   const body = document.getElementById('scanner-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    ? '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(d => `<tr>
       <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
       <td>${getPrecio(d)}</td>
@@ -1280,6 +1382,8 @@ function renderScanner() {
       <td>${pill(d['RSI 14'], 70, 50)}</td>
       <td><span class="score-pill ${d['Vol Relativa'] < 0.6 ? 'pill-green' : d['Vol Relativa'] < 1 ? 'pill-amber' : 'pill-red'}">${d['Vol Relativa'] !== null ? d['Vol Relativa'].toFixed(2) + 'x' : '—'}</span></td>
       <td>${volInusualCell(d['Vol Inusual %'])}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${(()=>{ const p=d['Días + 10s'],n=d['Días - 10s']; if(p===null||p===undefined)return '<span style="color:var(--muted)">—</span>'; return `<span style="color:var(--green)">▲${p}</span> <span style="color:var(--muted);">/</span> <span style="color:var(--red)">▼${n}</span>`; })()}</td>
+      <td>${(()=>{ const vp=d['Vol días + 10s'],vn=d['Vol días - 10s']; if(!vp||!vn||vn===0)return '<span style="color:var(--muted)">—</span>'; const r=vp/vn; const cls=r>1.5?'pill-green':r>1?'pill-amber':r<0.67?'pill-red':'pill-blue'; return `<span class="score-pill ${cls}">${r.toFixed(2)}x</span>`; })()}</td>
       <td style="color:${d['Dist EMA200 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist EMA200 %'] !== null ? (d['Dist EMA200 %'] > 0 ? '+' : '') + d['Dist EMA200 %'].toFixed(1) + '%' : '—'}</td>
       <td style="color:${d['Dist SMA50 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist SMA50 %'] !== null ? (d['Dist SMA50 %'] > 0 ? '+' : '') + d['Dist SMA50 %'].toFixed(1) + '%' : '—'}</td>
     </tr>`).join('');
@@ -1487,10 +1591,10 @@ function renderTodo() {
   actualizarBadges();
   renderStats();
   renderTickerStrip();
-  renderExplorador();
+  renderResurgimiento();
   renderWarrenScore();
   renderTrend();
-  renderVol();
+  renderSesionesVol();
   renderVolInusual();
   renderCartelera();
   renderScanner();
@@ -2408,7 +2512,7 @@ function toggleTCField() {
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('./service-worker.js')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });
