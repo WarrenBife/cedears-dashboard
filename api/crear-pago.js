@@ -14,6 +14,8 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
+  const email = (req.body?.email || '').toLowerCase().trim();
+
   try {
     const preference = new Preference(client);
     const result = await preference.create({
@@ -34,6 +36,7 @@ module.exports = async (req, res) => {
         },
         auto_return: 'approved',
         statement_descriptor: 'WARREN BIFE',
+        external_reference: email,
       },
     });
 

@@ -40,10 +40,10 @@ module.exports = async (req, res) => {
     const expiry = Date.now() + EXPIRY_MS;
     const token  = generarToken(payment_id, expiry);
 
-    // Guardar email del pagador en KV para acceso futuro desde cualquier dispositivo
-    const email = result.payer?.email;
+    // Guardar email (ingresado por el usuario) en Redis para acceso desde cualquier dispositivo
+    const email = (req.query.external_reference || '').toLowerCase().trim();
     if (email) {
-      await kv.set(`email:${email.toLowerCase()}`, { payment_id, exp: expiry });
+      await kv.set(`email:${email}`, { payment_id, exp: expiry });
     }
 
     console.log(`[confirmar-pago] Pago OK — payment_id=${payment_id} email=${email}`);
