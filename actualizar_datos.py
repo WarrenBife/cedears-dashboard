@@ -36,14 +36,15 @@ TICKERS = {
         "ROKU", "SONY", "NTCO", "SE", "JD", "BIDU", "BABA",
         "NTES", "PDD", "TCOM", "AI", "PATH", "UPST", "HOOD",
         "RKLB", "ASTS", "ALAB", "RGTI", "OKLO", "IREN",
-        "IBIT", "ETHA", "ARKK", "CRWV", "TEM", "SATL"
+        "IBIT", "ETHA", "ARKK", "CRWV", "TEM", "SATL",
+        "ANET", "SNDK", "NBIS", "ONDS"
     ],
     "CEDEARs Finanzas": [
         "JPM", "BAC", "GS", "C", "WFC", "USB", "BK", "AXP",
         "V", "MA", "PYPL", "SCHW", "BX", "MS", "AIG",
         "BBD", "ITUB", "BSBR", "SAN", "BBV", "ING",
         "HSBC", "HDB", "IBN", "KB", "MFG", "MUFG", "NMR",
-        "XP", "PAGS", "STNE", "NU", "HOOD"
+        "XP", "PAGS", "STNE", "NU", "HOOD", "FISV", "O"
     ],
     "CEDEARs Salud": [
         "JNJ", "PFE", "ABBV", "MRK", "AMGN", "GILD", "BIIB",
@@ -62,7 +63,8 @@ TICKERS = {
         "GOLD", "NEM", "AEM", "GFI", "HMY", "KGC", "PAAS",
         "MUX", "HL", "CDE", "NG", "AUY", "GGB", "SID",
         "NUE", "SCCO", "MOS", "DOW", "DD", "LND", "BNG",
-        "SUZ", "BAK", "UGP", "PBR", "PTR", "SNP"
+        "SUZ", "BAK", "UGP", "PBR", "PTR", "SNP",
+        "COP", "GLNG", "MP", "CCJ", "NEE"
     ],
     "CEDEARs Industria & Aero": [
         "BA", "CAT", "MMM", "GE", "HON", "RTX", "LMT", "HWM",
@@ -114,6 +116,7 @@ ETF_SECTOR = {
     "CSCO": "XLK", "MSI": "XLK", "INFY": "XLK", "PLTR": "XLK",
     "PANW": "XLK", "PATH": "XLK", "AI": "XLK", "TEM": "XLK",
     "COIN": "XLK", "MSTR": "XLK", "HOOD": "XLK",
+    "ANET": "XLK", "SNDK": "SMH", "NBIS": "XLK", "ONDS": "XLK",
     # Semis
     "NVDA": "SMH", "AMD": "SMH", "INTC": "SMH", "QCOM": "SMH",
     "AVGO": "SMH", "MU": "SMH", "AMAT": "SMH", "LRCX": "SMH",
@@ -123,7 +126,7 @@ ETF_SECTOR = {
     "JPM": "XLF", "BAC": "XLF", "GS": "XLF", "C": "XLF",
     "WFC": "XLF", "AXP": "XLF", "V": "XLF", "MA": "XLF",
     "SCHW": "XLF", "BX": "XLF", "BK": "XLF", "USB": "XLF",
-    "PYPL": "XLF",
+    "PYPL": "XLF", "FISV": "XLF", "O": "XLRE",
     # Salud
     "JNJ": "XLV", "PFE": "XLV", "ABBV": "XLV", "MRK": "XLV",
     "AMGN": "XLV", "GILD": "XLV", "BIIB": "XLV", "MRNA": "XLV",
@@ -133,12 +136,12 @@ ETF_SECTOR = {
     # Energía
     "XOM": "XLE", "CVX": "XLE", "BP": "XLE", "SHEL": "XLE",
     "TTE": "XLE", "OXY": "XLE", "HAL": "XLE", "SLB": "XLE",
-    "BKR": "XLE", "PSX": "XLE", "EQNR": "XLE",
+    "BKR": "XLE", "PSX": "XLE", "EQNR": "XLE", "COP": "XLE", "GLNG": "XLE",
     # Materiales / Minería
     "GOLD": "GDX", "NEM": "GDX", "AEM": "GDX", "KGC": "GDX",
     "GFI": "GDX", "HMY": "GDX", "PAAS": "GDX", "MUX": "GDX",
     "HL": "GDX", "CDE": "GDX", "NG": "GDX", "AUY": "GDX",
-    "FCX": "COPX", "SCCO": "COPX",
+    "FCX": "COPX", "SCCO": "COPX", "MP": "XLB", "CCJ": "URA", "NEE": "XLU",
     "RIO": "XLB", "BHP": "XLB", "VALE": "XLB", "GGB": "XLB",
     # Industria
     "BA": "XLI", "CAT": "XLI", "MMM": "XLI", "GE": "XLI",
@@ -431,6 +434,14 @@ def calcular_kpis(ticker_symbol, hist_spy):
         # Sesiones 10 ruedas
         dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
 
+        # Vol 5d/40d: ratio volumen promedio últimas 5 ruedas vs últimas 40
+        vol_5d_40d = None
+        if len(volume) >= 40:
+            v5  = volume.tail(5).mean()
+            v40 = volume.tail(40).mean()
+            if v40 > 0:
+                vol_5d_40d = round(v5 / v40, 2)
+
         # RS Score
         score_actual, score_ayer, score_semana, score_mes, sobre_sma, \
         fr_hoy, fr_ayer, fr_semana, fr_mes = calcular_rs_score(
@@ -475,6 +486,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
             "Vol días - 10s":      vol_neg_10,
+            "Vol 5d/40d":          vol_5d_40d,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
@@ -554,6 +566,11 @@ for _, row in df.iterrows():
     datos_export.append(item)
 
 json_str       = json.dumps(datos_export, ensure_ascii=False)
+
+# Guardar copia local
+with open("datos.json", "w", encoding="utf-8") as _f:
+    _f.write(json_str)
+
 contenido_b64  = base64.b64encode(json_str.encode()).decode()
 headers        = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 url            = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{ARCHIVO}"
