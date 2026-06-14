@@ -444,7 +444,7 @@
   <div class="grid-2">
     <div class="panel">
       <div class="panel-head">
-        <div><div class="panel-title">Mapa de Re-surgimiento</div><div class="panel-sub">RS actual vs RS semana anterior — arriba de la diagonal = ganando terreno</div></div>
+        <div><div class="panel-title" data-tooltip="Scatter de RS actual vs RS de la semana anterior. Puntos arriba de la diagonal están ganando fuerza relativa; abajo la están perdiendo">Mapa de Re-surgimiento</div><div class="panel-sub">RS actual vs RS semana anterior — arriba de la diagonal = ganando terreno</div></div>
       </div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
         <span class="pf-label">Mostrar:</span>
@@ -473,7 +473,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Warren Score</div><div class="panel-sub">Score compuesto 0–100 por criterios técnicos</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking técnico compuesto: combina RS Score, posición vs EMA200 y SMA50, y nivel de volatilidad. Cuanto mayor el score, mejor la calidad técnica del activo">Warren Score</div><div class="panel-sub">Score compuesto 0–100 por criterios técnicos</div></div></div>
       <div class="panel-filters">
         <span class="pf-label">Mín criterios:</span>
         <select id="ws-min" onchange="renderWarrenScore()"><option value="2">2+</option><option value="3">3+</option><option value="4">4</option></select>
@@ -484,16 +484,16 @@
         <div style="max-height:500px;overflow-y:auto;">
           <table class="scanner-table" id="warren-table">
             <thead><tr>
-              <th>Ticker</th>
-              <th>Warren Score</th>
-              <th>RS</th>
-              <th>Vol Rel</th>
-              <th>Vol 5d/40d</th>
-              <th>EMA200</th>
-              <th>SMA50</th>
-              <th>+25%mín</th>
-              <th>Vol&lt;0.8</th>
-              <th>Secado</th>
+              <th data-tooltip="Símbolo del activo">Ticker</th>
+              <th data-tooltip="Score compuesto 0–100. Combina RS Score, posición vs medias móviles y nivel de volatilidad">Warren Score</th>
+              <th data-tooltip="RS Score actual (0–100). Se requiere >70 para cumplir el criterio">RS</th>
+              <th data-tooltip="Volatilidad relativa: desvío estándar últimas 5 ruedas vs histórico 1 año. Menor = más comprimido">Vol Rel</th>
+              <th data-tooltip="Volumen promedio 5 ruedas / 40 ruedas. Valor <1 indica que el volumen se está secando (señal de setup)">Vol 5d/40d</th>
+              <th data-tooltip="¿El precio cotiza por encima de la EMA de 200 ruedas? Verde = sí">EMA200</th>
+              <th data-tooltip="¿El precio cotiza por encima de la SMA de 50 ruedas? Verde = sí">SMA50</th>
+              <th data-tooltip="¿El precio está más de 25% arriba del mínimo de 52 semanas? Indica alejamiento del piso">+25%mín</th>
+              <th data-tooltip="¿Volatilidad relativa < 0.8? Indica acción comprimida con baja volatilidad histórica">Vol&lt;0.8</th>
+              <th data-tooltip="¿Vol 5d/40d < 1? Volumen decreciente respecto al promedio — posible contracción previa a movimiento">Secado</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -504,7 +504,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Tendencia RS Score</div><div class="panel-sub">Evolución últimas 4 semanas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div><div class="panel-sub">Evolución últimas 4 semanas</div></div></div>
       <div class="panel-filters">
         <span class="pf-label">Tickers:</span>
         <select id="trend-n" onchange="renderTrend()"><option value="20">20</option><option value="30">30</option><option value="50">50</option></select>
@@ -521,7 +521,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Sesiones & Volumen</div><div class="panel-sub">Ranking por días ▲ × ratio de volumen — últimas 10 ruedas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking por días alcistas ponderados por volumen en las últimas 10 ruedas. Mayor score = más días positivos con mayor volumen relativo (convicción compradora)">Sesiones & Volumen</div><div class="panel-sub">Ranking por días ▲ × ratio de volumen — últimas 10 ruedas</div></div></div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
         <span class="pf-label">Top:</span>
         <select id="sv-n" onchange="renderSesionesVol()"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option></select>
@@ -547,7 +547,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Volumen inusual hoy</div><div class="panel-sub">Desvío vs promedio 5 ruedas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Activos con volumen operado hoy muy superior al promedio de las últimas 20 ruedas. Puede indicar entrada de dinero institucional o noticias relevantes">Volumen inusual hoy</div><div class="panel-sub">Desvío vs promedio 5 ruedas</div></div></div>
       <div class="panel-filters">
         <span class="pf-label">Umbral:</span>
         <select id="vinu-umbral" onchange="renderVolInusual()"><option value="30">+30%</option><option value="50" selected>+50%</option><option value="100">+100%</option></select>
@@ -556,7 +556,7 @@
       <div class="panel-body"><div class="chart-wrap" style="height:260px"><canvas id="vinuChart"></canvas></div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Cartelera del día</div><div class="panel-sub">Principales movimientos y extremos RSI</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div><div class="panel-sub">Principales movimientos y extremos RSI</div></div></div>
       <div class="panel-body" style="padding:0;">
         <div id="cartelera-body" style="display:grid;grid-template-columns:1fr 1fr;max-height:320px;overflow-y:auto;"></div>
       </div>
@@ -565,7 +565,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Scanner de calidad</div><div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Filtra activos que cotizan sobre EMA200 y SMA50, con RS Score elevado y baja volatilidad relativa. Representa las acciones en mejor forma técnica del universo">Scanner de calidad</div><div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div></div></div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
         <span class="pf-label">RS mín:</span>
         <input type="range" id="f-rs" min="0" max="100" value="60" style="width:70px" oninput="document.getElementById('f-rs-val').textContent=this.value;renderScanner()">
@@ -586,27 +586,27 @@
       <div class="scanner-wrap">
         <table class="scanner-table">
           <thead><tr id="scanner-thead">
-            <th>Ticker</th>
-            <th onclick="sortScanner('Precio')" style="cursor:pointer" class="scanner-th">Precio <span id="sort-ind-Precio"></span></th>
-            <th onclick="sortScanner('Var Día %')" style="cursor:pointer" class="scanner-th">Var% <span id="sort-ind-Var Día %"></span></th>
-            <th>Sector</th><th>MCap</th>
-            <th onclick="sortScanner('RS Score')" style="cursor:pointer" class="scanner-th">RS <span id="sort-ind-RS Score"></span></th>
-            <th onclick="sortScanner('delta-hoy')" style="cursor:pointer" class="scanner-th">Δ RS Hoy <span id="sort-ind-delta-hoy"></span></th>
-            <th onclick="sortScanner('delta-mes')" style="cursor:pointer" class="scanner-th">Δ RS 1m <span id="sort-ind-delta-mes"></span></th>
-            <th onclick="sortScanner('RSI 14')" style="cursor:pointer" class="scanner-th">RSI <span id="sort-ind-RSI 14"></span></th>
-            <th onclick="sortScanner('Vol Relativa')" style="cursor:pointer" class="scanner-th">Vol Rel <span id="sort-ind-Vol Relativa"></span></th>
-            <th onclick="sortScanner('Vol Inusual %')" style="cursor:pointer" class="scanner-th">Vol Inu <span id="sort-ind-Vol Inusual %"></span></th>
-            <th onclick="sortScanner('ses10')" style="cursor:pointer" class="scanner-th" title="Días ▲ / Días ▼ de las últimas 10 sesiones">10s ▲▼ <span id="sort-ind-ses10"></span></th>
-            <th onclick="sortScanner('volratio')" style="cursor:pointer" class="scanner-th" title="Vol acumulado días ▲ / Vol acumulado días ▼ (últimas 10 sesiones)">Vol ▲/▼ <span id="sort-ind-volratio"></span></th>
-            <th onclick="sortScanner('Dist EMA200 %')" style="cursor:pointer" class="scanner-th">EMA200 <span id="sort-ind-Dist EMA200 %"></span></th>
-            <th onclick="sortScanner('Dist SMA50 %')" style="cursor:pointer" class="scanner-th">SMA50 <span id="sort-ind-Dist SMA50 %"></span></th>
+            <th data-tooltip="Símbolo del activo">Ticker</th>
+            <th onclick="sortScanner('Precio')" style="cursor:pointer" class="scanner-th" data-tooltip="Precio de cierre más reciente en USD">Precio <span id="sort-ind-Precio"></span></th>
+            <th onclick="sortScanner('Var Día %')" style="cursor:pointer" class="scanner-th" data-tooltip="Variación porcentual respecto al cierre anterior">Var% <span id="sort-ind-Var Día %"></span></th>
+            <th data-tooltip="Sector económico del activo">Sector</th><th data-tooltip="Categoría de capitalización de mercado: Large, Mid o Small Cap">MCap</th>
+            <th onclick="sortScanner('RS Score')" style="cursor:pointer" class="scanner-th" data-tooltip="RS Score: fuerza relativa del activo vs el universo (0–100). Mayor = mejor desempeño relativo">RS <span id="sort-ind-RS Score"></span></th>
+            <th onclick="sortScanner('delta-hoy')" style="cursor:pointer" class="scanner-th" data-tooltip="Cambio en RS Score respecto a ayer. Positivo = ganando fuerza relativa">Δ RS Hoy <span id="sort-ind-delta-hoy"></span></th>
+            <th onclick="sortScanner('delta-mes')" style="cursor:pointer" class="scanner-th" data-tooltip="Cambio en RS Score respecto al mes anterior. Positivo = tendencia de mejora">Δ RS 1m <span id="sort-ind-delta-mes"></span></th>
+            <th onclick="sortScanner('RSI 14')" style="cursor:pointer" class="scanner-th" data-tooltip="RSI de 14 ruedas. Sobrecompra >70 (rojo), sobreventa <30 (verde)">RSI <span id="sort-ind-RSI 14"></span></th>
+            <th onclick="sortScanner('Vol Relativa')" style="cursor:pointer" class="scanner-th" data-tooltip="Volatilidad relativa: desvío estándar últimas 5 ruedas vs histórico 1 año. <0.8 = comprimida">Vol Rel <span id="sort-ind-Vol Relativa"></span></th>
+            <th onclick="sortScanner('Vol Inusual %')" style="cursor:pointer" class="scanner-th" data-tooltip="Volumen inusual: % de desvío vs promedio de las últimas 20 ruedas. Mayor = más actividad inusual">Vol Inu <span id="sort-ind-Vol Inusual %"></span></th>
+            <th onclick="sortScanner('ses10')" style="cursor:pointer" class="scanner-th" data-tooltip="Días positivos vs negativos en las últimas 10 sesiones">10s ▲▼ <span id="sort-ind-ses10"></span></th>
+            <th onclick="sortScanner('volratio')" style="cursor:pointer" class="scanner-th" data-tooltip="Ratio de volumen en días alcistas / bajistas (últimas 10 sesiones). >1 = más volumen en días positivos">Vol ▲/▼ <span id="sort-ind-volratio"></span></th>
+            <th onclick="sortScanner('Dist EMA200 %')" style="cursor:pointer" class="scanner-th" data-tooltip="Distancia % del precio respecto a la EMA de 200 ruedas. Positivo = precio por encima">EMA200 <span id="sort-ind-Dist EMA200 %"></span></th>
+            <th onclick="sortScanner('Dist SMA50 %')" style="cursor:pointer" class="scanner-th" data-tooltip="Distancia % del precio respecto a la SMA de 50 ruedas. Positivo = precio por encima">SMA50 <span id="sort-ind-Dist SMA50 %"></span></th>
           </tr></thead>
           <tbody id="scanner-body"></tbody>
         </table>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
       <div class="panel-filters">
         <span class="pf-label">Ordenar sectores:</span>
         <select id="sema-sort" onchange="renderSemaforo()">
@@ -626,7 +626,7 @@
   <div class="panel" style="margin-top:14px">
     <div class="panel-head">
       <div>
-        <div class="panel-title">Comparador de activos</div>
+        <div class="panel-title" data-tooltip="Compara la evolución del RS Score entre dos activos a lo largo del tiempo para analizar cuál tiene mayor fuerza relativa">Comparador de activos</div>
         <div class="panel-sub">Escribí para buscar un ticker</div>
       </div>
     </div>
@@ -2365,8 +2365,38 @@ function getRatioCedear(ticker) {
 
 
 </script>
+<div id="wb-tooltip" style="position:fixed;z-index:99999;background:#111827;border:1px solid rgba(148,163,184,0.18);color:#c9d1e0;font-size:11.5px;font-family:'DM Sans',sans-serif;font-weight:400;line-height:1.55;padding:7px 11px;border-radius:8px;max-width:260px;box-shadow:0 6px 24px rgba(0,0,0,0.65);pointer-events:none;display:none;white-space:normal;"></div>
 <div id="tv-popover" style="position:fixed;z-index:9999;background:#13161e;border:1px solid rgba(255,255,255,0.13);border-radius:10px;padding:8px;display:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);"></div>
 <script>
+// ── TOOLTIP SYSTEM ────────────────────────────────────────────
+(function(){
+  const tt = document.getElementById('wb-tooltip');
+  let cur = null;
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-tooltip]');
+    if (!el || el === cur) return;
+    cur = el;
+    tt.textContent = el.dataset.tooltip;
+    tt.style.display = 'block';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!cur) return;
+    let x = e.clientX + 14, y = e.clientY - 44;
+    if (x + tt.offsetWidth + 10 > window.innerWidth) x = e.clientX - tt.offsetWidth - 14;
+    if (y < 8) y = e.clientY + 18;
+    tt.style.left = x + 'px';
+    tt.style.top  = y + 'px';
+  });
+  document.addEventListener('mouseout', e => {
+    const el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    if (!e.relatedTarget || !e.relatedTarget.closest('[data-tooltip]')) {
+      tt.style.display = 'none';
+      cur = null;
+    }
+  });
+})();
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
