@@ -165,7 +165,29 @@
 
   /* ── VISTAS / NAVEGACIÓN ────────────────────────────────────── */
   #view-home{position:fixed;inset:0;z-index:300;background:radial-gradient(1200px 700px at 50% -10%,rgba(34,201,138,0.06),transparent 60%),#070a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
-  #view-dashboard,#view-cartera{display:none;}
+  #view-dashboard{display:none;}
+  /* ── PAYMENT GATE ────────────────────────────────────────────── */
+  #view-pago{position:fixed;inset:0;z-index:300;background:radial-gradient(1200px 700px at 50% -10%,rgba(79,142,247,0.07),transparent 60%),#070a0f;display:none;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+  .pago-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:40px 44px;max-width:420px;width:90%;text-align:center;position:relative;z-index:10;box-shadow:0 30px 80px -20px rgba(0,0,0,0.8);}
+  .pago-logo{width:72px;height:72px;border-radius:50%;margin:0 auto 20px;display:block;border:2px solid rgba(79,142,247,0.35);box-shadow:0 0 0 5px rgba(79,142,247,0.06),0 0 40px rgba(79,142,247,0.15);}
+  .pago-titulo{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;}
+  .pago-sub{color:var(--muted);font-size:13px;margin-bottom:28px;line-height:1.5;}
+  .pago-precio{font-family:'DM Mono',monospace;font-size:38px;font-weight:500;color:var(--text);margin-bottom:4px;letter-spacing:-0.03em;}
+  .pago-precio span{font-size:16px;color:var(--muted);font-weight:400;}
+  .pago-unique{font-size:11px;color:var(--muted);margin-bottom:28px;}
+  .pago-features{text-align:left;margin-bottom:28px;display:flex;flex-direction:column;gap:9px;}
+  .pago-feat{display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(238,241,247,0.8);}
+  .pago-feat::before{content:'✓';color:var(--green);font-weight:600;font-size:13px;flex-shrink:0;}
+  .pago-btn{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#009ee3,#007eb5);color:#fff;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .2s var(--ease),box-shadow .2s var(--ease);margin-bottom:12px;}
+  .pago-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,158,227,0.4);}
+  .pago-btn:active{transform:translateY(0);}
+  .pago-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+  .pago-back{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color .2s;}
+  .pago-back:hover{color:var(--text);}
+  .pago-secure{font-size:10px;color:rgba(115,125,143,0.5);margin-top:14px;}
+  .pago-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none;}
+  .pago-msg.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(240,96,90,0.3);}
+  .pago-msg.info{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.3);}
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -206,41 +228,35 @@
   .ticker-rain{position:absolute;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;pointer-events:none;user-select:none;white-space:nowrap;}
   @keyframes pathGlow{0%,100%{opacity:0;}50%{opacity:1;}}
   @keyframes tickerFall{0%{transform:translateY(-30px);opacity:0;}10%{opacity:1;}90%{opacity:0.6;}100%{transform:translateY(100vh);opacity:0;}}
-  /* ── CARTERA ─────────────────────────────────────────────────── */
-  .nav-bar{display:flex;align-items:center;gap:10px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:sticky;top:0;z-index:100;flex-wrap:wrap;}
   .back-btn{background:none;border:1px solid var(--border2);color:var(--muted);padding:5px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.2s var(--ease);}
   .back-btn:hover{color:var(--green);border-color:rgba(34,201,138,0.5);background:rgba(34,201,138,0.06);}
-  .nav-title{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--accent);letter-spacing:0.04em;}
-  .cartera-main{padding:20px 24px;max-width:1400px;margin:0 auto;}
-  .modal-overlay{position:fixed;inset:0;background:rgba(2,4,8,0.76);backdrop-filter:blur(5px);z-index:500;display:none;align-items:center;justify-content:center;}
-  .modal-overlay.open{display:flex;}
-  .modal-box{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent 50%),var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);padding:26px;width:440px;max-width:95vw;box-shadow:0 24px 60px -20px rgba(0,0,0,0.8);animation:modalIn .22s var(--ease);}
-  @keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.985);}to{opacity:1;transform:none;}}
-  .modal-title{font-size:14px;font-weight:600;margin-bottom:18px;letter-spacing:0.01em;}
-  .form-group{margin-bottom:13px;}
-  .form-label{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;margin-bottom:6px;}
-  .form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 11px;border-radius:var(--r-sm);font-size:13px;font-family:'DM Sans',sans-serif;transition:border-color .2s var(--ease),box-shadow .2s var(--ease);}
-  .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,201,138,0.12);}
-  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .modal-footer{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;}
-  .btn-cancel{background:none;border:1px solid var(--border2);color:var(--muted);padding:8px 16px;border-radius:999px;cursor:pointer;font-size:12px;transition:all .2s var(--ease);}
-  .btn-cancel:hover{border-color:var(--text);color:var(--text);}
-  .btn-save{background:rgba(34,201,138,0.14);border:1px solid rgba(34,201,138,0.45);color:var(--green);padding:8px 18px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s var(--ease);}
-  .btn-save:hover{background:rgba(34,201,138,0.25);box-shadow:0 0 16px rgba(34,201,138,0.2);}
-  .btn-danger{background:var(--red-bg);border:1px solid rgba(240,96,90,0.3);color:var(--red);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:10px;transition:background .2s var(--ease);}
-  .btn-danger:hover{background:rgba(240,96,90,0.22);}
-  .btn-edit-sm{background:var(--bg3);border:1px solid var(--border2);color:var(--muted);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:10px;transition:all .2s var(--ease);}
-  .btn-edit-sm:hover{color:var(--green);border-color:rgba(34,201,138,0.5);}
-  .pos-group-row{cursor:pointer;}.pos-group-row:hover td{background:rgba(34,201,138,0.05) !important;}
-  .pos-detail-row td{font-size:11px;color:var(--muted);background:rgba(255,255,255,0.015);}
-  .expand-icon{display:inline-block;transition:transform 0.2s var(--ease);font-size:9px;margin-right:4px;color:var(--muted);}
-  .expand-icon.open{transform:rotate(90deg);}
-  .tc-hidden{display:none;}
 
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
     .ticker-track{animation:none;}
   }
+
+  /* ── EARNINGS STRIP ────────────────────────────────────────── */
+  #earnings-strip{background:rgba(245,166,35,0.025);border-bottom:1px solid rgba(245,166,35,0.13);display:none;}
+  .earnings-header{display:flex;align-items:center;gap:10px;padding:9px 22px 6px;flex-wrap:wrap;}
+  .earnings-title{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--amber);letter-spacing:0.08em;text-transform:uppercase;}
+  .earnings-week{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.18);padding:1px 8px;border-radius:999px;}
+  .earnings-note{font-size:9px;color:rgba(115,125,143,0.5);margin-left:auto;font-style:italic;}
+  .earnings-cards{display:flex;gap:10px;padding:6px 22px 12px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(245,166,35,0.2) transparent;}
+  .earnings-cards::-webkit-scrollbar{height:3px;}
+  .earnings-cards::-webkit-scrollbar-thumb{background:rgba(245,166,35,0.25);border-radius:2px;}
+  .earn-card{flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;min-width:160px;max-width:175px;transition:border-color .2s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease);}
+  .earn-card:hover{border-color:rgba(245,166,35,0.4);transform:translateY(-2px);box-shadow:0 8px 20px -10px rgba(245,166,35,0.2);}
+  .earn-logo{width:38px;height:38px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;margin-bottom:9px;display:block;}
+  .earn-logo-fb{width:38px;height:38px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--muted);margin-bottom:9px;}
+  .earn-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);letter-spacing:0.02em;}
+  .earn-name{font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .earn-date{font-size:11px;color:var(--text);font-family:'DM Mono',monospace;}
+  .earn-row{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;}
+  .earn-bmo{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(79,142,247,0.25);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
+  .earn-amc{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.25);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
+  .earn-tbd{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--bg3);color:var(--muted);border:1px solid var(--border2);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
+  .earn-days{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;}
 
 </style>
 </head>
@@ -275,13 +291,9 @@
     <h1 class="home-title" id="home-title"></h1>
     <div class="home-sub">Monitor técnico de CEDEARs y mercados globales</div>
     <div class="home-btns">
-      <button class="home-btn" onclick="showView('dashboard')">
+      <button class="home-btn" onclick="irAlDashboard()">
         <span class="home-btn-icon">📊</span>
         <div class="home-btn-label"><b>Dashboard</b><small>Indicadores y análisis técnico</small></div>
-      </button>
-      <button class="home-btn" onclick="showView('cartera')">
-        <span class="home-btn-icon">💼</span>
-        <div class="home-btn-label"><b>Seguimiento de Cartera</b><small>Tus posiciones y rendimiento</small></div>
       </button>
     </div>
   </div>
@@ -295,6 +307,31 @@
   <div class="home-footer">
     <img src="https://i.imgur.com/GuVsAWY.jpeg" style="width:16px;height:16px;border-radius:50%;" onerror="this.style.display='none'">
     @Warren_Bife · Warren Bife Dashboard
+  </div>
+</div>
+
+<!-- ── PAYMENT GATE ───────────────────────────────────────────── -->
+<div id="view-pago">
+  <div class="pago-card">
+    <img src="https://i.imgur.com/GuVsAWY.jpeg" class="pago-logo" onerror="this.style.display='none'">
+    <div class="pago-titulo">Warren Bife Dashboard</div>
+    <div class="pago-sub">Accedé al monitor técnico de CEDEARs y mercados globales</div>
+    <div class="pago-precio">$5.000 <span>ARS</span></div>
+    <div class="pago-unique">Pago único · acceso ilimitado</div>
+    <div class="pago-features">
+      <div class="pago-feat">Mapa de fuerza relativa de +290 CEDEARs</div>
+      <div class="pago-feat">Scanner de calidad con filtros avanzados</div>
+      <div class="pago-feat">Semáforo técnico por ticker</div>
+      <div class="pago-feat">Volumen inusual y earnings próxima semana</div>
+      <div class="pago-feat">Actualizaciones automáticas de datos</div>
+    </div>
+    <div id="pago-msg" class="pago-msg"></div>
+    <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+      Pagar con Mercado Pago
+    </button>
+    <button class="pago-back" onclick="showView('home')">← Volver al inicio</button>
+    <div class="pago-secure">🔒 Pago seguro procesado por Mercado Pago</div>
   </div>
 </div>
 
@@ -368,6 +405,16 @@
 
 <div class="ticker-strip-outer">
   <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<!-- ── EARNINGS PRÓXIMA SEMANA ────────────────────────────────── -->
+<div id="earnings-strip">
+  <div class="earnings-header">
+    <span class="earnings-title">📅 Earnings</span>
+    <span class="earnings-week" id="earnings-week-label"></span>
+    <span class="earnings-note">Fuente: Yahoo Finance · requiere proxy activo</span>
+  </div>
+  <div class="earnings-cards" id="earnings-cards"></div>
 </div>
 
 <div class="main">
@@ -591,144 +638,7 @@
 
 </div><!-- /view-dashboard -->
 
-<!-- ── CARTERA ────────────────────────────────────────────────── -->
-<div id="view-cartera">
-  <div class="nav-bar">
-    <button class="back-btn" onclick="showView('home')">← Menú</button>
-    <span class="nav-title">💼 Seguimiento de Cartera</span>
-    <div style="flex:1"></div>
-    <span id="c-precios-status" style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace"></span>
-    <button class="btn" onclick="abrirFormAdd()">+ Agregar posición</button>
-  </div>
-  <div class="cartera-main">
 
-    <!-- KPI cards -->
-    <div class="stats-row" style="margin-bottom:18px">
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">Valor Total</div>
-        <div class="stat-value c-blue" id="c-valor">—</div>
-        <div class="stat-sub">en USD</div>
-      </div>
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">P&amp;L Total</div>
-        <div class="stat-value" id="c-pnl">—</div>
-        <div class="stat-sub">ganancia / pérdida USD</div>
-      </div>
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">Rendimiento</div>
-        <div class="stat-value" id="c-rendimiento">—</div>
-        <div class="stat-sub">retorno total %</div>
-      </div>
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">Posiciones</div>
-        <div class="stat-value c-text" id="c-posiciones">—</div>
-        <div class="stat-sub">tickers distintos</div>
-      </div>
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">Mejor posición</div>
-        <div class="stat-value" id="c-mejor" style="font-size:15px">—</div>
-        <div class="stat-sub">mayor rendimiento</div>
-      </div>
-      <div class="stat-card" style="cursor:default">
-        <div class="stat-label">Peor posición</div>
-        <div class="stat-value" id="c-peor" style="font-size:15px">—</div>
-        <div class="stat-sub">menor rendimiento</div>
-      </div>
-    </div>
-
-    <!-- Charts -->
-    <div class="grid-2" style="margin-bottom:18px">
-      <div class="panel">
-        <div class="panel-head">
-          <div><div class="panel-title">Composición de cartera</div><div class="panel-sub">% del valor total por ticker</div></div>
-        </div>
-        <div class="panel-body">
-          <div class="chart-wrap" style="height:260px"><canvas id="carteraDonut"></canvas></div>
-          <div id="donut-empty" style="display:none;text-align:center;padding:60px 0;color:var(--muted);font-size:12px">Sin posiciones cargadas</div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head">
-          <div><div class="panel-title">Evolución de la cartera</div><div class="panel-sub">Valor total a lo largo del tiempo (snapshot diario)</div></div>
-        </div>
-        <div class="panel-body">
-          <div class="chart-wrap" style="height:260px"><canvas id="carteraLine"></canvas></div>
-          <div id="line-empty" style="display:none;text-align:center;padding:40px 0;color:var(--muted);font-size:12px">Visitá la cartera regularmente para construir el historial</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Posiciones -->
-    <div class="panel" style="margin-bottom:18px">
-      <div class="panel-head">
-        <div><div class="panel-title">Mis posiciones</div><div class="panel-sub">Precio promedio ponderado · Expandí cada ticker para ver compras individuales</div></div>
-        <button class="btn" onclick="abrirFormAdd()">+ Agregar</button>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="scanner-table">
-          <thead><tr>
-            <th>Ticker</th>
-            <th>Moneda</th>
-            <th>Precio Promedio</th>
-            <th>Precio Actual</th>
-            <th>Variación %</th>
-            <th>Cantidad</th>
-            <th>Valor Posición</th>
-            <th>P&amp;L $</th>
-            <th></th>
-          </tr></thead>
-          <tbody id="cartera-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-</div><!-- /view-cartera -->
-
-<!-- ── MODAL AGREGAR/EDITAR POSICIÓN ─────────────────────────── -->
-<div class="modal-overlay" id="modal-cartera">
-  <div class="modal-box">
-    <div class="modal-title" id="modal-titulo">Agregar posición</div>
-    <input type="hidden" id="pos-id">
-    <datalist id="tickers-list"></datalist>
-    <div class="form-group">
-      <label class="form-label">Ticker</label>
-      <input class="form-input" id="pos-ticker" list="tickers-list" placeholder="Ej: YPF, AAPL, MELI..." autocomplete="off" oninput="this.value=this.value.toUpperCase()">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Fecha de compra</label>
-        <input class="form-input" type="date" id="pos-fecha">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Moneda</label>
-        <select class="form-input" id="pos-moneda" onchange="toggleTCField()">
-          <option value="USD">USD (dólares)</option>
-          <option value="ARS">ARS (pesos)</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Precio de compra</label>
-        <input class="form-input" type="number" id="pos-precio" placeholder="0.00" step="0.01" min="0">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Cantidad</label>
-        <input class="form-input" type="number" id="pos-cantidad" placeholder="0" step="0.01" min="0">
-      </div>
-    </div>
-    <div class="form-group tc-hidden" id="tc-row">
-      <label class="form-label">Tipo de cambio USD/ARS al momento de la compra</label>
-      <input class="form-input" type="number" id="pos-tc" placeholder="Ej: 1200" step="1" min="0">
-      <div style="color:var(--muted);font-size:10px;margin-top:4px">El P&amp;L se mostrará en USD usando este TC</div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn-save" onclick="guardarPosicion()">Guardar</button>
-    </div>
-  </div>
-</div>
 
 <script>
 const DATOS_URL   = "https://warrenbife.github.io/cedears-dashboard/datos.json";
@@ -770,7 +680,6 @@ async function actualizarPrecios() {
       document.getElementById('last-kpi-update').textContent =
         new Date().toLocaleTimeString('es-AR') + ' (precios vivos)';
       renderTodo();
-      if (document.getElementById('view-cartera').style.display !== 'none') renderCartera();
       marketFX.update();
     }
   } catch(e) {
@@ -796,14 +705,6 @@ async function cargarDatos() {
     poblarFiltros();
     renderTodo();
     document.getElementById('loading').style.display = 'none';
-    // Actualizar datos del ticker list para la cartera
-    poblarTickerList();
-    // Si la cartera está visible, actualizar precios
-    if (document.getElementById('view-cartera').style.display !== 'none') {
-      renderCartera();
-      const st = document.getElementById('c-precios-status');
-      if (st) st.textContent = 'Precios: ' + new Date().toLocaleTimeString('es-AR');
-    }
     // Efecto visual según SPY
     marketFX.update();
     // Actualizar precios inmediatamente y luego cada 5 min
@@ -1645,6 +1546,123 @@ function renderTodo() {
 
 showView('home');
 
+// ── EARNINGS PRÓXIMA SEMANA ──────────────────────────────────
+// Mapa ticker → dominio para logos (clearbit)
+const TICKER_DOMAINS = {
+  AAPL:'apple.com',MSFT:'microsoft.com',NVDA:'nvidia.com',GOOGL:'google.com',GOOG:'google.com',
+  AMZN:'amazon.com',META:'meta.com',TSLA:'tesla.com',AVGO:'broadcom.com',JPM:'jpmorganchase.com',
+  V:'visa.com',MA:'mastercard.com',UNH:'unitedhealthgroup.com',XOM:'exxonmobil.com',
+  WMT:'walmart.com',LLY:'lilly.com',JNJ:'jnj.com',PG:'pg.com',HD:'homedepot.com',
+  COST:'costco.com',ABBV:'abbvie.com',BAC:'bankofamerica.com',NFLX:'netflix.com',
+  CRM:'salesforce.com',ORCL:'oracle.com',ADBE:'adobe.com',AMD:'amd.com',QCOM:'qualcomm.com',
+  INTC:'intel.com',MU:'micron.com',TXN:'ti.com',AMAT:'appliedmaterials.com',
+  NOW:'servicenow.com',SNOW:'snowflake.com',UBER:'uber.com',ABNB:'airbnb.com',
+  SHOP:'shopify.com',SQ:'squareup.com',PYPL:'paypal.com',COIN:'coinbase.com',
+  MS:'morganstanley.com',GS:'goldmansachs.com',WFC:'wellsfargo.com',C:'citigroup.com',
+  BLK:'blackrock.com',SCHW:'schwab.com',AXP:'americanexpress.com',SPGI:'spglobal.com',
+  CVX:'chevron.com',COP:'conocophillips.com',OXY:'oxy.com',SLB:'slb.com',
+  BA:'boeing.com',CAT:'caterpillar.com',GE:'ge.com',HON:'honeywell.com',RTX:'rtx.com',
+  UPS:'ups.com',FDX:'fedex.com',LMT:'lockheedmartin.com',NOC:'northropgrumman.com',
+  NKE:'nike.com',MCD:'mcdonalds.com',SBUX:'starbucks.com',DRI:'darden.com',
+  KR:'kroger.com',TGT:'target.com',LOW:'lowes.com',TJX:'tjx.com',
+  ACN:'accenture.com',IBM:'ibm.com',INTU:'intuit.com',FISV:'fiserv.com',
+  MRK:'merck.com',PFE:'pfizer.com',BMY:'bms.com',GILD:'gilead.com',AMGN:'amgen.com',
+  NEE:'nexteraenergy.com',DUK:'duke-energy.com',SO:'southerncompany.com',
+  CCJ:'cameco.com',MP:'mpcorp.com',GLNG:'golar.com',O:'realtyincome.com',
+  YPF:'ypf.com',MELI:'mercadolibre.com',NU:'nu.com.br',
+};
+
+function getLogoUrl(ticker) {
+  const domain = TICKER_DOMAINS[ticker] || `${ticker.toLowerCase()}.com`;
+  return `https://logo.clearbit.com/${domain}`;
+}
+
+function nextWeekRange() {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Dom
+  const dToMon = dow === 0 ? 1 : 8 - dow;
+  const mon = new Date(today); mon.setDate(today.getDate() + dToMon);
+  const fri = new Date(mon);   fri.setDate(mon.getDate() + 4);
+  const toISO = d => d.toISOString().split('T')[0];
+  return { from: toISO(mon), to: toISO(fri) };
+}
+
+function buildEarningsCards(list) {
+  const strip  = document.getElementById('earnings-strip');
+  const cards  = document.getElementById('earnings-cards');
+  const wlabel = document.getElementById('earnings-week-label');
+  if (!strip || !cards) return;
+
+  const MN  = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const DAY = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const fmt = iso => { const [,m,d] = iso.split('-'); return `${parseInt(d)} ${MN[parseInt(m)]}`; };
+  const today = new Date();
+
+  if (!list.length) { strip.style.display = 'none'; return; }
+  strip.style.display = 'block';
+
+  const { from, to } = nextWeekRange();
+  if (wlabel) wlabel.textContent = `${fmt(from)} – ${fmt(to)}`;
+
+  cards.innerHTML = list.map(e => {
+    const dt      = new Date(e.date + 'T12:00:00');
+    const diff    = Math.round((dt - today) / 86400000);
+    const dateStr = `${DAY[dt.getDay()]} ${fmt(e.date)}`;
+    const daysStr = diff === 0 ? 'hoy' : diff === 1 ? 'mañana' : `en ${diff} días`;
+    const whenCls = e.when === 'BMO' ? 'earn-bmo' : e.when === 'AMC' ? 'earn-amc' : 'earn-tbd';
+    const whenLbl = e.when === 'BMO' ? 'Pre-market' : e.when === 'AMC' ? 'After hours' : 'Horario TBD';
+    const logo    = getLogoUrl(e.ticker);
+    const uid     = e.ticker.replace(/[^A-Z0-9]/g,'');
+    const eps     = e.epsEst != null ? `<div class="earn-days" style="margin-top:3px">EPS est: <span style="color:var(--text)">${e.epsEst > 0 ? '+' : ''}${Number(e.epsEst).toFixed(2)}</span></div>` : '';
+    return `<div class="earn-card">
+      <img class="earn-logo" src="${logo}" alt="${e.ticker}"
+           onerror="this.style.display='none';document.getElementById('ef-${uid}').style.display='flex'">
+      <div class="earn-logo-fb" id="ef-${uid}" style="display:none">${e.ticker.slice(0,2)}</div>
+      <div class="earn-ticker">${e.ticker}</div>
+      <div class="earn-name" title="${e.name}">${e.name || '—'}</div>
+      <div class="earn-date">📅 ${dateStr}</div>
+      <div class="earn-row">
+        <span class="${whenCls}">${whenLbl}</span>
+        <span class="earn-days">${daysStr}</span>
+      </div>
+      ${eps}
+    </div>`;
+  }).join('');
+}
+
+async function renderEarnings() {
+  const strip = document.getElementById('earnings-strip');
+  const cards = document.getElementById('earnings-cards');
+  if (!strip || !cards) return;
+
+  const { from, to } = nextWeekRange();
+
+  // Mostrar estado de carga
+  strip.style.display = 'block';
+  cards.innerHTML = `<div style="padding:4px 0;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace">Consultando earnings calendar…</div>`;
+
+  try {
+    const r = await fetch(`http://localhost:3001/earnings?from=${from}&to=${to}`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    if (!data.earnings?.length) {
+      strip.style.display = 'none';
+      return;
+    }
+    // Ordenar por fecha, luego por ticker
+    data.earnings.sort((a,b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
+    buildEarningsCards(data.earnings);
+  } catch(err) {
+    console.warn('[earnings]', err.message);
+    strip.style.display = 'none';
+  }
+}
+
+renderEarnings();
+
 // ── TICKER STRIP ──────────────────────────────────────────────
 const STRIP_SYMS = ['SPY','QQQ','DIA','EWZ','FXI','AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA'];
 
@@ -1733,11 +1751,102 @@ function ocultarGrafico() {
   document.getElementById('tv-popover').style.display = 'none';
 }
 
+// ── ACCESO / PAGO ────────────────────────────────────────────
+const IS_LOCAL = ['localhost','127.0.0.1',''].includes(location.hostname) || location.protocol === 'file:';
+const ACCESS_KEY = 'wbAccess_v1';
+
+function guardarAcceso(token, pid, exp) {
+  localStorage.setItem(ACCESS_KEY, JSON.stringify({ token, pid, exp }));
+}
+
+async function verificarToken(token, pid, exp) {
+  try {
+    const r = await fetch(`/api/verificar-token?token=${token}&pid=${pid}&exp=${exp}`);
+    const d = await r.json();
+    return d.valid === true;
+  } catch { return false; }
+}
+
+async function tieneAcceso() {
+  if (IS_LOCAL) return true;
+
+  // ¿Viene de un pago exitoso? (MP redirige con ?token=&pid=&exp=)
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+  const pid    = params.get('pid');
+  const exp    = params.get('exp');
+
+  if (token && pid && exp) {
+    const ok = await verificarToken(token, pid, exp);
+    if (ok) {
+      guardarAcceso(token, pid, exp);
+      history.replaceState({}, '', '/');
+      return true;
+    }
+  }
+
+  // ¿Mensaje de pago fallido?
+  if (params.get('pago') === 'fallido' || params.get('pago') === 'error') {
+    history.replaceState({}, '', '/');
+    mostrarMsgPago('El pago no fue aprobado. Podés intentarlo de nuevo.', 'error');
+    return false;
+  }
+
+  // ¿Tiene token guardado en localStorage?
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null');
+    if (saved?.token && saved?.pid && saved?.exp) {
+      const ok = await verificarToken(saved.token, saved.pid, saved.exp);
+      if (ok) return true;
+      localStorage.removeItem(ACCESS_KEY);
+    }
+  } catch { localStorage.removeItem(ACCESS_KEY); }
+
+  return false;
+}
+
+function mostrarMsgPago(texto, tipo) {
+  const el = document.getElementById('pago-msg');
+  if (!el) return;
+  el.textContent = texto;
+  el.className   = `pago-msg ${tipo}`;
+  el.style.display = 'block';
+}
+
+async function irAlDashboard() {
+  const btn = document.querySelector('.home-btn');
+  if (btn) btn.disabled = true;
+
+  const ok = await tieneAcceso();
+
+  if (btn) btn.disabled = false;
+  showView(ok ? 'dashboard' : 'pago');
+}
+
+async function iniciarPago() {
+  const btn = document.getElementById('pago-btn');
+  btn.disabled = true;
+  btn.textContent = 'Conectando con Mercado Pago…';
+
+  try {
+    const r = await fetch('/api/crear-pago', { method: 'POST' });
+    if (!r.ok) throw new Error(`Error ${r.status}`);
+    const d = await r.json();
+    const url = IS_LOCAL ? d.sandbox_init_point : d.init_point;
+    if (!url) throw new Error('No se recibió la URL de pago');
+    location.href = url;
+  } catch (err) {
+    mostrarMsgPago('No se pudo iniciar el pago: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg> Pagar con Mercado Pago`;
+  }
+}
+
 // ── NAVEGACIÓN ────────────────────────────────────────────────
 function showView(name) {
   document.getElementById('view-home').style.display      = name === 'home'      ? 'flex'  : 'none';
   document.getElementById('view-dashboard').style.display = name === 'dashboard' ? 'block' : 'none';
-  document.getElementById('view-cartera').style.display   = name === 'cartera'   ? 'block' : 'none';
+  document.getElementById('view-pago').style.display      = name === 'pago'      ? 'flex'  : 'none';
   // Al volver al menú, limpiar quickFilter para que no quede activo al volver al dashboard
   if (name === 'home') {
     quickFilter = null;
@@ -1750,29 +1859,6 @@ function showView(name) {
   if (name === 'dashboard') {
     if (!DATOS.length) cargarDatos();
     else { document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); }
-  }
-  if (name === 'cartera') {
-    renderCartera();
-    if (!DATOS.length) {
-      // Carga silenciosa para tener precios actuales
-      fetch(DATOS_URL + '?t=' + Date.now())
-        .then(r => r.json())
-        .then(data => {
-          DATOS = data;
-          poblarFiltros();
-          poblarTickerList();
-          renderCartera();
-          const st = document.getElementById('c-precios-status');
-          if (st) st.textContent = 'Precios: ' + new Date().toLocaleTimeString('es-AR');
-        })
-        .catch(() => {
-          const st = document.getElementById('c-precios-status');
-          if (st) st.textContent = 'Sin precios en tiempo real';
-        });
-    } else {
-      const st = document.getElementById('c-precios-status');
-      if (st) st.textContent = 'Precios: ' + new Date().toLocaleTimeString('es-AR');
-    }
   }
 }
 
@@ -2229,325 +2315,7 @@ function getRatioCedear(ticker) {
   return CEDEAR_RATIOS[ticker] !== undefined ? CEDEAR_RATIOS[ticker] : 1;
 }
 
-// ── CARTERA — STORAGE ─────────────────────────────────────────
-const CARTERA_KEY   = 'wbCartera_v1';
-const SNAPSHOTS_KEY = 'wbCarteraSnaps_v1';
 
-function getCartera() {
-  try { return JSON.parse(localStorage.getItem(CARTERA_KEY) || '[]'); } catch { return []; }
-}
-function saveCartera(data) {
-  localStorage.setItem(CARTERA_KEY, JSON.stringify(data));
-}
-function getSnapshots() {
-  try { return JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]'); } catch { return []; }
-}
-function guardarSnapshot(valor) {
-  if (!valor || valor <= 0) return;
-  const snaps = getSnapshots();
-  const hoy = new Date().toISOString().split('T')[0];
-  const idx = snaps.findIndex(s => s.f === hoy);
-  if (idx >= 0) snaps[idx].v = valor;
-  else snaps.push({ f: hoy, v: valor });
-  snaps.sort((a, b) => a.f.localeCompare(b.f));
-  if (snaps.length > 365) snaps.splice(0, snaps.length - 365);
-  localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snaps));
-}
-
-// ── CARTERA — CÁLCULOS ────────────────────────────────────────
-// Devuelve el precio en USD por unidad comprada (CEDEAR o ADR)
-// Para CEDEARs: precio_ADR × ratio (subyacentes/CEDEAR)
-// Para ADRs en USD: precio_ADR directo
-function getPrecioActualUSD(ticker, esCedear) {
-  const d = DATOS.find(x => x['Ticker'] === ticker);
-  if (!d) return null;
-  const adrUSD = parseFloat(d['Precio']);
-  if (esCedear) return adrUSD * getRatioCedear(ticker);
-  return adrUSD;
-}
-
-function agruparPorTicker(posiciones) {
-  const mapa = {};
-  posiciones.forEach(p => {
-    if (!mapa[p.ticker]) mapa[p.ticker] = {
-      ticker: p.ticker, posiciones: [],
-      totalCantidad: 0, totalInvertido: 0,
-      tieneCedear: false
-    };
-    mapa[p.ticker].posiciones.push(p);
-    mapa[p.ticker].totalCantidad   += Number(p.cantidad);
-    mapa[p.ticker].totalInvertido  += Number(p.precio) * Number(p.cantidad);
-    if (p.moneda === 'ARS') mapa[p.ticker].tieneCedear = true;
-  });
-  return Object.values(mapa).map(g => ({
-    ...g,
-    precioPromedio: g.totalInvertido / g.totalCantidad,
-    precioActual:   getPrecioActualUSD(g.ticker, g.tieneCedear),
-    ratio:          g.tieneCedear ? getRatioCedear(g.ticker) : 1,
-  }));
-}
-
-// ── CARTERA — RENDER PRINCIPAL ────────────────────────────────
-function renderCartera() {
-  const posiciones = getCartera();
-  const grupos = agruparPorTicker(posiciones);
-
-  // KPIs
-  let valorTotal = 0, costoTotal = 0;
-  let mejor = null, peor = null;
-  grupos.forEach(g => {
-    const precio = g.precioActual !== null ? g.precioActual : g.precioPromedio;
-    valorTotal += precio * g.totalCantidad;
-    costoTotal += g.totalInvertido;
-    if (g.precioActual !== null) {
-      const pct = (g.precioActual - g.precioPromedio) / g.precioPromedio * 100;
-      if (mejor === null || pct > mejor.pct) mejor = { ticker: g.ticker, pct };
-      if (peor  === null || pct < peor.pct)  peor  = { ticker: g.ticker, pct };
-    }
-  });
-  const pnlTotal = valorTotal - costoTotal;
-  const pnlPct   = costoTotal > 0 ? pnlTotal / costoTotal * 100 : 0;
-
-  const fmtUSD = v => (v >= 0 ? '' : '-') + '$' + Math.abs(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  document.getElementById('c-valor').textContent = grupos.length ? fmtUSD(valorTotal) : '—';
-  const pnlEl = document.getElementById('c-pnl');
-  pnlEl.textContent = grupos.length ? (pnlTotal >= 0 ? '+' : '') + fmtUSD(pnlTotal) : '—';
-  pnlEl.className   = 'stat-value ' + (pnlTotal >= 0 ? 'c-green' : 'c-red');
-  const pctEl = document.getElementById('c-rendimiento');
-  pctEl.textContent = grupos.length ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%' : '—';
-  pctEl.className   = 'stat-value ' + (pnlPct >= 0 ? 'c-green' : 'c-red');
-  document.getElementById('c-posiciones').textContent = grupos.length || '—';
-  document.getElementById('c-mejor').innerHTML = mejor
-    ? `<span class="ticker-badge">${mejor.ticker}</span> <span class="c-green">${mejor.pct >= 0 ? '+' : ''}${mejor.pct.toFixed(1)}%</span>` : '—';
-  document.getElementById('c-peor').innerHTML  = peor
-    ? `<span class="ticker-badge">${peor.ticker}</span> <span class="${peor.pct >= 0 ? 'c-green' : 'c-red'}">${peor.pct >= 0 ? '+' : ''}${peor.pct.toFixed(1)}%</span>` : '—';
-
-  // Snapshot
-  if (DATOS.length && valorTotal > 0) guardarSnapshot(valorTotal);
-
-  renderCarteraTabla(grupos);
-  renderCarteraCharts(grupos);
-}
-
-// ── CARTERA — TABLA ───────────────────────────────────────────
-function renderCarteraTabla(grupos) {
-  const tbody = document.getElementById('cartera-tbody');
-  if (!tbody) return;
-  if (!grupos.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px;font-size:12px">Sin posiciones. Hacé clic en "+ Agregar posición" para empezar.</td></tr>`;
-    return;
-  }
-  let html = '';
-  grupos.forEach(g => {
-    const precio   = g.precioActual !== null ? g.precioActual : g.precioPromedio;
-    const valorPos = precio * g.totalCantidad;
-    const pnl    = g.precioActual !== null ? (g.precioActual - g.precioPromedio) * g.totalCantidad : null;
-    const pnlPct = g.precioActual !== null ? (g.precioActual - g.precioPromedio) / g.precioPromedio * 100 : null;
-    const cls       = pnl === null ? '' : pnl >= 0 ? 'c-green' : 'c-red';
-    const pnlStr    = pnl === null    ? '—' : (pnl >= 0 ? '+' : '-') + '$' + Math.abs(pnl).toFixed(2);
-    const pnlPctStr = pnlPct === null ? '—' : (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%';
-    const monedas   = [...new Set(g.posiciones.map(p => p.moneda))].join('/');
-    const tid       = g.ticker.replace(/[^a-zA-Z0-9]/g, '');
-    // Para CEDEARs mostrar el ratio y equivalencia en acciones subyacentes
-    const ratioLabel = g.tieneCedear
-      ? `<span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace"> ×${g.ratio.toFixed(4)}</span>`
-      : '';
-    const equivAcciones = g.tieneCedear
-      ? `<div style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">≈ ${(g.totalCantidad * g.ratio).toFixed(4)} acc.</div>`
-      : '';
-
-    html += `<tr class="pos-group-row" onclick="toggleExpand('${tid}')">
-      <td>
-        <span class="expand-icon" id="exp-${tid}">▶</span>
-        <span class="ticker-badge" onmouseenter="mostrarGrafico('${g.ticker}',this)" onmouseleave="ocultarGrafico()">${g.ticker}</span>
-        ${g.tieneCedear ? '<span style="font-size:9px;color:var(--muted);margin-left:4px">CEDEAR</span>' : ''}
-      </td>
-      <td style="color:var(--muted);font-size:11px">${monedas}</td>
-      <td style="font-family:'DM Mono',monospace">$${g.precioPromedio.toFixed(4)}<br>${ratioLabel}</td>
-      <td style="font-family:'DM Mono',monospace">${g.precioActual !== null ? '$'+g.precioActual.toFixed(4) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="${cls}" style="font-family:'DM Mono',monospace">${pnlPctStr}</td>
-      <td style="font-family:'DM Mono',monospace">${g.totalCantidad}${equivAcciones}</td>
-      <td style="font-family:'DM Mono',monospace">$${valorPos.toFixed(2)}</td>
-      <td class="${cls}" style="font-family:'DM Mono',monospace">${pnlStr}</td>
-      <td><button class="btn-edit-sm" onclick="event.stopPropagation();abrirFormAdd('${g.ticker}')">+ compra</button></td>
-    </tr>`;
-
-    g.posiciones.forEach((p, idx) => {
-      const esCedear = p.moneda === 'ARS';
-      const origen   = esCedear && p.precioOrigen
-        ? `$${Number(p.precioOrigen).toLocaleString('es-AR')} ARS${p.tc ? ' (TC '+p.tc+')' : ''}`
-        : `$${Number(p.precio).toFixed(4)} USD`;
-      const costoTotalPos = (Number(p.precio) * Number(p.cantidad)).toFixed(2);
-      html += `<tr class="pos-detail-row" id="det-${tid}-${idx}" style="display:none">
-        <td style="padding-left:28px;font-size:11px;color:var(--muted)" colspan="2">📅 ${p.fecha}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:11px">${origen}</td>
-        <td>—</td><td>—</td>
-        <td style="font-family:'DM Mono',monospace;font-size:11px">${p.cantidad}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:11px">$${costoTotalPos} USD</td>
-        <td>—</td>
-        <td style="display:flex;gap:4px;padding:5px 9px">
-          <button class="btn-edit-sm" onclick="editarPosicion('${p.id}')">✎</button>
-          <button class="btn-danger" onclick="eliminarPosicion('${p.id}')">✕</button>
-        </td>
-      </tr>`;
-    });
-  });
-  tbody.innerHTML = html;
-}
-
-function toggleExpand(tid) {
-  document.querySelectorAll(`[id^="det-${tid}-"]`).forEach(row => {
-    row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
-  });
-  const icon = document.getElementById('exp-' + tid);
-  if (icon) icon.classList.toggle('open');
-}
-
-// ── CARTERA — GRÁFICOS ────────────────────────────────────────
-const CHART_COLORS = ['#4f8ef7','#22c98a','#f5a623','#a78bfa','#f0605a','#34d399','#60a5fa','#fb923c','#c084fc','#4ade80','#f472b6','#38bdf8'];
-
-function renderCarteraCharts(grupos) {
-  // Donut composición
-  destroyChart('carteraDonut');
-  const ctxD = document.getElementById('carteraDonut');
-  if (grupos.length) {
-    document.getElementById('donut-empty').style.display = 'none';
-    ctxD.style.display = 'block';
-    const vals   = grupos.map(g => (g.precioActual !== null ? g.precioActual : g.precioPromedio) * g.totalCantidad);
-    const total  = vals.reduce((a, b) => a + b, 0);
-    charts['carteraDonut'] = new Chart(ctxD, {
-      type: 'doughnut',
-      data: {
-        labels: grupos.map(g => g.ticker),
-        datasets: [{ data: vals, backgroundColor: CHART_COLORS.slice(0, grupos.length), borderWidth: 0, hoverOffset: 6 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right', labels: { color: '#e8eaf0', font: { family: 'DM Sans', size: 11 }, padding: 12, boxWidth: 10 } },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${ctx.raw.toFixed(2)} (${(ctx.raw/total*100).toFixed(1)}%)` } }
-        }
-      }
-    });
-  } else {
-    document.getElementById('donut-empty').style.display = 'block';
-    ctxD.style.display = 'none';
-  }
-
-  // Line evolución
-  destroyChart('carteraLine');
-  const ctxL = document.getElementById('carteraLine');
-  const snaps = getSnapshots();
-  if (snaps.length >= 2) {
-    document.getElementById('line-empty').style.display = 'none';
-    ctxL.style.display = 'block';
-    charts['carteraLine'] = new Chart(ctxL, {
-      type: 'line',
-      data: {
-        labels: snaps.map(s => s.f),
-        datasets: [{
-          label: 'Valor cartera (USD)',
-          data: snaps.map(s => s.v),
-          borderColor: '#4f8ef7',
-          backgroundColor: 'rgba(79,142,247,0.08)',
-          fill: true, tension: 0.3,
-          pointRadius: snaps.length > 30 ? 0 : 3,
-          pointBackgroundColor: '#4f8ef7'
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280', font: { size: 10 } } },
-          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + v.toFixed(0) } }
-        }
-      }
-    });
-  } else {
-    document.getElementById('line-empty').style.display = 'block';
-    ctxL.style.display = 'none';
-  }
-}
-
-// ── CARTERA — MODAL ───────────────────────────────────────────
-function poblarTickerList() {
-  const dl = document.getElementById('tickers-list');
-  if (!dl || !DATOS.length) return;
-  dl.innerHTML = DATOS.map(d => `<option value="${d['Ticker']}">`).join('');
-}
-
-function abrirFormAdd(tickerPre) {
-  document.getElementById('modal-titulo').textContent = 'Agregar posición';
-  document.getElementById('pos-id').value      = '';
-  document.getElementById('pos-ticker').value  = tickerPre || '';
-  document.getElementById('pos-fecha').value   = new Date().toISOString().split('T')[0];
-  document.getElementById('pos-precio').value  = '';
-  document.getElementById('pos-cantidad').value = '';
-  document.getElementById('pos-moneda').value  = 'USD';
-  document.getElementById('pos-tc').value      = '';
-  toggleTCField();
-  document.getElementById('modal-cartera').classList.add('open');
-}
-
-function editarPosicion(id) {
-  const p = getCartera().find(x => x.id === id);
-  if (!p) return;
-  document.getElementById('modal-titulo').textContent  = 'Editar posición';
-  document.getElementById('pos-id').value       = id;
-  document.getElementById('pos-ticker').value   = p.ticker;
-  document.getElementById('pos-fecha').value    = p.fecha;
-  document.getElementById('pos-precio').value   = p.moneda === 'ARS' && p.precioOrigen ? p.precioOrigen : p.precio;
-  document.getElementById('pos-cantidad').value  = p.cantidad;
-  document.getElementById('pos-moneda').value   = p.moneda || 'USD';
-  document.getElementById('pos-tc').value       = p.tc || '';
-  toggleTCField();
-  document.getElementById('modal-cartera').classList.add('open');
-}
-
-function eliminarPosicion(id) {
-  if (!confirm('¿Eliminar esta compra?')) return;
-  saveCartera(getCartera().filter(x => x.id !== id));
-  renderCartera();
-}
-
-function guardarPosicion() {
-  const id       = document.getElementById('pos-id').value;
-  const ticker   = document.getElementById('pos-ticker').value.trim().toUpperCase();
-  const fecha    = document.getElementById('pos-fecha').value;
-  const moneda   = document.getElementById('pos-moneda').value;
-  const precio   = parseFloat(document.getElementById('pos-precio').value);
-  const cantidad = parseFloat(document.getElementById('pos-cantidad').value);
-  const tc       = parseFloat(document.getElementById('pos-tc').value) || null;
-
-  if (!ticker || !fecha || isNaN(precio) || precio <= 0 || isNaN(cantidad) || cantidad <= 0) {
-    alert('Completá todos los campos con valores válidos.');
-    return;
-  }
-  // Convertir a USD para cálculos internos
-  const precioUSD = (moneda === 'ARS' && tc) ? precio / tc : precio;
-  const posicion  = { id: id || Date.now().toString(), ticker, fecha, precio: precioUSD, precioOrigen: precio, moneda, tc, cantidad };
-
-  const cartera = getCartera();
-  if (id) {
-    const idx = cartera.findIndex(x => x.id === id);
-    if (idx >= 0) cartera[idx] = posicion; else cartera.push(posicion);
-  } else {
-    cartera.push(posicion);
-  }
-  saveCartera(cartera);
-  cerrarModal();
-  renderCartera();
-}
-
-function cerrarModal() {
-  document.getElementById('modal-cartera').classList.remove('open');
-}
-
-function toggleTCField() {
-  const moneda = document.getElementById('pos-moneda').value;
-  document.getElementById('tc-row').classList.toggle('tc-hidden', moneda !== 'ARS');
-}
 </script>
 <div id="tv-popover" style="position:fixed;z-index:9999;background:#13161e;border:1px solid rgba(255,255,255,0.13);border-radius:10px;padding:8px;display:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);"></div>
 <script>

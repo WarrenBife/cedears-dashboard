@@ -3,9 +3,6 @@
   "outputDirectory": ".",
   "installCommand": "npm install",
   "framework": null,
-  "rewrites": [
-    { "source": "/", "destination": "/public v2.html" }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
