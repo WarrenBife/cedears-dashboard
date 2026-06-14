@@ -166,6 +166,28 @@
   /* ── VISTAS / NAVEGACIÓN ────────────────────────────────────── */
   #view-home{position:fixed;inset:0;z-index:300;background:radial-gradient(1200px 700px at 50% -10%,rgba(34,201,138,0.06),transparent 60%),#070a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
   #view-dashboard{display:none;}
+  /* ── PAYMENT GATE ────────────────────────────────────────────── */
+  #view-pago{position:fixed;inset:0;z-index:300;background:radial-gradient(1200px 700px at 50% -10%,rgba(79,142,247,0.07),transparent 60%),#070a0f;display:none;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+  .pago-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:40px 44px;max-width:420px;width:90%;text-align:center;position:relative;z-index:10;box-shadow:0 30px 80px -20px rgba(0,0,0,0.8);}
+  .pago-logo{width:72px;height:72px;border-radius:50%;margin:0 auto 20px;display:block;border:2px solid rgba(79,142,247,0.35);box-shadow:0 0 0 5px rgba(79,142,247,0.06),0 0 40px rgba(79,142,247,0.15);}
+  .pago-titulo{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;}
+  .pago-sub{color:var(--muted);font-size:13px;margin-bottom:28px;line-height:1.5;}
+  .pago-precio{font-family:'DM Mono',monospace;font-size:38px;font-weight:500;color:var(--text);margin-bottom:4px;letter-spacing:-0.03em;}
+  .pago-precio span{font-size:16px;color:var(--muted);font-weight:400;}
+  .pago-unique{font-size:11px;color:var(--muted);margin-bottom:28px;}
+  .pago-features{text-align:left;margin-bottom:28px;display:flex;flex-direction:column;gap:9px;}
+  .pago-feat{display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(238,241,247,0.8);}
+  .pago-feat::before{content:'✓';color:var(--green);font-weight:600;font-size:13px;flex-shrink:0;}
+  .pago-btn{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#009ee3,#007eb5);color:#fff;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .2s var(--ease),box-shadow .2s var(--ease);margin-bottom:12px;}
+  .pago-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,158,227,0.4);}
+  .pago-btn:active{transform:translateY(0);}
+  .pago-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+  .pago-back{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color .2s;}
+  .pago-back:hover{color:var(--text);}
+  .pago-secure{font-size:10px;color:rgba(115,125,143,0.5);margin-top:14px;}
+  .pago-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none;}
+  .pago-msg.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(240,96,90,0.3);}
+  .pago-msg.info{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.3);}
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -269,7 +291,7 @@
     <h1 class="home-title" id="home-title"></h1>
     <div class="home-sub">Monitor técnico de CEDEARs y mercados globales</div>
     <div class="home-btns">
-      <button class="home-btn" onclick="showView('dashboard')">
+      <button class="home-btn" onclick="irAlDashboard()">
         <span class="home-btn-icon">📊</span>
         <div class="home-btn-label"><b>Dashboard</b><small>Indicadores y análisis técnico</small></div>
       </button>
@@ -285,6 +307,31 @@
   <div class="home-footer">
     <img src="https://i.imgur.com/GuVsAWY.jpeg" style="width:16px;height:16px;border-radius:50%;" onerror="this.style.display='none'">
     @Warren_Bife · Warren Bife Dashboard
+  </div>
+</div>
+
+<!-- ── PAYMENT GATE ───────────────────────────────────────────── -->
+<div id="view-pago">
+  <div class="pago-card">
+    <img src="https://i.imgur.com/GuVsAWY.jpeg" class="pago-logo" onerror="this.style.display='none'">
+    <div class="pago-titulo">Warren Bife Dashboard</div>
+    <div class="pago-sub">Accedé al monitor técnico de CEDEARs y mercados globales</div>
+    <div class="pago-precio">$5.000 <span>ARS</span></div>
+    <div class="pago-unique">Pago único · acceso ilimitado</div>
+    <div class="pago-features">
+      <div class="pago-feat">Mapa de fuerza relativa de +290 CEDEARs</div>
+      <div class="pago-feat">Scanner de calidad con filtros avanzados</div>
+      <div class="pago-feat">Semáforo técnico por ticker</div>
+      <div class="pago-feat">Volumen inusual y earnings próxima semana</div>
+      <div class="pago-feat">Actualizaciones automáticas de datos</div>
+    </div>
+    <div id="pago-msg" class="pago-msg"></div>
+    <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+      Pagar con Mercado Pago
+    </button>
+    <button class="pago-back" onclick="showView('home')">← Volver al inicio</button>
+    <div class="pago-secure">🔒 Pago seguro procesado por Mercado Pago</div>
   </div>
 </div>
 
@@ -1704,10 +1751,102 @@ function ocultarGrafico() {
   document.getElementById('tv-popover').style.display = 'none';
 }
 
+// ── ACCESO / PAGO ────────────────────────────────────────────
+const IS_LOCAL = ['localhost','127.0.0.1',''].includes(location.hostname) || location.protocol === 'file:';
+const ACCESS_KEY = 'wbAccess_v1';
+
+function guardarAcceso(token, pid, exp) {
+  localStorage.setItem(ACCESS_KEY, JSON.stringify({ token, pid, exp }));
+}
+
+async function verificarToken(token, pid, exp) {
+  try {
+    const r = await fetch(`/api/verificar-token?token=${token}&pid=${pid}&exp=${exp}`);
+    const d = await r.json();
+    return d.valid === true;
+  } catch { return false; }
+}
+
+async function tieneAcceso() {
+  if (IS_LOCAL) return true;
+
+  // ¿Viene de un pago exitoso? (MP redirige con ?token=&pid=&exp=)
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+  const pid    = params.get('pid');
+  const exp    = params.get('exp');
+
+  if (token && pid && exp) {
+    const ok = await verificarToken(token, pid, exp);
+    if (ok) {
+      guardarAcceso(token, pid, exp);
+      history.replaceState({}, '', '/');
+      return true;
+    }
+  }
+
+  // ¿Mensaje de pago fallido?
+  if (params.get('pago') === 'fallido' || params.get('pago') === 'error') {
+    history.replaceState({}, '', '/');
+    mostrarMsgPago('El pago no fue aprobado. Podés intentarlo de nuevo.', 'error');
+    return false;
+  }
+
+  // ¿Tiene token guardado en localStorage?
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null');
+    if (saved?.token && saved?.pid && saved?.exp) {
+      const ok = await verificarToken(saved.token, saved.pid, saved.exp);
+      if (ok) return true;
+      localStorage.removeItem(ACCESS_KEY);
+    }
+  } catch { localStorage.removeItem(ACCESS_KEY); }
+
+  return false;
+}
+
+function mostrarMsgPago(texto, tipo) {
+  const el = document.getElementById('pago-msg');
+  if (!el) return;
+  el.textContent = texto;
+  el.className   = `pago-msg ${tipo}`;
+  el.style.display = 'block';
+}
+
+async function irAlDashboard() {
+  const btn = document.querySelector('.home-btn');
+  if (btn) btn.disabled = true;
+
+  const ok = await tieneAcceso();
+
+  if (btn) btn.disabled = false;
+  showView(ok ? 'dashboard' : 'pago');
+}
+
+async function iniciarPago() {
+  const btn = document.getElementById('pago-btn');
+  btn.disabled = true;
+  btn.textContent = 'Conectando con Mercado Pago…';
+
+  try {
+    const r = await fetch('/api/crear-pago', { method: 'POST' });
+    if (!r.ok) throw new Error(`Error ${r.status}`);
+    const d = await r.json();
+    const url = IS_LOCAL ? d.sandbox_init_point : d.init_point;
+    if (!url) throw new Error('No se recibió la URL de pago');
+    location.href = url;
+  } catch (err) {
+    mostrarMsgPago('No se pudo iniciar el pago: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg> Pagar con Mercado Pago`;
+  }
+}
+
 // ── NAVEGACIÓN ────────────────────────────────────────────────
 function showView(name) {
   document.getElementById('view-home').style.display      = name === 'home'      ? 'flex'  : 'none';
   document.getElementById('view-dashboard').style.display = name === 'dashboard' ? 'block' : 'none';
+  document.getElementById('view-pago').style.display      = name === 'pago'      ? 'flex'  : 'none';
   // Al volver al menú, limpiar quickFilter para que no quede activo al volver al dashboard
   if (name === 'home') {
     quickFilter = null;
