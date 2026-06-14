@@ -1,4 +1,5 @@
 const { MercadoPagoConfig, Payment } = require('mercadopago');
+const { kv } = require('@vercel/kv');
 const crypto = require('crypto');
 
 const client = new MercadoPagoConfig({
@@ -38,7 +39,13 @@ module.exports = async (req, res) => {
     const expiry = Date.now() + EXPIRY_MS;
     const token  = generarToken(payment_id, expiry);
 
-    console.log(`[confirmar-pago] Pago OK — payment_id=${payment_id}`);
+    // Guardar email del pagador en KV para acceso futuro desde cualquier dispositivo
+    const email = result.payer?.email;
+    if (email) {
+      await kv.set(`email:${email.toLowerCase()}`, { payment_id, exp: expiry });
+    }
+
+    console.log(`[confirmar-pago] Pago OK — payment_id=${payment_id} email=${email}`);
 
     // Redirigir al dashboard con el token en la URL
     res.redirect(`${SITE_URL}/?token=${token}&pid=${payment_id}&exp=${expiry}`);

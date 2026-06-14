@@ -188,6 +188,16 @@
   .pago-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none;}
   .pago-msg.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(240,96,90,0.3);}
   .pago-msg.info{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.3);}
+  .pago-divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11px;margin:16px 0;}
+  .pago-divider::before,.pago-divider::after{content:'';flex:1;height:1px;background:var(--border2);}
+  .pago-ya{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+  .pago-ya-titulo{font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;}
+  .pago-email-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:8px;outline:none;transition:border-color .2s;}
+  .pago-email-input:focus{border-color:rgba(79,142,247,0.5);}
+  .pago-email-input::placeholder{color:var(--muted);}
+  .pago-ya-btn{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .2s,border-color .2s;}
+  .pago-ya-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(79,142,247,0.4);}
+  .pago-ya-btn:disabled{opacity:0.5;cursor:not-allowed;}
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -330,6 +340,12 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
       Pagar con Mercado Pago
     </button>
+    <div class="pago-divider">o</div>
+    <div class="pago-ya">
+      <div class="pago-ya-titulo">¿Ya pagaste? Ingresá con tu email</div>
+      <input type="email" id="pago-email" class="pago-email-input" placeholder="tu@email.com">
+      <button class="pago-ya-btn" id="pago-ya-btn" onclick="verificarEmailAcceso()">Ingresar con mi email</button>
+    </div>
     <button class="pago-back" onclick="showView('home')">← Volver al inicio</button>
     <div class="pago-secure">🔒 Pago seguro procesado por Mercado Pago</div>
   </div>
@@ -1821,6 +1837,31 @@ async function irAlDashboard() {
 
   if (btn) btn.disabled = false;
   showView(ok ? 'dashboard' : 'pago');
+}
+
+async function verificarEmailAcceso() {
+  const email = document.getElementById('pago-email').value.trim();
+  if (!email) { mostrarMsgPago('Ingresá tu email para continuar.', 'error'); return; }
+
+  const btn = document.getElementById('pago-ya-btn');
+  btn.disabled = true;
+  btn.textContent = 'Verificando…';
+
+  try {
+    const r = await fetch(`/api/verificar-email?email=${encodeURIComponent(email)}`);
+    const d = await r.json();
+    if (d.valid) {
+      guardarAcceso(d.token, d.pid, d.exp);
+      showView('dashboard');
+    } else {
+      mostrarMsgPago('No encontramos un pago asociado a ese email. Verificá que sea el mismo con el que pagaste.', 'error');
+    }
+  } catch {
+    mostrarMsgPago('Error al verificar. Intentá de nuevo.', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ingresar con mi email';
 }
 
 async function iniciarPago() {
