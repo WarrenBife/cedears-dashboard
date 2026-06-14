@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
             description: 'Acceso ilimitado al dashboard de CEDEARs y mercados globales',
             quantity: 1,
             currency_id: 'ARS',
-            unit_price: 5000,
+            unit_price: 10000,
           },
         ],
         back_urls: {
