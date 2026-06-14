@@ -9,24 +9,16 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
   const email = (req.query.email || '').toLowerCase().trim();
-  if (!email || !SECRET) {
-    return res.status(400).json({ valid: false, reason: 'params_missing' });
-  }
+  if (!email || !SECRET) return res.status(400).json({ valid: false, reason: 'params_missing' });
 
   const data = await kv.get(`email:${email}`);
-  if (!data) {
-    return res.json({ valid: false, reason: 'not_found' });
-  }
+  if (!data) return res.json({ valid: false, reason: 'not_found' });
 
   const { payment_id, exp } = data;
-  if (Date.now() > parseInt(exp, 10)) {
-    return res.json({ valid: false, reason: 'expired' });
-  }
+  if (Date.now() > parseInt(exp, 10)) return res.json({ valid: false, reason: 'expired' });
 
-  const token = crypto
-    .createHmac('sha256', SECRET)
-    .update(`${payment_id}:${exp}`)
-    .digest('hex');
+  const token = crypto.createHmac('sha256', SECRET).update(`${payment_id}:${exp}`).digest('hex');
+  const products = data.products || ['dashboard'];
 
-  res.json({ valid: true, token, pid: payment_id, exp });
+  res.json({ valid: true, token, pid: payment_id, exp, email, products });
 };

@@ -198,6 +198,52 @@
   .pago-ya-btn{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .2s,border-color .2s;}
   .pago-ya-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(79,142,247,0.4);}
   .pago-ya-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  /* Selector de productos en el pago */
+  .pago-productos{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;text-align:left;}
+  .pago-prod{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .2s,background .2s;font-size:13px;}
+  .pago-prod:has(input:checked){border-color:rgba(79,142,247,0.5);background:rgba(79,142,247,0.07);}
+  .pago-prod input[type=checkbox]{accent-color:var(--blue);width:15px;height:15px;flex-shrink:0;}
+  .pago-prod-name{font-weight:500;flex:1;}
+  .pago-prod-price{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);}
+  .pago-descuento{font-size:11px;color:var(--green);text-align:center;margin-bottom:8px;min-height:16px;}
+  /* Planilla view */
+  #view-planilla{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
+  .pl-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:10px;}
+  .pl-topbar-left{display:flex;align-items:center;gap:14px;}
+  .pl-selectors{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .pl-sel-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  .pl-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:6px 10px;border-radius:8px;outline:none;cursor:pointer;}
+  .pl-select:focus{border-color:var(--blue);}
+  .pl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px 24px;}
+  @media(max-width:900px){.pl-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:600px){.pl-grid{grid-template-columns:1fr;}}
+  .pl-card{background:linear-gradient(180deg,rgba(255,255,255,0.025),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-panel);}
+  .pl-card-head{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .pl-name{font-size:13px;font-weight:600;color:var(--green);letter-spacing:.02em;cursor:pointer;border:1px solid transparent;border-radius:6px;padding:2px 6px;transition:border-color .2s,background .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+  .pl-name:hover{border-color:var(--border2);background:rgba(255,255,255,0.04);}
+  .pl-name-input{font-size:13px;font-weight:600;color:var(--green);background:rgba(255,255,255,0.05);border:1px solid var(--blue);border-radius:6px;padding:2px 6px;outline:none;font-family:'DM Sans',sans-serif;width:160px;}
+  .pl-add-row{display:flex;gap:6px;padding:8px 14px 10px;}
+  .pl-add-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:'DM Mono',monospace;padding:5px 8px;border-radius:6px;outline:none;text-transform:uppercase;}
+  .pl-add-input:focus{border-color:var(--blue);}
+  .pl-add-input::placeholder{color:var(--muted);text-transform:none;}
+  .pl-add-btn{background:rgba(79,142,247,0.15);border:1px solid rgba(79,142,247,0.3);color:var(--blue);font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .2s;}
+  .pl-add-btn:hover{background:rgba(79,142,247,0.25);}
+  .pl-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .pl-table th{padding:6px 10px;text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);white-space:nowrap;}
+  .pl-table td{padding:6px 10px;border-bottom:1px solid rgba(148,163,184,0.05);white-space:nowrap;}
+  .pl-table tr:last-child td{border-bottom:none;}
+  .pl-table tr:hover td{background:rgba(255,255,255,0.03);}
+  .pl-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);}
+  .pl-var-pos{background:rgba(34,201,138,0.15);color:var(--green);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
+  .pl-var-neg{background:rgba(240,96,90,0.15);color:var(--red);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
+  .pl-var-neu{background:rgba(148,163,184,0.1);color:var(--muted);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
+  .pl-metric{font-family:'DM Mono',monospace;font-size:11px;color:var(--text);}
+  .pl-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;transition:color .2s;}
+  .pl-remove:hover{color:var(--red);}
+  .pl-save-btn{background:rgba(34,201,138,0.12);border:1px solid rgba(34,201,138,0.3);color:var(--green);font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .2s;}
+  .pl-save-btn:hover{background:rgba(34,201,138,0.22);}
+  .pl-save-status{font-size:11px;color:var(--muted);}
+  .pl-empty{color:var(--muted);font-size:11px;text-align:center;padding:16px;}
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -305,6 +351,10 @@
         <span class="home-btn-icon">📊</span>
         <div class="home-btn-label"><b>Dashboard</b><small>Indicadores y análisis técnico</small></div>
       </button>
+      <button class="home-btn" onclick="irAPlanilla()">
+        <span class="home-btn-icon">📋</span>
+        <div class="home-btn-label"><b>Planilla</b><small>Tu watchlist personalizada</small></div>
+      </button>
     </div>
   </div>
 
@@ -324,17 +374,23 @@
 <div id="view-pago">
   <div class="pago-card">
     <img src="https://i.imgur.com/GuVsAWY.jpeg" class="pago-logo" onerror="this.style.display='none'">
-    <div class="pago-titulo">Warren Bife Dashboard</div>
-    <div class="pago-sub">Accedé al monitor técnico de CEDEARs y mercados globales</div>
-    <div class="pago-precio">$10.000 <span>ARS</span></div>
-    <div class="pago-unique">Pago único · acceso ilimitado</div>
-    <div class="pago-features">
-      <div class="pago-feat">Mapa de fuerza relativa de +290 CEDEARs</div>
-      <div class="pago-feat">Scanner de calidad con filtros avanzados</div>
-      <div class="pago-feat">Semáforo técnico por ticker</div>
-      <div class="pago-feat">Volumen inusual y earnings próxima semana</div>
-      <div class="pago-feat">Actualizaciones automáticas de datos</div>
+    <div class="pago-titulo">Warren Bife</div>
+    <div class="pago-sub">Elegí los productos a los que querés acceder</div>
+    <div class="pago-productos">
+      <label class="pago-prod">
+        <input type="checkbox" value="dashboard" id="prod-dashboard" onchange="actualizarProductos()">
+        <span class="pago-prod-name">📊 Dashboard técnico</span>
+        <span class="pago-prod-price">$10.000</span>
+      </label>
+      <label class="pago-prod">
+        <input type="checkbox" value="planilla" id="prod-planilla" onchange="actualizarProductos()">
+        <span class="pago-prod-name">📋 Planilla personalizada</span>
+        <span class="pago-prod-price">$10.000</span>
+      </label>
     </div>
+    <div class="pago-descuento" id="pago-descuento"></div>
+    <div class="pago-precio" id="pago-precio-display">$10.000 <span>ARS</span></div>
+    <div class="pago-unique">Pago único · acceso ilimitado</div>
     <input type="email" id="pago-email" class="pago-email-input" placeholder="tu@email.com">
     <div id="pago-msg" class="pago-msg"></div>
     <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
@@ -346,6 +402,37 @@
     <button class="pago-back" onclick="showView('home')">← Volver al inicio</button>
     <div class="pago-secure">🔒 Pago seguro procesado por Mercado Pago</div>
   </div>
+</div>
+
+<!-- ── PLANILLA ───────────────────────────────────────────────── -->
+<div id="view-planilla">
+  <div class="pl-topbar">
+    <div class="pl-topbar-left">
+      <div class="logo">Warren Bife</div>
+      <button onclick="showView('home')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;">← Inicio</button>
+    </div>
+    <div class="pl-selectors">
+      <span class="pl-sel-label">Col 3:</span>
+      <select class="pl-select" id="pl-metric-a" onchange="renderPlanilla()">
+        <option value="RS">RS Score</option>
+        <option value="RSI">RSI</option>
+        <option value="EMA200">Dist EMA200%</option>
+        <option value="SMA50">Dist SMA50%</option>
+        <option value="WS">Warren Score</option>
+      </select>
+      <span class="pl-sel-label">Col 4:</span>
+      <select class="pl-select" id="pl-metric-b" onchange="renderPlanilla()">
+        <option value="EMA200">Dist EMA200%</option>
+        <option value="RSI">RSI</option>
+        <option value="RS">RS Score</option>
+        <option value="SMA50">Dist SMA50%</option>
+        <option value="WS">Warren Score</option>
+      </select>
+      <button class="pl-save-btn" onclick="guardarWatchlist()">Guardar cambios</button>
+      <span class="pl-save-status" id="pl-save-status"></span>
+    </div>
+  </div>
+  <div class="pl-grid" id="pl-grid"></div>
 </div>
 
 <!-- ── DASHBOARD ──────────────────────────────────────────────── -->
@@ -1767,9 +1854,14 @@ function ocultarGrafico() {
 // ── ACCESO / PAGO ────────────────────────────────────────────
 const IS_LOCAL = ['localhost','127.0.0.1',''].includes(location.hostname) || location.protocol === 'file:';
 const ACCESS_KEY = 'wbAccess_v1';
+let _pendingProduct = 'dashboard'; // qué producto disparó el gate
 
-function guardarAcceso(token, pid, exp) {
-  localStorage.setItem(ACCESS_KEY, JSON.stringify({ token, pid, exp }));
+function guardarAcceso(token, pid, exp, email, products) {
+  localStorage.setItem(ACCESS_KEY, JSON.stringify({ token, pid, exp, email: email || '', products: products || ['dashboard'] }));
+}
+
+function getAcceso() {
+  try { return JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null'); } catch { return null; }
 }
 
 async function verificarToken(token, pid, exp) {
@@ -1780,37 +1872,34 @@ async function verificarToken(token, pid, exp) {
   } catch { return false; }
 }
 
-async function tieneAcceso() {
+async function tieneAcceso(product) {
   if (IS_LOCAL) return true;
 
-  // ¿Viene de un pago exitoso? (MP redirige con ?token=&pid=&exp=)
   const params = new URLSearchParams(location.search);
-  const token  = params.get('token');
-  const pid    = params.get('pid');
-  const exp    = params.get('exp');
+  const token  = params.get('token'), pid = params.get('pid'), exp = params.get('exp');
+  const emailUrl = params.get('email'), productsStr = params.get('products');
 
   if (token && pid && exp) {
     const ok = await verificarToken(token, pid, exp);
     if (ok) {
-      guardarAcceso(token, pid, exp);
+      const products = productsStr ? productsStr.split(',') : ['dashboard'];
+      guardarAcceso(token, pid, exp, emailUrl || '', products);
       history.replaceState({}, '', '/');
-      return true;
+      return products.includes(product);
     }
   }
 
-  // ¿Mensaje de pago fallido?
   if (params.get('pago') === 'fallido' || params.get('pago') === 'error') {
     history.replaceState({}, '', '/');
     mostrarMsgPago('El pago no fue aprobado. Podés intentarlo de nuevo.', 'error');
     return false;
   }
 
-  // ¿Tiene token guardado en localStorage?
   try {
-    const saved = JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null');
+    const saved = getAcceso();
     if (saved?.token && saved?.pid && saved?.exp) {
       const ok = await verificarToken(saved.token, saved.pid, saved.exp);
-      if (ok) return true;
+      if (ok) return (saved.products || ['dashboard']).includes(product);
       localStorage.removeItem(ACCESS_KEY);
     }
   } catch { localStorage.removeItem(ACCESS_KEY); }
@@ -1826,14 +1915,43 @@ function mostrarMsgPago(texto, tipo) {
   el.style.display = 'block';
 }
 
+function actualizarProductos() {
+  const hasDash = document.getElementById('prod-dashboard').checked;
+  const hasPlan = document.getElementById('prod-planilla').checked;
+  const both = hasDash && hasPlan;
+  const price = both ? '$15.000' : '$10.000';
+  document.getElementById('pago-precio-display').innerHTML = `${price} <span>ARS</span>`;
+  document.getElementById('pago-descuento').textContent = both ? '¡Combiná los dos y ahorras $5.000!' : '';
+}
+
+function abrirPago(product) {
+  _pendingProduct = product || 'dashboard';
+  // Pre-seleccionar producto
+  document.getElementById('prod-dashboard').checked = (product === 'dashboard');
+  document.getElementById('prod-planilla').checked  = (product === 'planilla');
+  // Pre-llenar email si ya está guardado
+  const saved = getAcceso();
+  if (saved?.email) document.getElementById('pago-email').value = saved.email;
+  actualizarProductos();
+  showView('pago');
+}
+
 async function irAlDashboard() {
-  const btn = document.querySelector('.home-btn');
-  if (btn) btn.disabled = true;
+  const btns = document.querySelectorAll('.home-btn');
+  btns.forEach(b => b.disabled = true);
+  const ok = await tieneAcceso('dashboard');
+  btns.forEach(b => b.disabled = false);
+  if (ok) showView('dashboard');
+  else abrirPago('dashboard');
+}
 
-  const ok = await tieneAcceso();
-
-  if (btn) btn.disabled = false;
-  showView(ok ? 'dashboard' : 'pago');
+async function irAPlanilla() {
+  const btns = document.querySelectorAll('.home-btn');
+  btns.forEach(b => b.disabled = true);
+  const ok = await tieneAcceso('planilla');
+  btns.forEach(b => b.disabled = false);
+  if (ok) showView('planilla');
+  else abrirPago('planilla');
 }
 
 async function verificarEmailAcceso() {
@@ -1848,10 +1966,15 @@ async function verificarEmailAcceso() {
     const r = await fetch(`/api/verificar-email?email=${encodeURIComponent(email)}`);
     const d = await r.json();
     if (d.valid) {
-      guardarAcceso(d.token, d.pid, d.exp);
-      showView('dashboard');
+      guardarAcceso(d.token, d.pid, d.exp, d.email || email, d.products || ['dashboard']);
+      const products = d.products || ['dashboard'];
+      if (products.includes(_pendingProduct)) {
+        showView(_pendingProduct === 'planilla' ? 'planilla' : 'dashboard');
+      } else {
+        mostrarMsgPago(`Tu email no tiene acceso a la ${_pendingProduct === 'planilla' ? 'Planilla' : 'Dashboard'}. Revisá qué productos adquiriste.`, 'info');
+      }
     } else {
-      mostrarMsgPago('No encontramos un pago asociado a ese email. Verificá que sea el mismo con el que pagaste.', 'error');
+      mostrarMsgPago('No encontramos un pago asociado a ese email.', 'error');
     }
   } catch {
     mostrarMsgPago('Error al verificar. Intentá de nuevo.', 'error');
@@ -1867,6 +1990,11 @@ async function iniciarPago() {
     mostrarMsgPago('Ingresá tu email para continuar.', 'error');
     return;
   }
+  const products = ['dashboard','planilla'].filter(p => document.getElementById(`prod-${p}`)?.checked);
+  if (!products.length) {
+    mostrarMsgPago('Seleccioná al menos un producto.', 'error');
+    return;
+  }
 
   const btn = document.getElementById('pago-btn');
   btn.disabled = true;
@@ -1876,7 +2004,7 @@ async function iniciarPago() {
     const r = await fetch('/api/crear-pago', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, products }),
     });
     if (!r.ok) throw new Error(`Error ${r.status}`);
     const d = await r.json();
@@ -1895,7 +2023,8 @@ function showView(name) {
   document.getElementById('view-home').style.display      = name === 'home'      ? 'flex'  : 'none';
   document.getElementById('view-dashboard').style.display = name === 'dashboard' ? 'block' : 'none';
   document.getElementById('view-pago').style.display      = name === 'pago'      ? 'flex'  : 'none';
-  // Al volver al menú, limpiar quickFilter para que no quede activo al volver al dashboard
+  document.getElementById('view-planilla').style.display  = name === 'planilla'  ? 'flex'  : 'none';
+
   if (name === 'home') {
     quickFilter = null;
     ['total','ema','rs','sma50','vol','quality'].forEach(k => {
@@ -1903,10 +2032,15 @@ function showView(name) {
       if (el) el.classList.remove('active');
     });
   }
-
   if (name === 'dashboard') {
     if (!DATOS.length) cargarDatos();
     else { document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); }
+  }
+  if (name === 'planilla') {
+    cargarWatchlist().then(() => {
+      if (!DATOS.length) cargarDatos().then(renderPlanilla);
+      else renderPlanilla();
+    });
   }
 }
 
@@ -2368,6 +2502,145 @@ function getRatioCedear(ticker) {
 <div id="wb-tooltip" style="position:fixed;z-index:99999;background:#111827;border:1px solid rgba(148,163,184,0.18);color:#c9d1e0;font-size:11.5px;font-family:'DM Sans',sans-serif;font-weight:400;line-height:1.55;padding:7px 11px;border-radius:8px;max-width:260px;box-shadow:0 6px 24px rgba(0,0,0,0.65);pointer-events:none;display:none;white-space:normal;"></div>
 <div id="tv-popover" style="position:fixed;z-index:9999;background:#13161e;border:1px solid rgba(255,255,255,0.13);border-radius:10px;padding:8px;display:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);"></div>
 <script>
+// ── PLANILLA ──────────────────────────────────────────────────
+const PL_DEFAULTS = [
+  { name: 'Tech USA',    tickers: ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','AMD','NFLX','PLTR'] },
+  { name: 'Finanzas',   tickers: ['JPM','GS','V','MA','BAC','BX','SCHW','AXP','MS','PYPL'] },
+  { name: 'Energía',    tickers: ['XOM','CVX','OXY','COP','HAL','SLB','BP','SHEL','EQNR','PSX'] },
+  { name: 'Argentina',  tickers: ['YPF','GGAL','MELI','BMA','VIST','GLOB','PAM','BBAR','TGS','CEPU'] },
+  { name: 'Salud',      tickers: ['LLY','JNJ','ABBV','MRK','AMGN','ISRG','UNH','VRTX','PFE','DHR'] },
+  { name: 'Materiales', tickers: ['GOLD','NEM','FCX','VALE','RIO','BHP','SCCO','MP','CCJ','DOW'] },
+];
+
+let PL_TABLES = PL_DEFAULTS.map(t => ({ ...t, tickers: [...t.tickers] }));
+
+function plMetricLabel(code) {
+  return { RS:'RS Score', RSI:'RSI', EMA200:'Dist EMA200%', SMA50:'Dist SMA50%', WS:'Warren Score' }[code] || code;
+}
+
+function plMetricValue(d, code) {
+  if (!d) return '—';
+  switch(code) {
+    case 'RS':    return d['RS Score']       != null ? d['RS Score'].toFixed(1)       : '—';
+    case 'RSI':   return d['RSI 14']         != null ? d['RSI 14'].toFixed(1)         : '—';
+    case 'EMA200':return d['Dist EMA200 %']  != null ? d['Dist EMA200 %'].toFixed(1) + '%' : '—';
+    case 'SMA50': return d['Dist SMA50 %']   != null ? d['Dist SMA50 %'].toFixed(1)  + '%' : '—';
+    case 'WS':    return calcWarrenScore(d).toString();
+    default:      return '—';
+  }
+}
+
+function renderPlanilla() {
+  if (!DATOS.length) return;
+  const metA = document.getElementById('pl-metric-a')?.value || 'RS';
+  const metB = document.getElementById('pl-metric-b')?.value || 'EMA200';
+  const dataMap = {};
+  DATOS.forEach(d => { dataMap[d['Ticker']] = d; });
+  const grid = document.getElementById('pl-grid');
+  if (!grid) return;
+
+  grid.innerHTML = PL_TABLES.map((table, ti) => `
+    <div class="pl-card">
+      <div class="pl-card-head">
+        <span class="pl-name" id="pl-name-${ti}" onclick="editPlName(${ti})">${table.name}</span>
+      </div>
+      <table class="pl-table">
+        <thead><tr>
+          <th>Ticker</th>
+          <th>Var%</th>
+          <th>${plMetricLabel(metA)}</th>
+          <th>${plMetricLabel(metB)}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${table.tickers.length === 0
+            ? `<tr><td colspan="5" class="pl-empty">Sin acciones. Agregá una abajo.</td></tr>`
+            : table.tickers.map(tk => {
+                const d = dataMap[tk];
+                const vd = d ? d['Var Día %'] : null;
+                const varCls = vd == null ? 'pl-var-neu' : vd > 0 ? 'pl-var-pos' : vd < 0 ? 'pl-var-neg' : 'pl-var-neu';
+                const varTxt = vd == null ? '—' : (vd > 0 ? '+' : '') + vd.toFixed(2) + '%';
+                return `<tr>
+                  <td class="pl-ticker">${tk}</td>
+                  <td><span class="${varCls}">${varTxt}</span></td>
+                  <td class="pl-metric">${plMetricValue(d, metA)}</td>
+                  <td class="pl-metric">${plMetricValue(d, metB)}</td>
+                  <td><button class="pl-remove" onclick="plRemoveTicker(${ti},'${tk}')" title="Quitar">×</button></td>
+                </tr>`;
+              }).join('')
+          }
+        </tbody>
+      </table>
+      <div class="pl-add-row">
+        <input class="pl-add-input" id="pl-add-${ti}" placeholder="Agregar ticker…" maxlength="10"
+          onkeydown="if(event.key==='Enter')plAddTicker(${ti})">
+        <button class="pl-add-btn" onclick="plAddTicker(${ti})">+ Agregar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editPlName(ti) {
+  const span = document.getElementById(`pl-name-${ti}`);
+  if (!span) return;
+  const input = document.createElement('input');
+  input.className = 'pl-name-input';
+  input.value = PL_TABLES[ti].name;
+  input.onblur = () => { PL_TABLES[ti].name = input.value.trim() || PL_TABLES[ti].name; renderPlanilla(); };
+  input.onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); };
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+function plAddTicker(ti) {
+  const input = document.getElementById(`pl-add-${ti}`);
+  const tk = (input?.value || '').trim().toUpperCase();
+  if (!tk) return;
+  if (!PL_TABLES[ti].tickers.includes(tk)) {
+    PL_TABLES[ti].tickers.push(tk);
+    renderPlanilla();
+  }
+  if (input) input.value = '';
+}
+
+function plRemoveTicker(ti, tk) {
+  PL_TABLES[ti].tickers = PL_TABLES[ti].tickers.filter(t => t !== tk);
+  renderPlanilla();
+}
+
+async function guardarWatchlist() {
+  const saved = getAcceso();
+  if (!saved?.email) {
+    document.getElementById('pl-save-status').textContent = 'Ingresá con tu email para guardar.';
+    return;
+  }
+  document.getElementById('pl-save-status').textContent = 'Guardando…';
+  try {
+    await fetch('/api/guardar-watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: saved.email, tables: PL_TABLES }),
+    });
+    document.getElementById('pl-save-status').textContent = 'Guardado ✓';
+    setTimeout(() => { document.getElementById('pl-save-status').textContent = ''; }, 2500);
+  } catch {
+    document.getElementById('pl-save-status').textContent = 'Error al guardar.';
+  }
+}
+
+async function cargarWatchlist() {
+  const saved = getAcceso();
+  if (!saved?.email) return;
+  try {
+    const r = await fetch(`/api/cargar-watchlist?email=${encodeURIComponent(saved.email)}`);
+    const d = await r.json();
+    if (d.tables && Array.isArray(d.tables) && d.tables.length === 6) {
+      PL_TABLES = d.tables;
+    }
+  } catch {}
+}
+
 // ── TOOLTIP SYSTEM ────────────────────────────────────────────
 (function(){
   const tt = document.getElementById('wb-tooltip');
