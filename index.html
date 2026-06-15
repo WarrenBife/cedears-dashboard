@@ -296,7 +296,6 @@
   .home-footer{position:absolute;bottom:24px;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:8px;letter-spacing:0.03em;}
   .ticker-rain{position:absolute;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;pointer-events:none;user-select:none;white-space:nowrap;}
   @keyframes pathGlow{0%,100%{opacity:0;}50%{opacity:1;}}
-  @keyframes tickerFall{0%{transform:translateY(-30px);opacity:0;}10%{opacity:1;}90%{opacity:0.6;}100%{transform:translateY(100vh);opacity:0;}}
   .back-btn{background:none;border:1px solid var(--border2);color:var(--muted);padding:5px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.2s var(--ease);}
   .back-btn:hover{color:var(--green);border-color:rgba(34,201,138,0.5);background:rgba(34,201,138,0.06);}
 
@@ -2308,12 +2307,20 @@ function initHomeAnimation() {
     const el   = document.createElement('div');
     el.className = 'ticker-rain';
     el.style.left    = (Math.random() * 96) + 'vw';
-    el.style.top     = '-30px';
+    el.style.top     = '0px';
+    el.style.opacity = '0';
     el.style.color   = isUp ? 'rgba(34,201,138,0.6)' : 'rgba(240,96,90,0.6)';
-    el.style.animation = `tickerFall ${7 + Math.random() * 8}s linear forwards`;
-    el.textContent = `${sym} ${isUp ? '▲' : '▼'}${pct}%`;
+    el.textContent   = `${sym} ${isUp ? '▲' : '▼'}${pct}%`;
     rainContainer.appendChild(el);
-    el.addEventListener('animationend', () => el.remove());
+    const duration = (7 + Math.random() * 8) * 1000;
+    const endY     = window.innerHeight + 30;
+    const t0       = performance.now();
+    (function tick(now) {
+      const t = Math.min((now - t0) / duration, 1);
+      el.style.transform = `translateY(${-30 + (endY + 30) * t}px)`;
+      el.style.opacity   = t < 0.1 ? t / 0.1 : t > 0.9 ? (1 - t) / 0.1 * 0.6 : 1 - 0.4 * (t - 0.1) / 0.8;
+      if (t < 1) requestAnimationFrame(tick); else el.remove();
+    })(t0);
   }
   for (let i = 0; i < 18; i++) setTimeout(spawnTicker, i * 350);
   setInterval(spawnTicker, 420);
