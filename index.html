@@ -1875,6 +1875,10 @@ async function verificarToken(token, pid, exp) {
 async function tieneAcceso(product) {
   if (IS_LOCAL) return true;
 
+  // Admin bypass
+  const _saved = getAcceso();
+  if (_saved?.email === 'ale') return true;
+
   const params = new URLSearchParams(location.search);
   const token  = params.get('token'), pid = params.get('pid'), exp = params.get('exp');
   const emailUrl = params.get('email'), productsStr = params.get('products');
@@ -1957,6 +1961,13 @@ async function irAPlanilla() {
 async function verificarEmailAcceso() {
   const email = document.getElementById('pago-email').value.trim();
   if (!email) { mostrarMsgPago('Ingresá tu email para continuar.', 'error'); return; }
+
+  // Admin bypass
+  if (email.toLowerCase() === 'ale') {
+    guardarAcceso('admin', 'admin-0', Date.now() + 365*24*60*60*1000, 'ale', ['dashboard','planilla']);
+    showView(_pendingProduct === 'planilla' ? 'planilla' : 'dashboard');
+    return;
+  }
 
   const btn = document.getElementById('pago-ya-btn');
   btn.disabled = true;
