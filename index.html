@@ -2601,12 +2601,13 @@ async function fetchPreciosLive() {
   if (!allTickers.length) return;
   try {
     const r = await fetch(`/api/precios-live?symbols=${allTickers.join(',')}`);
-    if (!r.ok) return;
-    PL_PRECIOS = await r.json();
+    const data = await r.json();
+    if (!r.ok) { console.warn('[precios-live] API error:', data); return; }
+    PL_PRECIOS = data;
     PL_LAST_UPDATE = Date.now();
     renderPlanillaVars();
     updatePlLastUpdate();
-  } catch {}
+  } catch (e) { console.warn('[precios-live] fetch failed:', e.message); }
 }
 
 function renderPlanillaVars() {
