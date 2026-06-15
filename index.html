@@ -147,9 +147,7 @@
   .ticker-strip-outer::before,.ticker-strip-outer::after{content:'';position:absolute;top:0;bottom:0;width:70px;z-index:2;pointer-events:none;}
   .ticker-strip-outer::before{left:0;background:linear-gradient(90deg,var(--bg),transparent);}
   .ticker-strip-outer::after{right:0;background:linear-gradient(270deg,var(--bg),transparent);}
-  .ticker-track{display:flex;gap:0;animation:tickerScroll 60s linear infinite;width:max-content;will-change:transform;transform:translateZ(0);}
-  .ticker-track:hover{animation-play-state:paused;}
-  @keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+  .ticker-track{display:flex;gap:0;width:max-content;will-change:transform;}
   .ticker-item{display:flex;align-items:center;gap:7px;padding:5px 13px;margin:0 4px;border-radius:999px;min-width:140px;border:1px solid transparent;flex-shrink:0;transition:transform .2s var(--ease);}
   .ticker-item:hover{transform:translateY(-1px);}
   .ticker-item.up{background:rgba(34,201,138,0.07);border-color:rgba(34,201,138,0.22);}
@@ -304,7 +302,6 @@
 
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
-    .ticker-track{animation:none;}
   }
 
   /* ── EARNINGS STRIP ────────────────────────────────────────── */
@@ -773,6 +770,9 @@ let quickFilter = null;
 let PL_PRECIOS = {};
 let PL_PRECIOS_TIMER = null;
 let PL_LAST_UPDATE = null;
+
+let _tickerRaf = null;
+let _tickerPos = 0;
 
 function setQuickFilter(name) {
   quickFilter = quickFilter === name || name === 'total' ? null : name;
@@ -1856,6 +1856,25 @@ function renderTickerStrip() {
     </div>`;
   }).join('');
   track.innerHTML = makeItems() + makeItems();
+  startTickerAnim();
+}
+
+function startTickerAnim() {
+  if (_tickerRaf) { cancelAnimationFrame(_tickerRaf); _tickerRaf = null; }
+  const track = document.getElementById('ticker-track');
+  if (!track) return;
+  requestAnimationFrame(() => {
+    const halfW = track.scrollWidth / 2;
+    if (halfW <= 0) return;
+    function step() {
+      _tickerPos = (_tickerPos + 1.0) % halfW;
+      track.style.transform = `translateX(-${_tickerPos}px)`;
+      _tickerRaf = requestAnimationFrame(step);
+    }
+    _tickerRaf = requestAnimationFrame(step);
+    track.onmouseenter = () => { if (_tickerRaf) { cancelAnimationFrame(_tickerRaf); _tickerRaf = null; } };
+    track.onmouseleave = startTickerAnim;
+  });
 }
 
 // ── POPOVER TRADINGVIEW ───────────────────────────────────────
