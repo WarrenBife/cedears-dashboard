@@ -235,7 +235,9 @@
   .pl-table td:first-child{text-align:left;}
   .pl-table tr:last-child td{border-bottom:none;}
   .pl-table tr:hover td{background:rgba(255,255,255,0.03);}
-  .pl-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);}
+  .pl-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:7px;}
+  .pl-logo{width:18px;height:18px;border-radius:4px;object-fit:contain;background:rgba(255,255,255,0.06);flex-shrink:0;}
+  .pl-logo-err{display:none;}
   .pl-var-pos{background:rgba(34,201,138,0.15);color:var(--green);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
   .pl-var-neg{background:rgba(240,96,90,0.15);color:var(--red);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
   .pl-var-neu{background:rgba(148,163,184,0.1);color:var(--muted);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;}
@@ -2612,7 +2614,7 @@ function renderPlanilla() {
                 const varCls = vd == null ? 'pl-var-neu' : vd > 0 ? 'pl-var-pos' : vd < 0 ? 'pl-var-neg' : 'pl-var-neu';
                 const varTxt = vd == null ? '—' : (vd > 0 ? '+' : '') + vd.toFixed(2) + '%';
                 return `<tr>
-                  <td class="pl-ticker">${tk}</td>
+                  <td><span class="pl-ticker"><img class="pl-logo" src="${getLogoUrl(tk)}" onerror="this.style.display='none'">${tk}</span></td>
                   <td><span class="${varCls}">${varTxt}</span></td>
                   <td class="pl-metric">${plMetricValue(d, metA)}</td>
                   <td class="pl-metric">${plMetricValue(d, metB)}</td>
