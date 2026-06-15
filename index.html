@@ -528,7 +528,7 @@
   <div class="earnings-header">
     <span class="earnings-title">📅 Earnings</span>
     <span class="earnings-week" id="earnings-week-label"></span>
-    <span class="earnings-note">Fuente: Yahoo Finance · requiere proxy activo</span>
+    <span class="earnings-note">Fuente: Finnhub</span>
   </div>
   <div class="earnings-cards" id="earnings-cards"></div>
 </div>
@@ -1776,19 +1776,23 @@ async function renderEarnings() {
   cards.innerHTML = `<div style="padding:4px 0;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace">Consultando earnings calendar…</div>`;
 
   try {
-    const r = await fetch(`http://localhost:3001/earnings?from=${from}&to=${to}`);
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${r.status}`);
-    }
+    const r = await fetch(`/api/earnings?from=${from}&to=${to}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    if (!data.earnings?.length) {
-      strip.style.display = 'none';
-      return;
-    }
-    // Ordenar por fecha, luego por ticker
-    data.earnings.sort((a,b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
-    buildEarningsCards(data.earnings);
+
+    // Armar mapa de tickers en nuestro universo con sus nombres
+    const universo = {};
+    DATOS.forEach(d => { universo[d['Ticker']] = d['Nombre'] || d['nombre'] || null; });
+
+    // Filtrar solo tickers de nuestro universo y agregar nombre
+    const lista = (data.earnings || [])
+      .filter(e => universo.hasOwnProperty(e.ticker))
+      .map(e => ({ ...e, name: universo[e.ticker] }));
+
+    if (!lista.length) { strip.style.display = 'none'; return; }
+
+    lista.sort((a, b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
+    buildEarningsCards(lista);
   } catch(err) {
     console.warn('[earnings]', err.message);
     strip.style.display = 'none';
