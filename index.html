@@ -147,7 +147,7 @@
   .ticker-strip-outer::before,.ticker-strip-outer::after{content:'';position:absolute;top:0;bottom:0;width:70px;z-index:2;pointer-events:none;}
   .ticker-strip-outer::before{left:0;background:linear-gradient(90deg,var(--bg),transparent);}
   .ticker-strip-outer::after{right:0;background:linear-gradient(270deg,var(--bg),transparent);}
-  .ticker-track{display:flex;gap:0;animation:tickerScroll 45s linear infinite;width:max-content;}
+  .ticker-track{display:flex;gap:0;animation:tickerScroll 60s linear infinite;width:max-content;will-change:transform;transform:translateZ(0);}
   .ticker-track:hover{animation-play-state:paused;}
   @keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
   .ticker-item{display:flex;align-items:center;gap:7px;padding:5px 13px;margin:0 4px;border-radius:999px;min-width:140px;border:1px solid transparent;flex-shrink:0;transition:transform .2s var(--ease);}
@@ -519,10 +519,6 @@
     <input type="checkbox" id="gf-ema200-asc" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
     <span class="gf-label">EMA200 en ascenso</span>
   </label>
-  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-    <input type="checkbox" id="gf-solo-cedear" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
-    <span class="gf-label">Solo CEDEARs</span>
-  </label>
   <div id="active-filters"></div>
 </div>
 
@@ -643,7 +639,7 @@
         <span id="sv-rs-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
       </div>
       <div class="panel-body">
-        <div class="chart-wrap" style="height:480px"><canvas id="svChart"></canvas></div>
+        <div style="overflow-y:auto;max-height:480px;"><div id="sv-chart-wrap" style="position:relative;"><canvas id="svChart"></canvas></div></div>
         <div style="display:flex;gap:16px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
           <span style="color:#22c98a">● 8–10 días ▲</span>
           <span style="color:#4f8ef7">● 6–7 días ▲</span>
@@ -828,7 +824,6 @@ async function cargarDatos() {
     document.getElementById('gf-vol').value     = 'todos';
     document.getElementById('gf-no-max52').checked = false;
     document.getElementById('gf-ema200-asc').checked = false;
-    document.getElementById('gf-solo-cedear').checked = false;
     poblarFiltros();
     renderTodo();
     document.getElementById('loading').style.display = 'none';
@@ -863,7 +858,6 @@ function getDatosFiltrados() {
   const volMin   = document.getElementById('gf-vol').value;
   const noMax52    = document.getElementById('gf-no-max52').checked;
   const ema200Asc  = document.getElementById('gf-ema200-asc').checked;
-  const soloCedear = document.getElementById('gf-solo-cedear').checked;
   return DATOS.filter(d => {
     if (tipo   !== 'todos' && d['Tipo'] !== tipo) return false;
     if (mcap   !== 'todos' && d['Market Cap Cat'] !== mcap) return false;
@@ -875,7 +869,6 @@ function getDatosFiltrados() {
       else { if (d['Dist Máx52W %'] !== null && d['Dist Máx52W %'] >= -3) return false; }
     }
     if (ema200Asc  && !(d['EMA200 Slope'] !== null && d['EMA200 Slope'] > 0)) return false;
-    if (soloCedear && !(d['Grupo'] && (d['Grupo'].includes('CEDEAR') || d['Grupo'].includes('ADR')))) return false;
     if (quickFilter === 'ema'    && !(d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0)) return false;
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
@@ -1265,6 +1258,10 @@ function renderSesionesVol() {
   const labels = rows.map(r => r.d['Ticker']);
   const values = rows.map(r => r.ratio);
   const colors = rows.map(r => daysColor(r.diasPos));
+
+  const BAR_H = 22;
+  const wrapH = rows.length * BAR_H + 50;
+  document.getElementById('sv-chart-wrap').style.height = wrapH + 'px';
 
   destroyChart('svChart');
   charts['svChart'] = new Chart(document.getElementById('svChart').getContext('2d'), {
@@ -1801,7 +1798,7 @@ async function renderEarnings() {
 renderEarnings();
 
 // ── TICKER STRIP ──────────────────────────────────────────────
-const STRIP_SYMS = ['SPY','QQQ','DIA','EWZ','FXI','AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA'];
+const STRIP_SYMS = ['SPY','QQQ','DIA','EWZ','FXI','AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','AMD','NFLX','JPM','BAC','XOM','CVX','JNJ','V','MA','PLTR','MELI','YPF'];
 
 const STRIP_ICONS = {
   SPY:  { type:'flag', url:'https://flagcdn.com/32x24/us.png' },
@@ -1816,6 +1813,18 @@ const STRIP_ICONS = {
   META: { type:'favicon', domain:'meta.com' },
   AMZN: { type:'favicon', domain:'amazon.com' },
   TSLA: { type:'favicon', domain:'tesla.com' },
+  AMD:  { type:'favicon', domain:'amd.com' },
+  NFLX: { type:'favicon', domain:'netflix.com' },
+  JPM:  { type:'favicon', domain:'jpmorganchase.com' },
+  BAC:  { type:'favicon', domain:'bankofamerica.com' },
+  XOM:  { type:'favicon', domain:'exxonmobil.com' },
+  CVX:  { type:'favicon', domain:'chevron.com' },
+  JNJ:  { type:'favicon', domain:'jnj.com' },
+  V:    { type:'favicon', domain:'visa.com' },
+  MA:   { type:'favicon', domain:'mastercard.com' },
+  PLTR: { type:'favicon', domain:'palantir.com' },
+  MELI: { type:'favicon', domain:'mercadolibre.com' },
+  YPF:  { type:'favicon', domain:'ypf.com' },
 };
 
 function renderTickerStrip() {
