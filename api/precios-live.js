@@ -1,26 +1,33 @@
 const https = require('https');
 
-function httpsGet(url) {
-  return new Promise((resolve, reject) => {
-    const opts = {
+function getQuote(sym) {
+  return new Promise((resolve) => {
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`;
+    const req = https.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
+        'Accept': 'application/json, */*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://finance.yahoo.com/',
-        'Origin': 'https://finance.yahoo.com',
       },
-    };
-    const req = https.get(url, opts, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return httpsGet(res.headers.location).then(resolve).catch(reject);
-      }
+    }, (res) => {
       let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) return resolve([sym, null]);
+          const json = JSON.parse(data);
+          const meta = json?.chart?.result?.[0]?.meta;
+          if (!meta) return resolve([sym, null]);
+          const price = meta.regularMarketPrice ?? null;
+          const prev  = meta.chartPreviousClose ?? null;
+          const change = (price !== null && prev) ? price - prev : null;
+          const pct    = (change !== null && prev) ? (change / prev) * 100 : null;
+          resolve([sym, { price, change, pct }]);
+        } catch { resolve([sym, null]); }
+      });
     });
-    req.on('error', reject);
-    req.setTimeout(8000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.on('error', () => resolve([sym, null]));
+    req.setTimeout(8000, () => { req.destroy(); resolve([sym, null]); });
   });
 }
 
@@ -29,28 +36,10 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
 
-  const symbols = (req.query.symbols || '').trim().toUpperCase();
-  if (!symbols) return res.status(400).json({ error: 'Missing symbols' });
+  const symbols = (req.query.symbols || '').trim().toUpperCase().split(',').filter(Boolean);
+  if (!symbols.length) return res.status(400).json({ error: 'Missing symbols' });
 
-  try {
-    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
-    const { status, body } = await httpsGet(url);
-
-    if (status !== 200) {
-      return res.status(502).json({ error: `Yahoo returned ${status}`, body: body.slice(0, 200) });
-    }
-
-    const json = JSON.parse(body);
-    const result = {};
-    for (const q of (json?.quoteResponse?.result || [])) {
-      result[q.symbol] = {
-        price: q.regularMarketPrice ?? null,
-        change: q.regularMarketChange ?? null,
-        pct: q.regularMarketChangePercent ?? null,
-      };
-    }
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const entries = await Promise.all(symbols.map(getQuote));
+  const result  = Object.fromEntries(entries.filter(([, v]) => v !== null));
+  res.json(result);
 };
