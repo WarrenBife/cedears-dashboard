@@ -766,7 +766,7 @@
 <script>
 const DATOS_URL   = "https://warrenbife.github.io/cedears-dashboard/datos.json";
 const REFRESH_MS  = 5 * 60 * 1000;
-const PRECIOS_URL = "http://localhost:3002/api/precios";
+const PRECIOS_URL = "/api/precios-live";
 let preciosTimer  = null;
 
 let DATOS = [];
@@ -797,9 +797,9 @@ async function actualizarPrecios() {
     let actualizados = 0;
     DATOS.forEach(d => {
       const p = precios[d.Ticker];
-      if (p && p.precio !== null) {
-        d['Precio']    = p.precio;
-        d['Var Día %'] = p.variacion;
+      if (p && p.price !== null) {
+        d['Precio']    = p.price;
+        d['Var Día %'] = p.pct;
         actualizados++;
       }
     });
@@ -837,7 +837,7 @@ async function cargarDatos() {
     // Actualizar precios inmediatamente y luego cada 5 min
     actualizarPrecios();
     if (preciosTimer) clearInterval(preciosTimer);
-    preciosTimer = setInterval(actualizarPrecios, REFRESH_MS);
+    preciosTimer = setInterval(actualizarPrecios, 60 * 1000);
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(cargarDatos, REFRESH_MS);
   } catch(e) {
