@@ -260,7 +260,7 @@
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
-  .home-content{position:relative;z-index:10;text-align:center;max-width:600px;padding:24px;}
+  .home-content{position:relative;z-index:10;text-align:center;max-width:min(94vw,780px);padding:24px;}
   .home-logo{width:128px;height:128px;border-radius:50%;margin:0 auto 26px;display:block;border:2px solid rgba(34,201,138,0.35);box-shadow:0 0 0 6px rgba(34,201,138,0.06),0 0 50px rgba(34,201,138,0.2);}
   .home-title{font-family:'DM Mono',monospace;font-size:clamp(1.8rem,5vw,3rem);font-weight:500;letter-spacing:-0.02em;margin-bottom:16px;line-height:1.1;background:linear-gradient(180deg,#f5f7fb 30%,#9aa6b8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#eef1f7;}
   /* clocks — bottom right */
@@ -2127,7 +2127,7 @@ function initHomeTitle() {
   el.innerHTML = '';
   const spans = TEXT.split('').map(char => {
     const s = document.createElement('span');
-    s.textContent = char === ' ' ? '\u00A0' : char;
+    s.textContent = char;
     s.dataset.orig = char;
     s.dataset.sp   = char === ' ' ? '1' : '';
     el.appendChild(s);
