@@ -31,8 +31,18 @@ function getQuote(sym) {
   });
 }
 
+const ALLOWED_ORIGINS = ['https://warrenbife.com', 'https://www.warrenbife.com'];
+function setCors(req, res) {
+  const origin = req.headers.origin || '';
+  const ok = ALLOWED_ORIGINS.includes(origin) || /\.vercel\.app$/.test(origin);
+  res.setHeader('Access-Control-Allow-Origin', ok ? origin : ALLOWED_ORIGINS[0]);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Vary', 'Origin');
+}
+
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
 
