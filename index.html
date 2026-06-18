@@ -2102,7 +2102,7 @@ function showView(name) {
   }
   if (name === 'dashboard') {
     if (!DATOS.length) cargarDatos();
-    else { document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); }
+    else { document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); renderEarnings(); }
   }
   if (name === 'planilla') {
     cargarWatchlist().then(() => {
