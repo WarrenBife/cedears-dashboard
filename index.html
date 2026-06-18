@@ -595,7 +595,6 @@
               <th data-tooltip="¿El precio cotiza por encima de la SMA de 50 ruedas? Verde = sí">SMA50</th>
               <th data-tooltip="¿El precio está más de 25% arriba del mínimo de 52 semanas? Indica alejamiento del piso">+25%mín</th>
               <th data-tooltip="¿Volatilidad relativa < 0.8? Indica acción comprimida con baja volatilidad histórica">Vol&lt;0.8</th>
-              <th data-tooltip="¿Vol 5d/40d < 1? Volumen decreciente respecto al promedio — posible contracción previa a movimiento">Secado</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -740,11 +739,13 @@
       <input id="cmp-b" list="cmp-tickers-list" oninput="renderComparador()" autocomplete="off"
         style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;width:90px;font-family:'DM Mono',monospace">
     </div>
-    <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px;align-items:start">
-      <div id="cmp-tabla"></div>
-      <div>
-        <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Fuerza relativa vs SPY (indexada, mes ant. = 100)</div>
-        <div class="chart-wrap" style="height:280px"><canvas id="cmpRSChart"></canvas></div>
+    <div class="panel-body" style="padding:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;min-width:560px">
+        <div id="cmp-tabla"></div>
+        <div>
+          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Fuerza relativa vs SPY (indexada, mes ant. = 100)</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="cmpRSChart"></canvas></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1072,9 +1073,8 @@ function renderWarrenScore() {
     const cRS   = d['RS Score']      !== null && d['RS Score']       > 70;
     const cVol  = d['Vol Relativa']  !== null && d['Vol Relativa']   < 0.8;
     const cMin  = d['Dist Mín52W %'] !== null && d['Dist Mín52W %'] >= 25;
-    const cSec  = d['Vol 5d/40d']    !== null && d['Vol 5d/40d']     < 1;
     const cumple = [cRS, cEma, cSma, cVol].filter(Boolean).length;
-    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cSec, cumple };
+    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cumple };
   }).filter(x => x.cumple >= minCrit)
     .sort((a, b) => b.score - a.score)
     .slice(0, topN);
@@ -1087,8 +1087,8 @@ function renderWarrenScore() {
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
-    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin, cSec }) => {
+    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin }) => {
         const volSec = d['Vol 5d/40d'] ?? null;
         const volSecCls = volSec == null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
         return `<tr>
@@ -1101,7 +1101,6 @@ function renderWarrenScore() {
         <td style="text-align:center">${dot(cSma)}</td>
         <td style="text-align:center">${dot(cMin)}</td>
         <td style="text-align:center">${dot(cVol)}</td>
-        <td style="text-align:center">${dot(cSec)}</td>
       </tr>`;
       }).join('');
 }
@@ -2779,7 +2778,7 @@ async function guardarWatchlist() {
     await fetch('/api/guardar-watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: saved.email, tables: PL_TABLES }),
+      body: JSON.stringify({ email: saved.email, tables: PL_TABLES, token: saved.token, pid: saved.pid, exp: saved.exp }),
     });
     document.getElementById('pl-save-status').textContent = 'Guardado ✓';
     setTimeout(() => { document.getElementById('pl-save-status').textContent = ''; }, 2500);

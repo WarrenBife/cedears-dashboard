@@ -1,9 +1,13 @@
 const crypto = require('crypto');
 
 const SECRET = process.env.ACCESS_SECRET;
+const ALLOWED_ORIGINS = ['https://warrenbife.com', 'https://www.warrenbife.com'];
 
 module.exports = (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin || '';
+  const ok = ALLOWED_ORIGINS.includes(origin) || /\.vercel\.app$/.test(origin);
+  res.setHeader('Access-Control-Allow-Origin', ok ? origin : ALLOWED_ORIGINS[0]);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Content-Type', 'application/json');
 
   const { token, pid, exp } = req.query;

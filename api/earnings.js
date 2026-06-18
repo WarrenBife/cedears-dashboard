@@ -1,6 +1,6 @@
 const https = require('https');
 
-const API_KEY = process.env.FINNHUB_KEY || 'd8o3ma1r01qvtr6mansgd8o3ma1r01qvtr6mant0';
+const API_KEY = process.env.FINNHUB_KEY;
 
 function finnhubGet(path) {
   return new Promise((resolve) => {
@@ -34,6 +34,8 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'max-age=900');
+
+  if (!API_KEY) return res.status(503).json({ error: 'Finnhub key not configured' });
 
   const { from, to } = req.query;
   if (!from || !to) return res.status(400).json({ error: 'Missing from/to' });
