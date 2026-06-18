@@ -826,6 +826,7 @@ async function cargarDatos() {
     document.getElementById('gf-ema200-asc').checked = false;
     poblarFiltros();
     renderTodo();
+    renderEarnings();
     document.getElementById('loading').style.display = 'none';
     // Efecto visual según SPY
     marketFX.update();
@@ -1796,8 +1797,6 @@ async function renderEarnings() {
     strip.style.display = 'none';
   }
 }
-
-renderEarnings();
 
 // ── TICKER STRIP ──────────────────────────────────────────────
 const STRIP_SYMS = ['SPY','QQQ','DIA','EWZ','FXI','AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','AMD','NFLX','JPM','BAC','XOM','CVX','JNJ','V','MA','PLTR','MELI','YPF'];
