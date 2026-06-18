@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
       body: {
         items: [{
           title: `Warren Bife ${label} — Acceso completo`,
-          description: 'Acceso ilimitado · pago único',
+          description: 'Suscripción anual · acceso por 12 meses',
           quantity: 1,
           currency_id: 'ARS',
           unit_price: price,

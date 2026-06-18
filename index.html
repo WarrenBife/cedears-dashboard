@@ -395,17 +395,17 @@
       <label class="pago-prod">
         <input type="checkbox" value="dashboard" id="prod-dashboard" onchange="actualizarProductos()">
         <span class="pago-prod-name">📊 Dashboard técnico</span>
-        <span class="pago-prod-price">$10.000</span>
+        <span class="pago-prod-price">$10.000/año</span>
       </label>
       <label class="pago-prod">
         <input type="checkbox" value="planilla" id="prod-planilla" onchange="actualizarProductos()">
         <span class="pago-prod-name">📋 Planilla personalizada</span>
-        <span class="pago-prod-price">$10.000</span>
+        <span class="pago-prod-price">$10.000/año</span>
       </label>
     </div>
     <div class="pago-descuento" id="pago-descuento"></div>
-    <div class="pago-precio" id="pago-precio-display">$10.000 <span>ARS</span></div>
-    <div class="pago-unique">Pago único · acceso ilimitado</div>
+    <div class="pago-precio" id="pago-precio-display">$10.000 <span>ARS/año</span></div>
+    <div class="pago-unique">Suscripción anual · acceso por 12 meses</div>
     <input type="email" id="pago-email" class="pago-email-input" placeholder="tu@email.com">
     <div id="pago-msg" class="pago-msg"></div>
     <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
@@ -1989,7 +1989,7 @@ function actualizarProductos() {
   const hasPlan = document.getElementById('prod-planilla').checked;
   const both = hasDash && hasPlan;
   const price = both ? '$15.000' : '$10.000';
-  document.getElementById('pago-precio-display').innerHTML = `${price} <span>ARS</span>`;
+  document.getElementById('pago-precio-display').innerHTML = `${price} <span>ARS/año</span>`;
   document.getElementById('pago-descuento').textContent = both ? '✓ Promo aplicada — ahorrás $5.000' : '';
 }
 
