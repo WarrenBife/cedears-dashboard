@@ -2353,11 +2353,11 @@ function initHomeAnimation() {
 
 // ── CLOCKS + MARKET STATUS + VISITS ──────────────────────────
 function initHomeLiveWidgets() {
-  // Contador de visitas (localStorage)
-  const visits = (parseInt(localStorage.getItem('wb_visits')||'0') + 1);
-  localStorage.setItem('wb_visits', visits);
-  const vc = document.getElementById('home-visits-count');
-  if (vc) vc.textContent = visits.toLocaleString();
+  // Contador de visitas global (Redis)
+  fetch('/api/visitas').then(r => r.json()).then(({ count }) => {
+    const vc = document.getElementById('home-visits-count');
+    if (vc && count) vc.textContent = Number(count).toLocaleString('es-AR');
+  }).catch(() => {});  // silencioso si falla
 
   // Reloj 24h
   function updateClocks() {
