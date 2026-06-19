@@ -1,4 +1,4 @@
-const { MercadoPagoConfig, PreApproval } = require('mercadopago');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 const client   = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const SITE_URL = process.env.SITE_URL || `https://${process.env.VERCEL_URL}`;
@@ -26,27 +26,31 @@ module.exports = async (req, res) => {
   const label   = hasDash && hasPlan ? 'Dashboard + Planilla' : hasPlan ? 'Planilla' : 'Dashboard';
 
   try {
-    const preapprovalApi = new PreApproval(client);
-    const result = await preapprovalApi.create({
+    const preference = new Preference(client);
+    const result = await preference.create({
       body: {
-        reason:             `Warren Bife ${label} — Suscripción anual`,
-        external_reference: `${email}|${products.join(',')}`,
-        payer_email:        email,
-        auto_recurring: {
-          frequency:          1,
-          frequency_type:     'years',
-          transaction_amount: price,
-          currency_id:        'ARS',
+        items: [{
+          title:       `Warren Bife ${label} — Suscripción anual`,
+          description: 'Acceso por 12 meses',
+          quantity:    1,
+          currency_id: 'ARS',
+          unit_price:  price,
+        }],
+        back_urls: {
+          success: `${SITE_URL}/api/confirmar-pago`,
+          failure: `${SITE_URL}/?pago=fallido`,
+          pending: `${SITE_URL}/?pago=pendiente`,
         },
-        back_url: `${SITE_URL}/api/confirmar-suscripcion`,
-        status:   'pending',
+        auto_return:          'approved',
+        statement_descriptor: 'WARREN BIFE',
+        external_reference:   `${email}|${products.join(',')}`,
       },
     });
 
     res.status(200).json({
       init_point:         result.init_point,
-      sandbox_init_point: result.sandbox_init_point || result.init_point,
-      preapproval_id:     result.id,
+      sandbox_init_point: result.sandbox_init_point,
+      preference_id:      result.id,
     });
   } catch (err) {
     console.error('[crear-pago]', err.message);
