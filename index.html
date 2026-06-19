@@ -196,9 +196,6 @@
   .pago-ya-btn{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .2s,border-color .2s;}
   .pago-ya-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(79,142,247,0.4);}
   .pago-ya-btn:disabled{opacity:0.5;cursor:not-allowed;}
-  .pago-trial-btn{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(34,201,138,0.4);background:rgba(34,201,138,0.08);color:var(--green);font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,box-shadow .2s;}
-  .pago-trial-btn:hover{background:rgba(34,201,138,0.15);border-color:rgba(34,201,138,0.7);box-shadow:0 0 18px rgba(34,201,138,0.15);}
-  .pago-trial-btn:disabled{opacity:0.5;cursor:not-allowed;}
   /* Selector de productos en el pago */
   .pago-productos{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;text-align:left;}
   .pago-prod{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .2s,background .2s;font-size:13px;}
@@ -414,10 +411,6 @@
     <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
       Pagar con Mercado Pago
-    </button>
-    <div class="pago-divider">o</div>
-    <button class="pago-trial-btn" id="trial-btn" onclick="iniciarTrial()">
-      🎁 Probar gratis 7 días — sin tarjeta
     </button>
     <div class="pago-divider">o</div>
     <button class="pago-ya-btn" id="pago-ya-btn" onclick="verificarEmailAcceso()">Ya pagué — ingresar con mi email</button>
@@ -2093,36 +2086,6 @@ async function iniciarPago() {
   }
 }
 
-async function iniciarTrial() {
-  const email = document.getElementById('pago-email').value.trim();
-  if (!email || !email.includes('@')) {
-    mostrarMsgPago('Ingresá tu email para activar la prueba.', 'error');
-    return;
-  }
-  const btn = document.getElementById('trial-btn');
-  btn.disabled = true;
-  btn.textContent = 'Activando prueba…';
-  try {
-    const r = await fetch('/api/trial', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      mostrarMsgPago(d.error || 'No se pudo activar la prueba.', 'error');
-      btn.disabled = false;
-      btn.textContent = '🎁 Probar gratis 7 días — sin tarjeta';
-      return;
-    }
-    guardarAcceso(d.token, d.pid, d.exp, d.email, d.products);
-    showView('dashboard');
-  } catch (err) {
-    mostrarMsgPago('Error al activar la prueba: ' + err.message, 'error');
-    btn.disabled = false;
-    btn.textContent = '🎁 Probar gratis 7 días — sin tarjeta';
-  }
-}
 
 // ── NAVEGACIÓN ────────────────────────────────────────────────
 function showView(name) {
