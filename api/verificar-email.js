@@ -20,6 +20,11 @@ const BYPASS_USERS = {
   pipe: ['planilla'],
 };
 
+// Códigos de prueba temporales: vencen en la fecha indicada (hora ARG)
+const TRIAL_CODES = {
+  acceso7: { products: ['dashboard', 'planilla'], exp: new Date('2026-06-27T03:00:00Z').getTime() },
+};
+
 module.exports = async (req, res) => {
   setCors(req, res);
   res.setHeader('Content-Type', 'application/json');
@@ -34,6 +39,15 @@ module.exports = async (req, res) => {
   const count = await kv.incr(rlKey);
   if (count === 1) await kv.expire(rlKey, 60);
   if (count > 10) return res.status(429).json({ valid: false, reason: 'too_many_requests' });
+
+  // Códigos de prueba temporales
+  const trialCode = TRIAL_CODES[email];
+  if (trialCode) {
+    if (Date.now() > trialCode.exp) return res.json({ valid: false, reason: 'expired' });
+    const pid   = `bypass-${email}`;
+    const token = crypto.createHmac('sha256', SECRET).update(`${pid}:${trialCode.exp}`).digest('hex');
+    return res.json({ valid: true, token, pid, exp: trialCode.exp, email, products: trialCode.products });
+  }
 
   // Bypass users (verificado server-side, no expuesto al cliente)
   const bypassProds = BYPASS_USERS[email];
