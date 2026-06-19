@@ -1,7 +1,9 @@
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 const client   = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
-const SITE_URL = process.env.SITE_URL || `https://${process.env.VERCEL_URL}`;
+const SITE_URL = process.env.SITE_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+  || `https://${process.env.VERCEL_URL}`;
 
 const PRECIOS = { dashboard: 10000, planilla: 10000, both: 15000 };
 
