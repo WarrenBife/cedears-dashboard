@@ -2773,6 +2773,11 @@ async function guardarWatchlist() {
     document.getElementById('pl-save-status').textContent = 'Ingresá con tu email para guardar.';
     return;
   }
+  if (saved.pid?.startsWith('bypass-')) {
+    document.getElementById('pl-save-status').textContent = 'Guardado localmente ✓ (modo prueba)';
+    setTimeout(() => { document.getElementById('pl-save-status').textContent = ''; }, 2500);
+    return;
+  }
   document.getElementById('pl-save-status').textContent = 'Guardando…';
   try {
     await fetch('/api/guardar-watchlist', {
