@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
   const exp   = Date.now() + TRIAL_MS;
   const token = crypto.createHmac('sha256', SECRET).update(`${pid}:${exp}`).digest('hex');
 
-  await kv.set(`email:${email}`, { payment_id: pid, exp, products: ['dashboard', 'planilla'], trial: true });
+  await kv.set(`email:${email}`, { payment_id: pid, exp, products: ['dashboard', 'planilla'], trial: true }, { ex: 7 * 24 * 60 * 60 });
   await kv.set(`trial:${email}`, 1); // sin TTL — marca permanente para evitar reusar
 
   res.json({ valid: true, token, pid, exp, email, products: ['dashboard', 'planilla'] });
