@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warren Bife — Guía del Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#06090e;--surface:#0d1117;--surface2:#111820;
+    --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
+    --text:#e8eaf0;--muted:#737d8f;--green:#22c98a;--amber:#f5a623;--blue:#4f8ef7;--red:#f0605a;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.6;padding:0 16px 60px;}
+  .container{max-width:900px;margin:0 auto;}
+
+  /* HERO */
+  .hero{text-align:center;padding:56px 20px 40px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .hero-logo{width:52px;height:52px;border-radius:50%;margin-bottom:16px;border:1px solid rgba(34,201,138,0.3);}
+  .hero h1{font-size:clamp(22px,5vw,34px);font-weight:600;letter-spacing:-.02em;margin-bottom:8px;}
+  .hero h1 span{color:var(--green);}
+  .hero p{color:var(--muted);font-size:15px;max-width:520px;margin:0 auto;}
+
+  /* SECTION */
+  .section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin:40px 0 16px;display:flex;align-items:center;gap:10px;}
+  .section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(34,201,138,0.3),transparent);}
+
+  /* KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:12px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .kpi-name{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;}
+  .kpi-title{font-size:14px;font-weight:600;margin-bottom:6px;}
+  .kpi-title.c-green{color:var(--green);}
+  .kpi-title.c-blue{color:var(--blue);}
+  .kpi-title.c-amber{color:var(--amber);}
+  .kpi-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+
+  /* KPI MOCK BAR */
+  .kpi-mock{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;}
+  .kpi-mock-item{text-align:center;min-width:80px;}
+  .kpi-mock-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;line-height:1;}
+  .kpi-mock-val.c-blue{color:var(--blue);}
+  .kpi-mock-val.c-green{color:var(--green);}
+  .kpi-mock-val.c-amber{color:var(--amber);}
+  .kpi-mock-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:4px;}
+  .kpi-mock-sub{font-size:9px;color:rgba(115,125,143,0.6);margin-top:2px;}
+
+  /* PANEL CARDS */
+  .panel-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:14px;transition:border-color .2s;}
+  .panel-card:hover{border-color:rgba(34,201,138,0.25);}
+  .panel-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
+  .panel-icon{width:40px;height:40px;border-radius:9px;background:rgba(34,201,138,0.08);border:1px solid rgba(34,201,138,0.18);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .panel-icon.amber{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.2);}
+  .panel-icon.blue{background:rgba(79,142,247,0.08);border-color:rgba(79,142,247,0.2);}
+  .panel-name{font-size:16px;font-weight:600;margin-bottom:3px;}
+  .panel-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
+  .panel-body{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:580px){.panel-body{grid-template-columns:1fr;}}
+  .block-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:5px;font-family:'DM Mono',monospace;}
+  .block-label.amber{color:var(--amber);}
+  .block-text{font-size:13px;color:rgba(232,234,240,0.8);line-height:1.55;}
+
+  /* CHART WRAP */
+  .chart-wrap{background:rgba(255,255,255,0.018);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:18px;}
+  .chart-wrap-label{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
+  .chart-canvas-box{position:relative;}
+
+  /* MOCK UI (scanner, semáforo) */
+  .mock-table{width:100%;border-collapse:collapse;font-size:12px;font-family:'DM Mono',monospace;}
+  .mock-table th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border);}
+  .mock-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .mock-table tr:last-child td{border-bottom:none;}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500;}
+  .badge-green{background:rgba(34,201,138,0.12);color:var(--green);border:1px solid rgba(34,201,138,0.2);}
+  .badge-red{background:rgba(240,96,90,0.12);color:var(--red);border:1px solid rgba(240,96,90,0.2);}
+  .badge-amber{background:rgba(245,166,35,0.12);color:var(--amber);border:1px solid rgba(245,166,35,0.2);}
+  .score-bar-wrap{background:rgba(255,255,255,0.05);border-radius:3px;height:5px;width:80px;display:inline-block;vertical-align:middle;}
+  .score-bar{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--green),rgba(34,201,138,0.5));}
+
+  /* SECTOR GRID */
+  .sector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
+  .sector-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .sector-name{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+  .sector-ticker{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-family:'DM Mono',monospace;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .sector-ticker:last-child{border-bottom:none;padding-bottom:0;}
+  .sector-ticker.vol-unusual{border-left:2px solid var(--amber);padding-left:6px;margin-left:-6px;}
+  .sector-rs{font-size:10px;}
+
+  /* TIP */
+  .tip{background:rgba(34,201,138,0.05);border:1px solid rgba(34,201,138,0.15);border-radius:7px;padding:10px 13px;margin-top:14px;font-size:12px;color:rgba(232,234,240,0.7);line-height:1.5;}
+  .tip strong{color:var(--green);}
+  .tip.amber{background:rgba(245,166,35,0.05);border-color:rgba(245,166,35,0.15);}
+  .tip.amber strong{color:var(--amber);}
+
+  /* FOOTER */
+  .footer{text-align:center;padding-top:40px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;}
+  .footer a{color:var(--green);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <img src="https://i.imgur.com/GuVsAWY.jpeg" class="hero-logo" onerror="this.style.display='none'">
+  <h1>Guía del <span>Dashboard</span></h1>
+  <p>Todo lo que necesitás saber para leer e interpretar cada panel y tomar mejores decisiones técnicas.</p>
+</div>
+
+<!-- ── KPIs ── -->
+<div class="section-label">Barra de KPIs — resumen rápido del universo</div>
+
+<div class="kpi-mock">
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-blue">84</div><div class="kpi-mock-label">Tickers activos</div><div class="kpi-mock-sub">con filtros aplicados</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-green">61</div><div class="kpi-mock-label">Sobre EMA200</div><div class="kpi-mock-sub">tendencia alcista</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-green">38</div><div class="kpi-mock-label">RS Score &gt; 70</div><div class="kpi-mock-sub">fuerza relativa alta</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-green">57</div><div class="kpi-mock-label">Sobre SMA50</div><div class="kpi-mock-sub">precio sobre SMA50</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-amber">12</div><div class="kpi-mock-label">Vol inusual</div><div class="kpi-mock-sub">+50% sobre promedio</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val">21</div><div class="kpi-mock-label">Candidatos calidad</div><div class="kpi-mock-sub">RS&gt;60 + medias + vol baja</div></div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-name">Stat 1</div><div class="kpi-title c-blue">Tickers activos</div><div class="kpi-desc">Cantidad de activos visibles con los filtros actuales. Hacé click para ver solo ese grupo.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 2</div><div class="kpi-title c-green">Sobre EMA200</div><div class="kpi-desc">Cuántos activos tienen el precio por encima de la media de 200 ruedas — señal de tendencia alcista de largo plazo.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 3</div><div class="kpi-title c-green">RS Score &gt; 70</div><div class="kpi-desc">Activos con fuerza relativa alta frente al SPY. Cuantos más, mejor el estado general del mercado.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 4</div><div class="kpi-title c-green">Sobre SMA50</div><div class="kpi-desc">Activos cotizando por encima de su media de 50 ruedas — refleja la tendencia de corto/mediano plazo.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 5</div><div class="kpi-title c-amber">Volumen inusual</div><div class="kpi-desc">Activos que operaron hoy más del 50% por encima de su promedio. Puede señalar movimientos institucionales.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 6</div><div class="kpi-title">Candidatos calidad</div><div class="kpi-desc">Activos que cumplen: RS &gt; 60, sobre medias y baja volatilidad. El filtro más exigente del dashboard.</div></div>
+</div>
+<div class="tip">
+  <strong>Tip:</strong> Todos los KPIs son clickeables y actúan como filtros rápidos que se aplican sobre todos los paneles al mismo tiempo. Así podés enfocarte en un subconjunto sin tocar los filtros manuales.
+</div>
+
+<!-- ── EARNINGS ── -->
+<div class="section-label">Strip de Earnings</div>
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon amber">📅</div>
+    <div>
+      <div class="panel-name">Earnings de la semana</div>
+      <div class="panel-sub">Fuente: Finnhub · aparece solo cuando hay reportes próximos</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label amber">Qué muestra</div>
+      <div class="block-text">Activos del universo Warren Bife que presentan resultados trimestrales durante la semana actual. Muestra la fecha exacta y si el reporte es antes o después del cierre del mercado (BMO / AMC).</div>
+    </div>
+    <div>
+      <div class="block-label amber">Para qué sirve</div>
+      <div class="block-text">Anticipar eventos de alta volatilidad. Las acciones suelen moverse bruscamente el día del reporte. Ayuda a decidir si mantener, reducir o evitar posiciones esa semana.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — earnings esta semana</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:10px 14px;min-width:120px;">
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#e8eaf0;">NVDA</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Mié 18 jun</div>
+        <div style="font-size:9px;margin-top:5px;background:rgba(245,166,35,0.15);color:var(--amber);padding:2px 6px;border-radius:4px;display:inline-block;">AMC · después del cierre</div>
+      </div>
+      <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:10px 14px;min-width:120px;">
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#e8eaf0;">MELI</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Jue 19 jun</div>
+        <div style="font-size:9px;margin-top:5px;background:rgba(79,142,247,0.1);color:var(--blue);padding:2px 6px;border-radius:4px;display:inline-block;">BMO · antes de apertura</div>
+      </div>
+      <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:10px 14px;min-width:120px;">
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#e8eaf0;">AAPL</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Vie 20 jun</div>
+        <div style="font-size:9px;margin-top:5px;background:rgba(245,166,35,0.15);color:var(--amber);padding:2px 6px;border-radius:4px;display:inline-block;">AMC · después del cierre</div>
+      </div>
+    </div>
+  </div>
+  <div class="tip amber"><strong>Tip:</strong> Antes de abrir una posición de corto plazo, revisá si el activo reporta earnings esa semana. Un buen setup técnico puede revertirse completamente con un reporte negativo.</div>
+</div>
+
+<!-- ── PANELES PRINCIPALES ── -->
+<div class="section-label">Paneles principales</div>
+
+<!-- 1. Mapa de Re-surgimiento -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">🗺️</div>
+    <div>
+      <div class="panel-name">Mapa de Re-surgimiento</div>
+      <div class="panel-sub">Scatter RS actual vs RS semana anterior</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Un gráfico de dispersión donde cada punto es un activo. El eje X es el RS Score de la semana pasada y el eje Y es el RS Score actual. La diagonal divide el gráfico en dos zonas.</div>
+    </div>
+    <div>
+      <div class="block-label">Cómo leerlo</div>
+      <div class="block-text">
+        <strong style="color:var(--green)">Arriba de la diagonal</strong> → el activo mejoró su fuerza relativa esta semana.<br><br>
+        <strong style="color:var(--red)">Abajo de la diagonal</strong> → perdió fuerza relativa frente al mercado.
+      </div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — RS semana anterior (eje X) vs RS actual (eje Y)</div>
+    <div class="chart-canvas-box"><canvas id="c-resurgimiento" height="260"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Activos en la esquina superior derecha (RS alto y mejorando). Son los líderes del mercado con momentum positivo. Los de la esquina inferior izquierda están rezagados en ambas dimensiones.</div>
+</div>
+
+<!-- 2. Warren Score -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">🏆</div>
+    <div>
+      <div class="panel-name">Warren Score</div>
+      <div class="panel-sub">Score compuesto 0–100 por criterios técnicos</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Ranking de todos los activos ordenados por un score técnico compuesto que combina: fuerza relativa vs SPY, posición respecto a la EMA200 y SMA50, distancia al mínimo anual y nivel de volatilidad.</div>
+    </div>
+    <div>
+      <div class="block-label">Qué tiene en cuenta</div>
+      <div class="block-text">
+        El score pondera cuatro dimensiones técnicas:<br><br>
+        · Fuerza relativa vs el mercado americano<br>
+        · Posición respecto a las medias de largo y corto plazo<br>
+        · Distancia al mínimo anual<br>
+        · Nivel de volatilidad relativa<br><br>
+        Cuanto mayor el score, mejor alineado está el activo en todas estas dimensiones simultáneamente.
+      </div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — Top 8 por Warren Score</div>
+    <div class="chart-canvas-box"><canvas id="c-warren" height="220"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Scores sobre 60–70 indican activos en buena forma técnica. Un score alto no garantiza suba, pero muestra alineación técnica en múltiples dimensiones simultáneamente.</div>
+</div>
+
+<!-- 3. Tendencia RS Score -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">📈</div>
+    <div>
+      <div class="panel-name">Tendencia RS Score</div>
+      <div class="panel-sub">Evolución del RS Score en las últimas 4 semanas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Gráfico de líneas con la evolución semanal del RS Score para los activos seleccionados. Permite ver si la fuerza relativa viene mejorando, deteriorándose o manteniéndose estable a lo largo del mes.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Un activo con RS Score alto hoy pero que viene bajando semana a semana es menos atractivo que uno con RS Score moderado pero en ascenso constante. La tendencia importa tanto como el valor puntual.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — RS Score de 4 activos en las últimas 4 semanas</div>
+    <div class="chart-canvas-box"><canvas id="c-tendencia" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Líneas con pendiente ascendente sostenida. GGAL en el ejemplo viene ganando fuerza relativa semana a semana — es preferible a MELI que viene cayendo aunque hoy tenga RS más alto.</div>
+</div>
+
+<!-- 4. Sesiones & Volumen -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon blue">📊</div>
+    <div>
+      <div class="panel-name">Sesiones &amp; Volumen</div>
+      <div class="panel-sub">Ranking por días alcistas × ratio de volumen — últimas 10 ruedas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Ranking de activos según cuántos días subieron en las últimas 10 ruedas, ponderado por el volumen de esos días. Un activo que sube muchos días con volumen alto rankea mejor que uno que sube con poco volumen.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Mide la <em>convicción compradora</em>: no solo si subió, sino si lo hizo con participación real del mercado. Subidas con volumen bajo pueden ser menos confiables que subidas con volumen creciente.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — Score días alcistas × volumen (últimas 10 ruedas)</div>
+    <div class="chart-canvas-box"><canvas id="c-sesiones" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Activos con score alto en este panel + RS Score alto = señal de acumulación institucional sostenida. La combinación de ambos es más robusta que cada indicador por separado.</div>
+</div>
+
+<!-- 5. Volumen inusual -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon amber">🔥</div>
+    <div>
+      <div class="panel-name">Volumen inusual hoy</div>
+      <div class="panel-sub">Desvío vs promedio de las últimas ruedas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Lista de activos cuyo volumen operado hoy supera significativamente su promedio histórico reciente. El porcentaje indica cuánto más alto operó respecto al promedio.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">El volumen inusual puede anticipar movimientos relevantes: ingreso de dinero institucional, noticias corporativas o cambio de tendencia. Es una alerta temprana de actividad no habitual en el activo.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — % de desvío sobre el promedio de volumen</div>
+    <div class="chart-canvas-box"><canvas id="c-volinusual" height="190"></canvas></div>
+  </div>
+  <div class="tip amber"><strong>Atención:</strong> Volumen inusual no es necesariamente alcista. Combinalo siempre con la dirección del precio ese día: subida con volumen alto = acumulación; caída con volumen alto = distribución.</div>
+</div>
+
+<!-- 6. Cartelera del día -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">📋</div>
+    <div>
+      <div class="panel-name">Cartelera del día</div>
+      <div class="panel-sub">Principales movimientos y extremos RSI</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Resumen visual de los activos más destacados de la jornada: mayores subas del día, mayores bajas del día, y activos en zona de sobrecompra (RSI &gt; 70) o sobreventa (RSI &lt; 30).</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Permite tener un panorama rápido del día sin revisar cada activo individualmente. Ideal para detectar movimientos extremos, activos agotados técnicamente y posibles oportunidades en zonas de sobreventa.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — variación % del día (verde = sube, rojo = baja)</div>
+    <div class="chart-canvas-box"><canvas id="c-cartelera" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>RSI extremos:</strong> RSI &gt; 70 = posible sobrecompra (precaución para nuevas entradas). RSI &lt; 30 = posible sobreventa (potencial rebote, pero solo si el contexto acompaña).</div>
+</div>
+
+<!-- 7. Scanner de calidad -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">🔍</div>
+    <div>
+      <div class="panel-name">Scanner de calidad</div>
+      <div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Activos que cumplen simultáneamente los criterios más exigentes: cotizan sobre la EMA200 y la SMA50, tienen RS Score elevado y presentan baja volatilidad relativa respecto al mercado.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Es el filtro de mayor calidad del dashboard. Los activos que aparecen acá son los que presentan la mejor combinación de tendencia, fuerza relativa y comportamiento ordenado. Ideal como punto de partida para buscar setups.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — candidatos que pasan todos los filtros de calidad</div>
+    <table class="mock-table">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>RS Score</th>
+          <th>EMA200</th>
+          <th>SMA50</th>
+          <th>Vol relativa</th>
+          <th>Warren Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>NVDA</strong></td><td style="color:var(--green)">85</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.62</td><td><span class="badge badge-green">88</span></td></tr>
+        <tr><td><strong>GGAL</strong></td><td style="color:var(--green)">72</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.71</td><td><span class="badge badge-green">74</span></td></tr>
+        <tr><td><strong>MSFT</strong></td><td style="color:var(--green)">71</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.69</td><td><span class="badge badge-green">71</span></td></tr>
+        <tr><td><strong>META</strong></td><td style="color:var(--green)">68</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.74</td><td><span class="badge badge-green">67</span></td></tr>
+        <tr><td><strong>BMA</strong></td><td style="color:var(--green)">65</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.77</td><td><span class="badge badge-green">63</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Un activo en el Scanner con Warren Score alto y tendencia RS ascendente (ver panel anterior) es el candidato técnico más completo del universo en ese momento.</div>
+</div>
+
+<!-- 8. Semáforo por sector -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">🏭</div>
+    <div>
+      <div class="panel-name">Semáforo por sector — Top 3</div>
+      <div class="panel-sub">Top 3 RS Score por sector · borde naranja = volumen inusual</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Los tres activos con mayor RS Score dentro de cada sector económico. Permite ver de un vistazo qué sectores están liderando el mercado y qué acciones los encabezan.</div>
+    </div>
+    <div>
+      <div class="block-label">Cómo leerlo</div>
+      <div class="block-text">
+        Sectores con RS Scores altos en sus top 3 = sector fuerte.<br><br>
+        <strong style="color:var(--amber)">Borde naranja</strong> = ese activo tiene volumen inusual hoy.<br><br>
+        Color del score: verde = sobre medias, rojo = bajo medias.
+      </div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — top 3 por sector (borde naranja = volumen inusual)</div>
+    <div class="sector-grid">
+      <div class="sector-card">
+        <div class="sector-name">Tecnología</div>
+        <div class="sector-ticker"><span>NVDA</span><span class="sector-rs" style="color:var(--green)">85</span></div>
+        <div class="sector-ticker vol-unusual"><span>MSFT</span><span class="sector-rs" style="color:var(--green)">71</span></div>
+        <div class="sector-ticker"><span>AAPL</span><span class="sector-rs" style="color:var(--green)">58</span></div>
+      </div>
+      <div class="sector-card">
+        <div class="sector-name">Finanzas</div>
+        <div class="sector-ticker vol-unusual"><span>BMA</span><span class="sector-rs" style="color:var(--green)">65</span></div>
+        <div class="sector-ticker"><span>GGAL</span><span class="sector-rs" style="color:var(--green)">72</span></div>
+        <div class="sector-ticker"><span>JPM</span><span class="sector-rs" style="color:var(--green)">61</span></div>
+      </div>
+      <div class="sector-card">
+        <div class="sector-name">Consumo discrecional</div>
+        <div class="sector-ticker"><span>MELI</span><span class="sector-rs" style="color:var(--green)">78</span></div>
+        <div class="sector-ticker"><span>AMZN</span><span class="sector-rs" style="color:var(--muted)">48</span></div>
+        <div class="sector-ticker"><span>TSLA</span><span class="sector-rs" style="color:var(--red)">32</span></div>
+      </div>
+      <div class="sector-card">
+        <div class="sector-name">Energía</div>
+        <div class="sector-ticker"><span>XOM</span><span class="sector-rs" style="color:var(--muted)">52</span></div>
+        <div class="sector-ticker vol-unusual"><span>YPF</span><span class="sector-rs" style="color:var(--red)">35</span></div>
+        <div class="sector-ticker"><span>CVX</span><span class="sector-rs" style="color:var(--muted)">44</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="tip"><strong>Estrategia:</strong> Identificá el sector más fuerte del día y buscá dentro de él los activos mejor posicionados. Operar en línea con el sector líder mejora la probabilidad del trade.</div>
+</div>
+
+<!-- 9. Comparador -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon blue">⚖️</div>
+    <div>
+      <div class="panel-name">Comparador de activos</div>
+      <div class="panel-sub">Evolución del RS Score entre dos activos a lo largo del tiempo</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Gráfico de líneas que compara la evolución temporal del RS Score de dos activos seleccionados. Permite ver cuál de los dos viene ganando o perdiendo fuerza relativa a lo largo del tiempo.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Ideal cuando tenés dos candidatos y querés elegir el mejor posicionado. También sirve para detectar rotaciones: si A venía superando a B y se cruzan, puede señalar un cambio de liderazgo entre activos.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — GGAL vs MELI, RS Score últimas 8 semanas</div>
+    <div class="chart-canvas-box"><canvas id="c-comparador" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>Caso de uso:</strong> En el ejemplo, GGAL viene con pendiente ascendente y superó a MELI en las últimas semanas. Entre los dos, GGAL es el candidato técnicamente más fuerte en este momento.</div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>Warren Bife Dashboard · <a href="https://warrenbife.com">warrenbife.com</a></p>
+  <p style="margin-top:6px">Esta guía es de carácter educativo e informativo. No constituye asesoramiento financiero.</p>
+</div>
+
+</div><!-- /container -->
+
+<script>
+Chart.defaults.color = '#737d8f';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const G = { // colores
+  green:'#22c98a', greenA:'rgba(34,201,138,0.15)',
+  blue:'#4f8ef7',  blueA:'rgba(79,142,247,0.15)',
+  amber:'#f5a623', amberA:'rgba(245,166,35,0.15)',
+  red:'#f0605a',   redA:'rgba(240,96,90,0.15)',
+  grid:'rgba(255,255,255,0.04)',
+  muted:'#737d8f',
+};
+
+const baseScales = (xLabel='', yLabel='') => ({
+  x:{
+    grid:{color:G.grid},
+    ticks:{color:G.muted},
+    title: xLabel ? {display:true,text:xLabel,color:G.muted,font:{size:9}} : undefined,
+  },
+  y:{
+    grid:{color:G.grid},
+    ticks:{color:G.muted},
+    title: yLabel ? {display:true,text:yLabel,color:G.muted,font:{size:9}} : undefined,
+  }
+});
+
+// ── 1. MAPA DE RE-SURGIMIENTO (scatter) ──────────────────────
+const scatterData = [
+  {x:75,y:85,t:'NVDA'},{x:60,y:72,t:'GGAL'},{x:82,y:78,t:'MELI'},
+  {x:70,y:68,t:'META'},{x:55,y:65,t:'BMA'},{x:62,y:58,t:'AAPL'},
+  {x:40,y:52,t:'GLOB'},{x:55,y:48,t:'AMZN'},{x:42,y:35,t:'YPF'},
+  {x:65,y:71,t:'MSFT'},{x:50,y:44,t:'XOM'},{x:30,y:28,t:'TSLA'},
+  {x:68,y:74,t:'JPM'},{x:58,y:50,t:'CVX'},{x:45,y:55,t:'GLD'},
+];
+
+const scatterLabelPlugin = {
+  id:'scatterLabels',
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    const ds = chart.data.datasets[1];
+    const meta = chart.getDatasetMeta(1);
+    ctx.save();
+    ctx.font = "9px 'DM Mono', monospace";
+    ctx.fillStyle = 'rgba(232,234,240,0.55)';
+    meta.data.forEach((pt,i) => {
+      const d = ds.data[i];
+      const up = d.y >= d.x;
+      ctx.fillStyle = up ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.6)';
+      ctx.fillText(d.t, pt.x + 6, pt.y - 4);
+    });
+    ctx.restore();
+  }
+};
+
+new Chart(document.getElementById('c-resurgimiento'),{
+  type:'scatter',
+  plugins:[scatterLabelPlugin],
+  data:{
+    datasets:[
+      { // diagonal
+        type:'line',
+        data:[{x:20,y:20},{x:92,y:92}],
+        borderColor:'rgba(255,255,255,0.1)',
+        borderDash:[5,5],
+        pointRadius:0,
+        tension:0,
+        order:0,
+      },
+      { // puntos
+        type:'scatter',
+        data: scatterData,
+        backgroundColor: scatterData.map(d => d.y >= d.x ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.6)'),
+        pointRadius:5,
+        pointHoverRadius:7,
+        order:1,
+      }
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        callbacks:{
+          label: ctx => {
+            const d = ctx.raw;
+            return ` ${d.t}: sem.ant.=${d.x} → hoy=${d.y}`;
+          }
+        }
+      }
+    },
+    scales:{
+      x:{...baseScales().x, min:15, max:95, title:{display:true,text:'RS Score semana anterior',color:G.muted,font:{size:9}}},
+      y:{...baseScales().y, min:15, max:95, title:{display:true,text:'RS Score actual',color:G.muted,font:{size:9}}},
+    }
+  }
+});
+
+// ── 2. WARREN SCORE (bar horizontal) ──────────────────────────
+new Chart(document.getElementById('c-warren'),{
+  type:'bar',
+  data:{
+    labels:['NVDA','MELI','GGAL','MSFT','META','BMA','AAPL','GLOB'],
+    datasets:[{
+      data:[88,76,71,68,65,62,54,47],
+      backgroundColor:['rgba(34,201,138,0.75)','rgba(34,201,138,0.68)','rgba(34,201,138,0.62)',
+        'rgba(34,201,138,0.56)','rgba(34,201,138,0.50)','rgba(34,201,138,0.44)',
+        'rgba(79,142,247,0.5)','rgba(79,142,247,0.4)'],
+      borderRadius:4,
+      barThickness:18,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label: c => ` Score: ${c.raw}/100`}},
+    },
+    scales:{
+      x:{...baseScales().x, min:0, max:100, ticks:{stepSize:20}},
+      y:{...baseScales().y, grid:{display:false}},
+    }
+  }
+});
+
+// ── 3. TENDENCIA RS SCORE (multi-line) ────────────────────────
+const semanas = ['-3 sem','-2 sem','-1 sem','Hoy'];
+new Chart(document.getElementById('c-tendencia'),{
+  type:'line',
+  data:{
+    labels: semanas,
+    datasets:[
+      {label:'GGAL', data:[50,55,63,72], borderColor:G.green,  backgroundColor:G.greenA, tension:.4, pointRadius:4, fill:false},
+      {label:'NVDA', data:[65,72,79,85], borderColor:G.blue,   backgroundColor:G.blueA,  tension:.4, pointRadius:4, fill:false},
+      {label:'MELI', data:[82,80,82,78], borderColor:G.amber,  backgroundColor:G.amberA, tension:.4, pointRadius:4, fill:false, borderDash:[4,3]},
+      {label:'YPF',  data:[45,40,38,35], borderColor:G.red,    backgroundColor:G.redA,   tension:.4, pointRadius:4, fill:false, borderDash:[4,3]},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{display:true, position:'bottom', labels:{boxWidth:10, padding:14, color:'#737d8f'}},
+      tooltip:{mode:'index',intersect:false},
+    },
+    scales:{
+      x:{...baseScales().x},
+      y:{...baseScales().y, min:25, max:95, ticks:{stepSize:10}},
+    }
+  }
+});
+
+// ── 4. SESIONES & VOLUMEN (bar horizontal) ────────────────────
+new Chart(document.getElementById('c-sesiones'),{
+  type:'bar',
+  data:{
+    labels:['GGAL','NVDA','MELI','BMA','META','MSFT','AAPL','YPF'],
+    datasets:[{
+      label:'Score sesiones × vol',
+      data:[8.2,7.8,7.1,6.5,5.9,5.2,4.8,3.1],
+      backgroundColor:'rgba(79,142,247,0.6)',
+      borderRadius:4,
+      barThickness:18,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label: c => ` Score: ${c.raw}`}},
+    },
+    scales:{
+      x:{...baseScales().x, min:0},
+      y:{...baseScales().y, grid:{display:false}},
+    }
+  }
+});
+
+// ── 5. VOLUMEN INUSUAL (bar horizontal) ───────────────────────
+new Chart(document.getElementById('c-volinusual'),{
+  type:'bar',
+  data:{
+    labels:['BMA','YPF','GLOB','GGAL','NVDA'],
+    datasets:[{
+      data:[185,142,98,76,54],
+      backgroundColor:[
+        'rgba(245,166,35,0.8)','rgba(245,166,35,0.7)','rgba(245,166,35,0.6)',
+        'rgba(245,166,35,0.5)','rgba(245,166,35,0.4)'
+      ],
+      borderRadius:4,
+      barThickness:18,
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label: c => ` +${c.raw}% sobre promedio`}},
+    },
+    scales:{
+      x:{...baseScales().x, min:0, ticks:{callback: v => `+${v}%`}},
+      y:{...baseScales().y, grid:{display:false}},
+    }
+  }
+});
+
+// ── 6. CARTELERA DEL DÍA (bar combinado) ─────────────────────
+const carteleraLabels = ['BMA','GGAL','NVDA','GLD','MSFT','CVX','GLOB','AMZN','YPF'];
+const carteleraData   = [4.2, 3.8, 2.9, 1.4, 0.8, -0.6, -1.8, -2.4, -3.1];
+new Chart(document.getElementById('c-cartelera'),{
+  type:'bar',
+  data:{
+    labels: carteleraLabels,
+    datasets:[{
+      data: carteleraData,
+      backgroundColor: carteleraData.map(v => v >= 0 ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.7)'),
+      borderRadius:4,
+      barThickness:20,
+    }]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label: c => ` ${c.raw > 0 ? '+' : ''}${c.raw}%`}},
+    },
+    scales:{
+      x:{...baseScales().x, grid:{display:false}},
+      y:{
+        ...baseScales().y,
+        ticks:{callback: v => `${v > 0 ? '+' : ''}${v}%`},
+      }
+    }
+  }
+});
+
+// ── 9. COMPARADOR (multi-line) ────────────────────────────────
+new Chart(document.getElementById('c-comparador'),{
+  type:'line',
+  data:{
+    labels:['-7','-6','-5','-4','-3','-2','-1','Hoy'],
+    datasets:[
+      {label:'GGAL', data:[45,48,52,57,62,66,70,72], borderColor:G.green, backgroundColor:G.greenA, tension:.4, pointRadius:3, fill:true},
+      {label:'MELI', data:[78,75,80,77,79,75,77,78], borderColor:G.amber, backgroundColor:G.amberA, tension:.4, pointRadius:3, fill:false, borderDash:[5,4]},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{display:true, position:'bottom', labels:{boxWidth:10, padding:14, color:'#737d8f'}},
+      tooltip:{mode:'index',intersect:false},
+    },
+    scales:{
+      x:{...baseScales().x, title:{display:true,text:'semanas atrás',color:G.muted,font:{size:9}}},
+      y:{...baseScales().y, min:30, max:95, ticks:{stepSize:10}},
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -49,6 +49,9 @@
   .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.05em;background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent);}
   .tagline{color:var(--muted);font-size:12px;letter-spacing:0.02em;}
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .btn-guia{font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;text-decoration:none;white-space:nowrap;transition:color .2s,border-color .2s,background .2s;}
+  .btn-guia:hover{color:var(--blue);border-color:rgba(79,142,247,0.4);background:rgba(79,142,247,0.07);}
+  @media(max-width:600px){.btn-guia{display:none;}}
   .live-badge{display:flex;align-items:center;gap:6px;background:var(--green-bg);border:1px solid rgba(34,201,138,0.35);color:var(--green);padding:4px 11px;border-radius:999px;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.06em;box-shadow:0 0 14px rgba(34,201,138,0.12);}
   .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(34,201,138,0.9);animation:pulse 1.6s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
@@ -476,6 +479,7 @@
     <div class="tagline">Monitor de mercado</div>
   </div>
   <div class="topbar-right">
+    <a href="/guia.html" target="_blank" rel="noopener" class="btn-guia">¿Qué significa cada gráfico?</a>
     <div class="live-badge"><span class="live-dot"></span>EN VIVO</div>
     <div class="time-info">Actualizado: <span id="last-kpi-update">—</span></div>
     <button class="btn" onclick="cargarDatos()">↺ Actualizar</button>
