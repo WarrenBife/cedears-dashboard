@@ -2803,7 +2803,7 @@ async function cargarWatchlist() {
   try {
     const r = await fetch(`/api/cargar-watchlist?email=${encodeURIComponent(saved.email)}`);
     const d = await r.json();
-    if (d.tables && Array.isArray(d.tables) && d.tables.length === 6) {
+    if (d.tables && Array.isArray(d.tables) && d.tables.length > 0) {
       PL_TABLES = d.tables;
     }
   } catch {}
