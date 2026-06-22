@@ -2600,6 +2600,7 @@ const PL_DEFAULTS = [
 ];
 
 let PL_TABLES = PL_DEFAULTS.map(t => ({ ...t, tickers: [...t.tickers] }));
+let PL_LOADED = false; // se carga desde Redis solo una vez por sesión
 
 function plMetricLabel(code) {
   return { RS:'RS Score', RSI:'RSI', EMA200:'Dist EMA200%', SMA50:'Dist SMA50%', WS:'Warren Score' }[code] || code;
@@ -2785,19 +2786,26 @@ async function guardarWatchlist() {
   }
   document.getElementById('pl-save-status').textContent = 'Guardando…';
   try {
-    await fetch('/api/guardar-watchlist', {
+    const r = await fetch('/api/guardar-watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: saved.email, tables: PL_TABLES, token: saved.token, pid: saved.pid, exp: saved.exp }),
     });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      document.getElementById('pl-save-status').textContent = `Error al guardar: ${err.error || r.status}`;
+      return;
+    }
+    PL_LOADED = true;
     document.getElementById('pl-save-status').textContent = 'Guardado ✓';
     setTimeout(() => { document.getElementById('pl-save-status').textContent = ''; }, 2500);
   } catch {
-    document.getElementById('pl-save-status').textContent = 'Error al guardar.';
+    document.getElementById('pl-save-status').textContent = 'Error de conexión al guardar.';
   }
 }
 
 async function cargarWatchlist() {
+  if (PL_LOADED) return; // ya cargado en esta sesión, usar estado en memoria
   const saved = getAcceso();
   if (!saved?.email) return;
   try {
@@ -2805,6 +2813,7 @@ async function cargarWatchlist() {
     const d = await r.json();
     if (d.tables && Array.isArray(d.tables) && d.tables.length > 0) {
       PL_TABLES = d.tables;
+      PL_LOADED = true;
     }
   } catch {}
 }
