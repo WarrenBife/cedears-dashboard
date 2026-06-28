@@ -1121,11 +1121,12 @@ function calcWarrenScore(d) {
   // RS nivel: hasta 30 pts
   let score = Math.min(30, rs - 60);
 
-  // RS momentum semanal: hasta 15 pts
+  // RS momentum semanal: hasta +15 pts si sube, hasta -15 pts si baja
   const rsSem = d['RS Semana ant.'];
   if (rsSem !== null) {
     const delta = rs - rsSem;
     if (delta > 0) score += Math.min(15, delta * 1.5);
+    else if (delta < 0) score -= Math.min(15, Math.abs(delta) * 1.5);
   }
 
   // EMA200: +20 binario + hasta +10 proporcional (cada 2% = 1pt, tope 10)
