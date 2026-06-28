@@ -624,6 +624,29 @@
     </div>
   </div>
 
+  <!-- ── DESPEGUE FRESCO ───────────────────────────────────── -->
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title" data-tooltip="Detecta breakouts frescos (≤3 días) con confirmación de volumen institucional y precio no extendido. Las 3 capas deben cumplirse para un setup válido.">🚀 Despegue Fresco</div>
+        <div class="panel-sub">Breakout de pivot · Volumen institucional · No extendido vs SMA50</div>
+      </div>
+    </div>
+    <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
+      <span class="pf-label">Mostrar:</span>
+      <select id="brk-filter" onchange="renderBreakout()">
+        <option value="valid">Solo válidos (3 capas ✅)</option>
+        <option value="partial">Parciales (2+ capas)</option>
+        <option value="all">Todos con breakout</option>
+      </select>
+      <span class="pf-label">RS mín:</span>
+      <input type="range" id="brk-rs" min="0" max="100" value="50" style="width:70px"
+        oninput="document.getElementById('brk-rs-val').textContent=this.value;renderBreakout()">
+      <span id="brk-rs-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">50</span>
+    </div>
+    <div id="brk-content" style="padding:10px 4px"></div>
+  </div>
+
   <div class="grid-2">
     <div class="panel">
       <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div><div class="panel-sub">Evolución últimas 4 semanas</div></div></div>
@@ -741,29 +764,6 @@
         <div id="sema-grid"></div>
       </div>
     </div>
-  </div>
-
-  <!-- ── DESPEGUE FRESCO ───────────────────────────────────── -->
-  <div class="panel" style="margin-top:14px">
-    <div class="panel-head">
-      <div>
-        <div class="panel-title" data-tooltip="Detecta breakouts frescos (≤3 días) con confirmación de volumen institucional y precio no extendido. Las 3 capas deben cumplirse para un setup válido.">🚀 Despegue Fresco</div>
-        <div class="panel-sub">Breakout de pivot · Volumen institucional · No extendido vs SMA50</div>
-      </div>
-    </div>
-    <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
-      <span class="pf-label">Mostrar:</span>
-      <select id="brk-filter" onchange="renderBreakout()">
-        <option value="valid">Solo válidos (3 capas ✅)</option>
-        <option value="partial">Parciales (2+ capas)</option>
-        <option value="all">Todos con breakout</option>
-      </select>
-      <span class="pf-label">RS mín:</span>
-      <input type="range" id="brk-rs" min="0" max="100" value="50" style="width:70px"
-        oninput="document.getElementById('brk-rs-val').textContent=this.value;renderBreakout()">
-      <span id="brk-rs-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">50</span>
-    </div>
-    <div id="brk-content" style="padding:10px 4px"></div>
   </div>
 
   <!-- ── COMPARADOR DE ACTIVOS ──────────────────────────────── -->
@@ -1006,23 +1006,24 @@ function renderResurgimiento() {
   });
 
   const points = data.map(d => {
-    const delta   = d['RS Score'] - d['RS Semana ant.'];
-    const r       = Math.max(4, Math.min(14, 4 + Math.abs(delta) / 2.5));
-    const vPos    = d['Vol días + 10s'];
-    const vNeg    = d['Vol días - 10s'];
-    const dPos    = d['Días + 10s'];
-    const dNeg    = d['Días - 10s'];
+    const delta    = d['RS Score'] - d['RS Semana ant.'];
+    const brk      = isValidBreakout(d);
+    const r        = Math.max(4, Math.min(14, 4 + Math.abs(delta) / 2.5)) * (brk ? 1.5 : 1);
+    const vPos     = d['Vol días + 10s'];
+    const vNeg     = d['Vol días - 10s'];
+    const dPos     = d['Días + 10s'];
+    const dNeg     = d['Días - 10s'];
     const volRatio = (vPos !== null && vNeg !== null && vNeg > 0) ? vPos / vNeg : null;
     return {
       x: d['RS Semana ant.'], y: d['RS Score'], r,
       label: d['Ticker'],
       rsAct: d['RS Score'], rsSem: d['RS Semana ant.'], delta,
-      diasPos: dPos, diasNeg: dNeg, volRatio,
+      diasPos: dPos, diasNeg: dNeg, volRatio, brk,
     };
   });
 
-  const borderColors = points.map(p => deltaColor(p.delta));
-  const bgColors     = points.map(p => deltaColor(p.delta).replace('0.9)', '0.35)'));
+  const borderColors = points.map(p => p.brk ? 'rgba(245,200,66,0.95)' : deltaColor(p.delta));
+  const bgColors     = points.map(p => p.brk ? 'rgba(245,200,66,0.30)' : deltaColor(p.delta).replace('0.9)', '0.35)'));
 
   destroyChart('resurgChart');
   charts['resurgChart'] = new Chart(document.getElementById('resurgChart').getContext('2d'), {
@@ -1051,6 +1052,7 @@ function renderResurgimiento() {
               if (p.volRatio !== null && p.volRatio !== undefined) {
                 lines.push(` Vol ▲/▼:    ${p.volRatio.toFixed(2)}x`);
               }
+              if (p.brk) lines.push(` 🚀 Despegue Fresco válido`);
               return lines;
             }
           },
@@ -1087,6 +1089,12 @@ function renderResurgimiento() {
       }
     }]
   });
+}
+
+function isValidBreakout(d) {
+  return d['Breakout Fresh'] === true &&
+         d['Breakout Vol OK'] === true &&
+         d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10;
 }
 
 function calcWarrenScore(d) {
@@ -1150,10 +1158,13 @@ function renderWarrenScore() {
   body.innerHTML = data.length === 0
     ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin }) => {
-        const volSec = d['Vol 5d/40d'] ?? null;
+        const volSec    = d['Vol 5d/40d'] ?? null;
         const volSecCls = volSec == null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
-        return `<tr>
-        <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
+        const isBrk     = isValidBreakout(d);
+        const trStyle   = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
+        const brkStar   = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
+        return `<tr ${trStyle}>
+        <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</td>
         <td>${scoreBadge(score)}</td>
         <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!=null?d['RS Score'].toFixed(1):'—'}</span></td>
         <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!=null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
