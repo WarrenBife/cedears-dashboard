@@ -134,6 +134,22 @@
 
   input[type=range]{accent-color:var(--accent);cursor:pointer;}
 
+  /* Breakout panel */
+  .brk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+  .brk-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 60%),var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s,transform .2s;}
+  .brk-card:hover{transform:translateY(-1px);border-color:var(--border2);}
+  .brk-card.brk-valid{border-color:rgba(34,201,138,0.45);box-shadow:0 0 16px -6px rgba(34,201,138,0.3);}
+  .brk-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .brk-ticker{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--text);}
+  .brk-badge-valid{font-size:9px;font-weight:700;letter-spacing:.06em;background:rgba(34,201,138,0.15);color:var(--green);border:1px solid rgba(34,201,138,0.35);padding:2px 7px;border-radius:5px;}
+  .brk-days{font-size:10px;color:var(--muted);}
+  .brk-layers{display:flex;flex-direction:column;gap:5px;}
+  .brk-layer{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);}
+  .brk-layer .chk{font-size:13px;line-height:1;flex-shrink:0;}
+  .brk-layer span{font-size:10px;}
+  .brk-layer.ok{color:var(--text);}
+  .brk-rs{margin-top:8px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;}
+
   #loading{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px;}
   .spinner{width:30px;height:30px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.75s linear infinite;box-shadow:0 0 24px rgba(34,201,138,0.15);}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -725,6 +741,29 @@
         <div id="sema-grid"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ── DESPEGUE FRESCO ───────────────────────────────────── -->
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title" data-tooltip="Detecta breakouts frescos (≤3 días) con confirmación de volumen institucional y precio no extendido. Las 3 capas deben cumplirse para un setup válido.">🚀 Despegue Fresco</div>
+        <div class="panel-sub">Breakout de pivot · Volumen institucional · No extendido vs SMA50</div>
+      </div>
+    </div>
+    <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
+      <span class="pf-label">Mostrar:</span>
+      <select id="brk-filter" onchange="renderBreakout()">
+        <option value="valid">Solo válidos (3 capas ✅)</option>
+        <option value="partial">Parciales (2+ capas)</option>
+        <option value="all">Todos con breakout</option>
+      </select>
+      <span class="pf-label">RS mín:</span>
+      <input type="range" id="brk-rs" min="0" max="100" value="50" style="width:70px"
+        oninput="document.getElementById('brk-rs-val').textContent=this.value;renderBreakout()">
+      <span id="brk-rs-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">50</span>
+    </div>
+    <div id="brk-content" style="padding:10px 4px"></div>
   </div>
 
   <!-- ── COMPARADOR DE ACTIVOS ──────────────────────────────── -->
@@ -1474,6 +1513,72 @@ function renderScanner() {
     </tr>`).join('');
 }
 
+function renderBreakout() {
+  const el = document.getElementById('brk-content');
+  if (!el) return;
+  const filterMode = document.getElementById('brk-filter').value;
+  const rsMin      = parseInt(document.getElementById('brk-rs').value);
+
+  const candidates = (DATOS || []).filter(d => {
+    if (!d['Breakout Fresh']) return false;
+    if ((d['RS Score'] || 0) < rsMin) return false;
+    return true;
+  });
+
+  // Capas
+  const layers = d => ({
+    precio:    !!d['Breakout Fresh'],
+    volumen:   !!d['Breakout Vol OK'],
+    extension: d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10,
+  });
+
+  const scored = candidates.map(d => {
+    const l = layers(d);
+    return { d, l, ok: l.precio && l.volumen && l.extension, n: [l.precio, l.volumen, l.extension].filter(Boolean).length };
+  });
+
+  const filtered = scored.filter(s => {
+    if (filterMode === 'valid')   return s.ok;
+    if (filterMode === 'partial') return s.n >= 2;
+    return true;
+  }).sort((a, b) => b.n - a.n || (b.d['RS Score'] || 0) - (a.d['RS Score'] || 0));
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px;">Sin breakouts que cumplan los filtros.</div>';
+    return;
+  }
+
+  const daysLabel = ago => ago === 0 ? 'Hoy' : ago === 1 ? 'Ayer' : `hace ${ago} días`;
+  const chk = ok => `<span class="chk">${ok ? '✅' : '❌'}</span>`;
+
+  const cards = filtered.map(({ d, l, ok }) => {
+    const ago = d['Breakout Days Ago'];
+    const vr  = d['Breakout Vol Ratio'];
+    const sma = d['Dist SMA50 %'];
+    return `
+    <div class="brk-card${ok ? ' brk-valid' : ''}">
+      <div class="brk-head">
+        <span class="brk-ticker">${d['Ticker']}</span>
+        ${ok ? '<span class="brk-badge-valid">VÁLIDO</span>' : `<span class="brk-days">${ago !== null ? daysLabel(ago) : ''}</span>`}
+      </div>
+      <div class="brk-layers">
+        <div class="brk-layer${l.precio?' ok':''}">
+          ${chk(l.precio)}<span>Precio: cruzó pivot ${ago !== null ? daysLabel(ago) : ''}</span>
+        </div>
+        <div class="brk-layer${l.volumen?' ok':''}">
+          ${chk(l.volumen)}<span>Volumen: ${vr !== null ? vr.toFixed(2)+'x avg50' : '—'} ${l.volumen ? '≥1.5x ✓' : '&lt;1.5x'}</span>
+        </div>
+        <div class="brk-layer${l.extension?' ok':''}">
+          ${chk(l.extension)}<span>Extensión: SMA50 ${sma !== null ? (sma >= 0 ? '+' : '')+sma.toFixed(1)+'%' : '—'} ${l.extension ? '(buy zone)' : sma > 10 ? '(extendido)' : '(bajo SMA50)'}</span>
+        </div>
+      </div>
+      <div class="brk-rs">RS ${d['RS Score'] !== null ? d['RS Score'].toFixed(1) : '—'} · ${d['Sector'] || '—'}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="brk-grid">${cards}</div>`;
+}
+
 function renderSemaforo() {
   const data = getDatosFiltrados();
   const sortMode = document.getElementById('sema-sort').value;
@@ -1685,6 +1790,7 @@ function renderTodo() {
   safe(renderCartelera);
   safe(renderScanner);
   safe(renderSemaforo);
+  safe(renderBreakout);
   poblarComparador();
 }
 

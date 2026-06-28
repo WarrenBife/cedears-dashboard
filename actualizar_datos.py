@@ -397,6 +397,48 @@ def obtener_info_ticker(ticker_symbol):
     except:
         return {"Market Cap USD": None, "Market Cap Cat": "—", "Sector": "—", "Tipo": "—"}
 
+def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
+    """
+    3 capas de confirmación del breakout (Minervini):
+    1. Precio cruzó el máximo de las últimas `lookback` velas hace ≤ `frescura` días
+    2. El volumen ese día fue ≥ `vol_factor` veces el promedio de 50 ruedas
+    3. (extensión: Dist SMA50 % — se calcula aparte y se evalúa en el frontend)
+    """
+    try:
+        c = hist['Close'].values
+        v = hist['Volume'].values
+        if len(c) < lookback + 2:
+            return {'Breakout Fresh': False, 'Breakout Days Ago': None,
+                    'Breakout Vol OK': False, 'Breakout Vol Ratio': None}
+
+        vol50 = float(np.mean(v[-51:-1])) if len(v) >= 51 else float(np.mean(v[:-1]))
+
+        breakout_day = None
+        vol_ratio    = None
+
+        for ago in range(frescura + 1):
+            idx = len(c) - 1 - ago
+            if idx < lookback + 1:
+                break
+            pivot = float(np.max(c[idx - lookback:idx]))
+            if float(c[idx]) > pivot and float(c[idx - 1]) <= pivot:
+                vr = float(v[idx]) / vol50 if vol50 > 0 else None
+                breakout_day = ago
+                vol_ratio    = round(vr, 2) if vr is not None else None
+                break
+
+        vol_ok = vol_ratio is not None and vol_ratio >= vol_factor
+        return {
+            'Breakout Fresh':     breakout_day is not None,
+            'Breakout Days Ago':  breakout_day,
+            'Breakout Vol OK':    vol_ok,
+            'Breakout Vol Ratio': vol_ratio,
+        }
+    except:
+        return {'Breakout Fresh': False, 'Breakout Days Ago': None,
+                'Breakout Vol OK': False, 'Breakout Vol Ratio': None}
+
+
 def calcular_kpis(ticker_symbol, hist_spy):
     try:
         tk   = yf.Ticker(ticker_symbol)
@@ -451,6 +493,9 @@ def calcular_kpis(ticker_symbol, hist_spy):
         # VCP
         vcp = detectar_vcp(hist)
 
+        # Breakout fresco
+        brk = detectar_breakout(hist)
+
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
@@ -486,7 +531,11 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
             "Vol días - 10s":      vol_neg_10,
-            "Vol 5d/40d":          vol_5d_40d,
+            "Vol 5d/40d":              vol_5d_40d,
+            "Breakout Fresh":          brk['Breakout Fresh'],
+            "Breakout Days Ago":       brk['Breakout Days Ago'],
+            "Breakout Vol OK":         brk['Breakout Vol OK'],
+            "Breakout Vol Ratio":      brk['Breakout Vol Ratio'],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
