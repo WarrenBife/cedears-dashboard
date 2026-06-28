@@ -1090,7 +1090,7 @@ function renderResurgimiento() {
     }, {
       id: 'bubbleTickers',
       afterDraw(chart) {
-        if (points.length >= 50) return;
+        if (points.length >= 100) return;
         const ctx  = chart.ctx;
         const meta = chart.getDatasetMeta(0);
         ctx.save();
