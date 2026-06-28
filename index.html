@@ -1118,8 +1118,8 @@ function calcWarrenScore(d) {
   const rs = d['RS Score'];
   if (rs === null || rs <= 60) return 0;
 
-  // RS nivel: hasta 30 pts
-  let score = Math.min(30, rs - 60);
+  // RS nivel: hasta 40 pts (RS=90→30, RS=100→40)
+  let score = Math.min(40, rs - 60);
 
   // RS momentum semanal: asimétrico — sube ×0.5 (max +7.5), baja ×1.5 (max −7.5)
   const rsSem = d['RS Semana ant.'];
