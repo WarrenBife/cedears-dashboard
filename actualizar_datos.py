@@ -183,18 +183,20 @@ def calcular_rsi(close, periodo=14):
 
 def calcular_volatilidad_relativa(close, ruedas_corto=5, ruedas_largo=252):
     """
-    Volatilidad relativa: vol últimas 5 ruedas / vol histórica 1 año.
-    < 1 = más tranquilo que de costumbre
-    > 1 = más volátil que de costumbre
+    Movimiento acumulado 5 días / promedio histórico de movimientos de 5 días.
+    < 1 = se movió menos que de costumbre (comprimido)
+    > 1 = se movió más que de costumbre (extendido)
     """
-    retornos = close.pct_change().dropna()
-    if len(retornos) < ruedas_largo:
+    if len(close) < ruedas_largo + ruedas_corto:
         return None
-    vol_corto     = retornos.tail(ruedas_corto).std() * np.sqrt(252) * 100
-    vol_historica = retornos.tail(ruedas_largo).std() * np.sqrt(252) * 100
-    if vol_historica == 0:
+    mov_5d = abs((close.iloc[-1] / close.iloc[-1 - ruedas_corto]) - 1)
+    hist_5d = close.pct_change(periods=ruedas_corto).dropna().abs()
+    if len(hist_5d) < ruedas_largo:
         return None
-    return round(vol_corto / vol_historica, 2)
+    avg_hist = hist_5d.tail(ruedas_largo).mean()
+    if avg_hist == 0:
+        return None
+    return round(mov_5d / avg_hist, 2)
 
 def calcular_volumen_inusual(volume, ruedas=20):
     if len(volume) < ruedas + 1:
