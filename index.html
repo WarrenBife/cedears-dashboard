@@ -1064,9 +1064,9 @@ function calcWarrenScore(d) {
     if (delta > 0) score += Math.min(15, delta * 1.5);
   }
 
-  // EMA200 (binario): +20
+  // EMA200: +20 binario + hasta +10 proporcional (cada 2% = 1pt, tope 10)
   const ema = d['Dist EMA200 %'];
-  if (ema !== null && ema > 0) score += 20;
+  if (ema !== null && ema > 0) score += 20 + Math.min(10, ema * 0.5);
 
   // SMA50 (binario): +10
   const sma = d['Dist SMA50 %'];
