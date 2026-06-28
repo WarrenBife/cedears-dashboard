@@ -62,7 +62,7 @@ TICKERS = {
         "BKR", "PSX", "EQNR", "FCX", "RIO", "BHP", "VALE",
         "GOLD", "NEM", "AEM", "GFI", "HMY", "KGC", "PAAS",
         "MUX", "HL", "CDE", "NG", "AUY", "GGB", "SID",
-        "NUE", "SCCO", "MOS", "DOW", "DD", "LND", "BNG",
+        "NUE", "SCCO", "MOS", "DOW", "LND", "BNG",
         "SUZ", "BAK", "UGP", "PBR", "PTR", "SNP",
         "COP", "GLNG", "MP", "CCJ", "NEE"
     ],
