@@ -561,7 +561,7 @@
     <div class="stat-card" id="sc-rs" onclick="setQuickFilter('rs')"><div class="stat-label">RS Score &gt; 70</div><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div><div class="stat-hint">click para filtrar</div></div>
     <div class="stat-card" id="sc-sma50" onclick="setQuickFilter('sma50')"><div class="stat-label">Sobre SMA50</div><div class="stat-value c-green" id="st-sma50">—</div><div class="stat-sub">precio sobre SMA50</div><div class="stat-hint">click para filtrar</div></div>
     <div class="stat-card" id="sc-vol" onclick="setQuickFilter('vol')"><div class="stat-label">Vol inusual hoy</div><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-quality" onclick="setQuickFilter('quality')"><div class="stat-label">Candidatos calidad</div><div class="stat-value c-text" id="st-quality">—</div><div class="stat-sub">RS&gt;60 + vol &lt;1.5 + medias</div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-quality" onclick="setQuickFilter('quality')"><div class="stat-label">Candidatos calidad</div><div class="stat-value c-text" id="st-quality">—</div><div class="stat-sub">RS&gt;60 + vol &lt;1 + medias</div><div class="stat-hint">click para filtrar</div></div>
   </div>
 
   <div class="grid-2">
@@ -918,7 +918,7 @@ function getDatosFiltrados() {
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
     if (quickFilter === 'vol'    && !(d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50)) return false;
-    if (quickFilter === 'quality' && !(d['RS Score'] >= 60 && d['Vol Relativa'] !== null && d['Vol Relativa'] < 1.5 && d['Dist EMA200 %'] > 0 && d['Dist SMA50 %'] > 0)) return false;
+    if (quickFilter === 'quality' && !(d['RS Score'] >= 60 && d['Vol Relativa'] !== null && d['Vol Relativa'] < 1 && d['Dist EMA200 %'] > 0 && d['Dist SMA50 %'] > 0)) return false;
     return true;
   });
 }
@@ -981,7 +981,7 @@ function renderStats() {
   document.getElementById('st-sma50').textContent   = data.filter(d => d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0).length;
   document.getElementById('st-vol').textContent     = data.filter(d => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50).length;
   document.getElementById('st-quality').textContent = data.filter(d =>
-    d['RS Score'] >= 60 && d['Vol Relativa'] !== null && d['Vol Relativa'] < 1.5 &&
+    d['RS Score'] >= 60 && d['Vol Relativa'] !== null && d['Vol Relativa'] < 1 &&
     d['Dist EMA200 %'] > 0 && d['Dist SMA50 %'] > 0
   ).length;
 }
