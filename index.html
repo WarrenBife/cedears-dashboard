@@ -1087,6 +1087,23 @@ function renderResurgimiento() {
         ctx.fillText('PERDIENDO ↓',    chartArea.left + (chartArea.right - chartArea.left) / 2 + 8, chartArea.bottom - 7);
         ctx.restore();
       }
+    }, {
+      id: 'bubbleTickers',
+      afterDraw(chart) {
+        if (points.length >= 50) return;
+        const ctx  = chart.ctx;
+        const meta = chart.getDatasetMeta(0);
+        ctx.save();
+        ctx.font         = '8.5px DM Mono, monospace';
+        ctx.textBaseline = 'middle';
+        meta.data.forEach((el, i) => {
+          const p   = points[i];
+          const rad = el.options.radius || 5;
+          ctx.fillStyle = p.brk ? 'rgba(245,200,66,0.92)' : 'rgba(180,185,200,0.65)';
+          ctx.fillText(p.label, el.x + rad + 3, el.y);
+        });
+        ctx.restore();
+      }
     }]
   });
 }
