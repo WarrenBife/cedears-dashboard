@@ -181,22 +181,23 @@ def calcular_rsi(close, periodo=14):
     rs = avg_gan / avg_per
     return round((100 - (100 / (1 + rs))).iloc[-1], 2)
 
-def calcular_volatilidad_relativa(close, ruedas_corto=5, ruedas_largo=252):
+def calcular_volatilidad_relativa(close, high, low, ruedas_corto=5, ruedas_largo=252):
     """
-    Movimiento acumulado 5 días / promedio histórico de movimientos de 5 días.
-    < 1 = se movió menos que de costumbre (comprimido)
-    > 1 = se movió más que de costumbre (extendido)
+    Promedio del rango diario H-L/Close de los últimos 5 días vs histórico 1 año.
+    Captura velas amplias individuales (ej: +20% en un día) y semanas extendidas.
+    < 1 = velas más estrechas que de costumbre (comprimido)
+    > 1 = velas más anchas que de costumbre (extendido/volátil)
     """
     if len(close) < ruedas_largo + ruedas_corto:
         return None
-    mov_5d = abs((close.iloc[-1] / close.iloc[-1 - ruedas_corto]) - 1)
-    hist_5d = close.pct_change(periods=ruedas_corto).dropna().abs()
-    if len(hist_5d) < ruedas_largo:
+    rango_pct = ((high - low) / close).dropna()
+    if len(rango_pct) < ruedas_largo:
         return None
-    avg_hist = hist_5d.tail(ruedas_largo).mean()
+    avg_5d   = rango_pct.tail(ruedas_corto).mean()
+    avg_hist = rango_pct.tail(ruedas_largo).mean()
     if avg_hist == 0:
         return None
-    return round(mov_5d / avg_hist, 2)
+    return round(avg_5d / avg_hist, 2)
 
 def calcular_volumen_inusual(volume, ruedas=20):
     if len(volume) < ruedas + 1:
@@ -449,6 +450,8 @@ def calcular_kpis(ticker_symbol, hist_spy):
             return None
 
         close  = hist["Close"]
+        high   = hist["High"]
+        low    = hist["Low"]
         volume = hist["Volume"]
         precio_actual = round(close.iloc[-1], 2)
 
@@ -472,7 +475,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
 
         # RSI, Vol Relativa, Volumen inusual
         rsi     = calcular_rsi(close)
-        vol_rel = calcular_volatilidad_relativa(close)
+        vol_rel = calcular_volatilidad_relativa(close, high, low)
         vol_inu = calcular_volumen_inusual(volume, 20)
 
         # Sesiones 10 ruedas
