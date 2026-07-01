@@ -1798,25 +1798,13 @@ function renderComparador() {
   const dB = DATOS.find(d => d['Ticker'] === idB);
   if (!dA || !dB) return;
 
-  function calcWS(d) {
-    const rs = d['RS Score'];
-    if (!rs || rs <= 60) return 0;
-    let s = Math.min(40, rs - 60);
-    if ((d['Dist EMA200 %'] ?? 0) > 0) s += 20;
-    if ((d['Dist SMA50 %'] ?? 0) > 0) s += 10;
-    if ((d['Dist Mín52W %'] ?? 0) >= 25) s += 10;
-    const v = d['Vol Relativa'];
-    if (v !== null && v < 0.8) s += Math.max(0, (0.8 - v) / 0.8 * 20);
-    return Math.min(100, Math.round(s));
-  }
-
   const fmt  = (v, d=1) => v !== null && v !== undefined ? v.toFixed(d) : '—';
   const pct  = v => v !== null && v !== undefined ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—';
   const logo = t => `<img src="https://s3-symbol-logo.tradingview.com/${t}--big.svg"
     style="width:28px;height:28px;border-radius:6px;object-fit:contain;background:#1a1e28;padding:2px"
     onerror="this.style.display='none'">`;
 
-  const wsA = calcWS(dA), wsB = calcWS(dB);
+  const wsA = calcWarrenScore(dA), wsB = calcWarrenScore(dB);
 
   // color helpers
   const cGR  = (a, b) => a > b ? ['var(--green)','var(--red)'] : a < b ? ['var(--red)','var(--green)'] : ['var(--text)','var(--text)'];
@@ -2896,7 +2884,7 @@ function plMetricValue(d, code) {
     }
     case 'WS': {
       const v = calcWarrenScore(d);
-      const cls = v > 70 ? 'green' : v < 40 ? 'orange' : '';
+      const cls = v >= 70 ? 'green' : v >= 50 ? 'blue' : v < 40 ? 'orange' : '';
       return badge(v.toString(), cls);
     }
     default: return badge('—', '');

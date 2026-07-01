@@ -31,22 +31,97 @@ def cargar_datos():
     r.raise_for_status()
     return r.json()
 
-# ── WARREN SCORE ───────────────────────────────────────────────
+# ── WARREN SCORE v2 — Ranking pre-breakout ─────────────────────
 def calc_warren(d):
-    rs = d.get('RS Score')
-    if rs is None or rs <= 60:
-        return 0
-    score = min(40, rs - 60)
-    if d.get('Dist EMA200 %') is not None and d['Dist EMA200 %'] > 0:
-        score += 20
-    if d.get('Dist SMA50 %') is not None and d['Dist SMA50 %'] > 0:
-        score += 10
-    if d.get('Dist Mín52W %') is not None and d['Dist Mín52W %'] >= 25:
-        score += 10
-    vol = d.get('Vol Relativa')
-    if vol is not None and vol < 0.8:
-        score += max(0, (0.8 - vol) / 0.8 * 20)
-    return min(100, round(score))
+    def lineal(x, x0, x1, y0, y1):
+        if x is None: return 0
+        t = max(0.0, min(1.0, (x - x0) / (x1 - x0))) if x0 != x1 else 1.0
+        return y0 + t * (y1 - y0)
+
+    def tri(x, izq, pi, pd, der):
+        if x is None or x <= izq or x >= der: return 0
+        if pi <= x <= pd: return 1
+        return (x - izq) / (pi - izq) if x < pi else (der - x) / (der - pd)
+
+    def b(key):
+        v = d.get(key)
+        if v is None: return False
+        if isinstance(v, bool): return v
+        if isinstance(v, (int, float)): return v != 0
+        return str(v).strip().lower() in ('true','si','sí','yes','1','ok','✓','verdadero')
+
+    def g(key, default=None):
+        return d.get(key, default)
+
+    # Gates Stage 2
+    precio, ema200, slope = g('Precio'), g('EMA200'), g('EMA200 Slope')
+    dist_min, dist_max, sma50 = g('Dist Mín52W %'), g('Dist Máx52W %'), g('SMA50')
+    fallas = sum([
+        precio is None or ema200 is None or precio <= ema200,
+        slope is None or slope <= 0,
+        dist_min is None or dist_min < 30,
+        dist_max is None or dist_max < -25,
+        sma50 is not None and precio is not None and precio < sma50 * 0.98,
+    ])
+
+    # Pilar A: Tendencia (25 pts)
+    dx = g('Dist Máx52W %')
+    pa  = (10 if dx is not None and dx > -5 else lineal(dx, -25, -5, 0, 10))
+    pa += tri(g('Dist SMA50 %'), -3, 0, 8, 25) * 8
+    pa += tri(g('Dist EMA200 %'), 0, 10, 50, 70) * 4
+    pa += lineal(g('EMA200 Slope'), 0, 0.15, 0, 3)
+    pa  = min(pa, 25)
+
+    # Pilar B: Fuerza Relativa (30 pts)
+    rs  = g('RS Score')
+    pb  = lineal(rs, 0, 100, 0, 15)
+    if rs is not None:
+        if g('RS Ayer') is not None and rs > g('RS Ayer'):        pb += 2.5
+        if g('RS Semana ant.') is not None and rs > g('RS Semana ant.'): pb += 2.5
+        if g('RS Mes ant.') is not None and rs > g('RS Mes ant.'): pb += 3.0
+    pb += 4 if b('FR > SMA50') else 0
+    pb += lineal(g('Vs Sector %'), 0, 10, 0, 3)
+    pb  = min(pb, 30)
+
+    # Pilar C: Contracción (30 pts)
+    pc  = lineal(g('Vol Relativa'), 1.2, 0.6, 0, 8)
+    pc += tri(g('Vol 5d/40d'), 0.3, 0.5, 0.8, 1.3) * 7
+    vp, vn = g('Vol días + 10s'), g('Vol días - 10s')
+    if vp is not None and vn is not None:
+        ratio = 3.0 if vn <= 0 and vp > 0 else (vp / vn if vn > 0 else None)
+        if ratio is not None:
+            if ratio >= 1.5:   pc += 10
+            elif ratio >= 1.0: pc += lineal(ratio, 1.0, 1.5, 5, 10)
+            elif ratio >= 0.8: pc += lineal(ratio, 0.8, 1.0, 0, 5)
+    pc += tri(g('RSI 14'), 40, 55, 65, 78) * 5
+    pc  = min(pc, 30)
+
+    # Pilar D: Gatillo (15 pts)
+    pd_ = 0
+    if b('VCP Detected'):
+        pv = min(lineal(g('VCP Score'), 0, 100, 0, 6) + (1 if b('VCP Vol Decreasing') else 0), 7)
+        pd_ += pv
+        dp = g('VCP Dist Pivot %')
+        if dp is not None:
+            pd_ += 5 if abs(dp) <= 3 else lineal(abs(dp), 10, 3, 0, 5)
+    if b('Breakout Fresh'):
+        days, vrat = g('Breakout Days Ago') or 99, g('Breakout Vol Ratio') or 0
+        if days <= 3 and (vrat >= 1.5 or b('Breakout Vol OK')): pd_ += 3
+        elif days <= 3: pd_ += 1.5
+    pd_ = min(pd_, 15)
+
+    # Penalizaciones
+    pen = 0
+    if (g('Dist SMA50 %') or 0) > 25 or (g('RSI 14') or 0) > 80: pen -= 10
+    vp2, vn2 = g('Vol días + 10s'), g('Vol días - 10s')
+    r2 = (vp2 / vn2) if (vp2 and vn2 and vn2 > 0) else None
+    if (g('Días - 10s') or 0) >= 7 and r2 is not None and r2 < 0.8: pen -= 15
+    if (g('Var Día %') or 0) < -3 and (g('Vol Inusual %') or 0) > 50: pen -= 8
+
+    score = max(0.0, min(100.0, pa + pb + pc + pd_ + pen))
+    if fallas > 0:
+        score = min(score, 40.0)
+    return round(score, 1)
 
 # ── HELPERS ────────────────────────────────────────────────────
 def barra(score, largo=10):
