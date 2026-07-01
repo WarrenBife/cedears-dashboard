@@ -596,10 +596,15 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking técnico compuesto: combina RS Score, posición vs EMA200 y SMA50, y nivel de volatilidad. Cuanto mayor el score, mejor la calidad técnica del activo">Warren Score</div><div class="panel-sub">Score compuesto 0–100 por criterios técnicos</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/25) + Fuerza Relativa (B/30) + Contracción (C/30) + Gatillo (D/15). Si no pasa gates, score capeado en 40.">Warren Score</div><div class="panel-sub">Score compuesto 0–100 · 4 pilares + gates Stage 2</div></div></div>
       <div class="panel-filters">
-        <span class="pf-label">Mín criterios:</span>
-        <select id="ws-min" onchange="renderWarrenScore()"><option value="2">2+</option><option value="3">3+</option><option value="4">4</option></select>
+        <span class="pf-label">Filtro:</span>
+        <select id="ws-min" onchange="renderWarrenScore()">
+          <option value="all">Todos</option>
+          <option value="gates">Solo Gates OK</option>
+          <option value="50">Score ≥ 50</option>
+          <option value="60">Score ≥ 60</option>
+        </select>
         <span class="pf-label" style="margin-left:6px;">Mostrar:</span>
         <select id="ws-n" onchange="renderWarrenScore()"><option value="20">Top 20</option><option value="30">Top 30</option><option value="50">Top 50</option><option value="999">Todos</option></select>
       </div>
@@ -608,14 +613,13 @@
           <table class="scanner-table" id="warren-table">
             <thead><tr>
               <th data-tooltip="Símbolo del activo">Ticker</th>
-              <th data-tooltip="Score compuesto 0–100. Combina RS Score, posición vs medias móviles y nivel de volatilidad">Warren Score</th>
-              <th data-tooltip="RS Score actual (0–100). Se requiere >70 para cumplir el criterio">RS</th>
-              <th data-tooltip="Volatilidad relativa: desvío estándar últimas 5 ruedas vs histórico 1 año. Menor = más comprimido">Vol Rel</th>
-              <th data-tooltip="Volumen promedio 5 ruedas / 40 ruedas. Valor <1 indica que el volumen se está secando (señal de setup)">Vol 5d/40d</th>
-              <th data-tooltip="¿El precio cotiza por encima de la EMA de 200 ruedas? Verde = sí">EMA200</th>
-              <th data-tooltip="¿El precio cotiza por encima de la SMA de 50 ruedas? Verde = sí">SMA50</th>
-              <th data-tooltip="¿El precio está más de 25% arriba del mínimo de 52 semanas? Indica alejamiento del piso">+25%mín</th>
-              <th data-tooltip="¿Volatilidad relativa < 0.8? Indica acción comprimida con baja volatilidad histórica">Vol&lt;0.8</th>
+              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2.">Score</th>
+              <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
+              <th data-tooltip="Pilar A — Calidad de tendencia (máx 25 pts): posición vs máx 52W, SMA50, EMA200 y pendiente de la EMA200.">A /25</th>
+              <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector.">B /30</th>
+              <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra.">C /30</th>
+              <th data-tooltip="Pilar D — Gatillo/setup (máx 15 pts): VCP detectado, distancia al pivot y breakout fresco con volumen.">D /15</th>
+              <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido.">Pen.</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -1114,84 +1118,185 @@ function isValidBreakout(d) {
          d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10;
 }
 
-function calcWarrenScore(d) {
+// ── WARREN SCORE v2 — Ranking pre-breakout ──────────────────────────────────
+
+function _lineal(x, x0, x1, y0, y1) {
+  if (x === null || x === undefined || isNaN(x)) return 0;
+  if (x0 === x1) return y1;
+  const t = Math.max(0, Math.min(1, (x - x0) / (x1 - x0)));
+  return y0 + t * (y1 - y0);
+}
+
+function _tri(x, izq, picoI, picoD, der) {
+  if (x === null || x === undefined || isNaN(x)) return 0;
+  if (x <= izq || x >= der) return 0;
+  if (x >= picoI && x <= picoD) return 1;
+  if (x < picoI) return (x - izq) / (picoI - izq);
+  return (der - x) / (der - picoD);
+}
+
+function _bool(v) {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  return ['true','si','sí','yes','1','ok','verdadero','✓'].includes(String(v).trim().toLowerCase());
+}
+
+function _evalGates(d) {
+  const fallas = [];
+  const precio = d['Precio'], ema200 = d['EMA200'], slope = d['EMA200 Slope'];
+  const distMin = d['Dist Mín52W %'], distMax = d['Dist Máx52W %'], sma50 = d['SMA50'];
+  if (precio === null || ema200 === null || precio <= ema200) fallas.push('Precio ≤ EMA200');
+  if (slope === null || slope <= 0)                          fallas.push('EMA200 slope ≤ 0');
+  if (distMin === null || distMin < 30)                      fallas.push('<30% del mín 52W');
+  if (distMax === null || distMax < -25)                     fallas.push('>25% del máx 52W');
+  if (sma50 !== null && precio !== null && precio < sma50 * 0.98) fallas.push('Precio < SMA50');
+  return fallas;
+}
+
+function _pilarA(d) {
+  let pts = 0;
+  const dMax = d['Dist Máx52W %'];
+  pts += (dMax !== null && dMax > -5) ? 10 : _lineal(dMax, -25, -5, 0, 10);
+  pts += _tri(d['Dist SMA50 %'], -3, 0, 8, 25) * 8;
+  pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 4;
+  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 3);
+  return Math.min(pts, 25);
+}
+
+function _pilarB(d) {
+  let pts = 0;
   const rs = d['RS Score'];
-  if (rs === null || rs <= 60) return 0;
-
-  // RS nivel: hasta 30 pts (RS=90→30, RS=100→30)
-  let score = Math.min(30, rs - 60);
-
-  // RS momentum semanal: asimétrico — sube ×0.5 (max +7.5), baja ×1.5 (max −7.5)
-  const rsSem = d['RS Semana ant.'];
-  if (rsSem !== null) {
-    const delta = rs - rsSem;
-    if (delta > 0) score += Math.min(7.5, delta * 0.5);
-    else if (delta < 0) score -= Math.min(7.5, Math.abs(delta) * 1.5);
+  pts += _lineal(rs, 0, 100, 0, 15);
+  if (rs !== null) {
+    if (d['RS Ayer']        !== null && rs > d['RS Ayer'])        pts += 2.5;
+    if (d['RS Semana ant.'] !== null && rs > d['RS Semana ant.']) pts += 2.5;
+    if (d['RS Mes ant.']    !== null && rs > d['RS Mes ant.'])    pts += 3.0;
   }
+  pts += _bool(d['FR > SMA50']) ? 4 : 0;
+  pts += _lineal(d['Vs Sector %'], 0, 10, 0, 3);
+  return Math.min(pts, 30);
+}
 
-  // EMA200: +20 binario + hasta +10 proporcional (cada 2% = 1pt, tope 10)
-  const ema = d['Dist EMA200 %'];
-  if (ema !== null && ema > 0) score += 20 + Math.min(10, ema * 0.5);
+function _pilarC(d) {
+  let pts = 0;
+  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 8);
+  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 7;
+  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
+  if (vp !== null && vn !== null) {
+    const ratio = vn <= 0 ? (vp > 0 ? 3 : null) : vp / vn;
+    if (ratio !== null) {
+      if (ratio >= 1.5)      pts += 10;
+      else if (ratio >= 1.0) pts += _lineal(ratio, 1.0, 1.5, 5, 10);
+      else if (ratio >= 0.8) pts += _lineal(ratio, 0.8, 1.0, 0, 5);
+    }
+  }
+  pts += _tri(d['RSI 14'], 40, 55, 65, 78) * 5;
+  return Math.min(pts, 30);
+}
 
-  // SMA50 (binario): +10
-  const sma = d['Dist SMA50 %'];
-  if (sma !== null && sma > 0) score += 10;
+function _pilarD(d) {
+  let pts = 0;
+  const vcpDet = _bool(d['VCP Detected']);
+  if (vcpDet) {
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 6);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 1;
+    pts += Math.min(pv, 7);
+    const dp = d['VCP Dist Pivot %'];
+    if (dp !== null) {
+      const dpA = Math.abs(dp);
+      pts += dpA <= 3 ? 5 : _lineal(dpA, 10, 3, 0, 5);
+    }
+  }
+  if (_bool(d['Breakout Fresh'])) {
+    const days  = d['Breakout Days Ago'] ?? 99;
+    const vrat  = d['Breakout Vol Ratio'] ?? 0;
+    const volOk = _bool(d['Breakout Vol OK']);
+    if (days <= 3 && (vrat >= 1.5 || volOk)) pts += 3;
+    else if (days <= 3) pts += 1.5;
+  }
+  return Math.min(pts, 15);
+}
 
-  // Distancia desde mínimo 52W ≥ 25%: +10
-  const dist52min = d['Dist Mín52W %'];
-  if (dist52min !== null && dist52min >= 25) score += 10;
+function _penalizaciones(d) {
+  let pen = 0; const flags = [];
+  const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
+  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
+  if ((d50 !== null && d50 > 25) || (rsi !== null && rsi > 80)) { pen -= 10; flags.push('SOBREEXT.'); }
+  const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
+  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('DISTRIB.'); }
+  const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
+  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('REV.VOL'); }
+  const boDays = d['Breakout Days Ago'];
+  if (!_bool(d['Breakout Fresh']) && boDays !== null && boDays > 5 && boDays <= 15) {
+    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('BO FALLIDO'); }
+  }
+  return { pen, flags };
+}
 
-  // Vol Relativa < 1.0: hasta 15 pts (proporcional)
-  const vol = d['Vol Relativa'];
-  if (vol !== null) score += Math.max(0, (1.0 - vol) * 25);
+function calcWarrenDetalle(d) {
+  const fallas = _evalGates(d);
+  const pa = _pilarA(d), pb = _pilarB(d), pc = _pilarC(d), pd = _pilarD(d);
+  const { pen, flags } = _penalizaciones(d);
+  let score = Math.max(0, Math.min(100, pa + pb + pc + pd + pen));
+  if (fallas.length > 0) score = Math.min(score, 40);
+  return { score: Math.round(score * 10) / 10, fallas, pa, pb, pc, pd, pen, flags };
+}
 
-  return Math.round(Math.min(100, score));
+function calcWarrenScore(d) {
+  return calcWarrenDetalle(d).score;
 }
 
 function renderWarrenScore() {
-  const minCrit = parseInt(document.getElementById('ws-min').value);
-  const topN    = parseInt(document.getElementById('ws-n').value);
+  const filtro = document.getElementById('ws-min').value;
+  const topN   = parseInt(document.getElementById('ws-n').value);
 
   let data = getDatosFiltrados()
-  .filter(d => d['RS Score'] !== null && d['RS Score'] > 60)
-  .map(d => {
-    const cEma  = d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0;
-    const cSma  = d['Dist SMA50 %']  !== null && d['Dist SMA50 %']  > 0;
-    const cRS   = d['RS Score']      !== null && d['RS Score']       > 70;
-    const cVol  = d['Vol Relativa']  !== null && d['Vol Relativa']   < 0.8;
-    const cMin  = d['Dist Mín52W %'] !== null && d['Dist Mín52W %'] >= 25;
-    const cumple = [cRS, cEma, cSma, cVol].filter(Boolean).length;
-    return { d, score: calcWarrenScore(d), cEma, cSma, cRS, cVol, cMin, cumple };
-  }).filter(x => x.cumple >= minCrit)
+    .map(d => ({ d, ...calcWarrenDetalle(d) }))
+    .filter(x => x.score > 0)
+    .filter(x => {
+      if (filtro === 'gates') return x.fallas.length === 0;
+      if (filtro === '50')    return x.score >= 50;
+      if (filtro === '60')    return x.score >= 60;
+      return true;
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, topN);
 
-  const dot = ok => `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${ok ? 'var(--green)' : 'var(--red)'};"></span>`;
   const scoreBadge = s => {
-    const cls = s >= 80 ? 'pill-green' : s >= 60 ? 'pill-blue' : 'pill-amber';
+    const cls = s >= 70 ? 'pill-green' : s >= 50 ? 'pill-blue' : 'pill-amber';
     return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
+  };
+  const pilarBadge = (v, max) => {
+    const pct = v / max;
+    const cls = pct >= 0.7 ? 'pill-green' : pct >= 0.4 ? 'pill-amber' : 'pill-red';
+    return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
   };
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
-    : data.map(({ d, score, cEma, cSma, cRS, cVol, cMin }) => {
-        const volSec    = d['Vol 5d/40d'] ?? null;
-        const volSecCls = volSec == null ? '' : volSec < 0.8 ? 'pill-green' : volSec < 1 ? 'pill-amber' : 'pill-red';
-        const isBrk     = isValidBreakout(d);
-        const trStyle   = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
-        const brkStar   = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
+    ? '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
+        const gatesOk  = fallas.length === 0;
+        const gatesHtml = gatesOk
+          ? `<span style="color:var(--green);font-size:12px">✓</span>`
+          : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
+        const penHtml  = pen < 0
+          ? `<span style="color:var(--red);font-size:11px" title="${flags.join(', ')}">${pen}</span>`
+          : `<span style="color:var(--muted);font-size:11px">—</span>`;
+        const isBrk   = isValidBreakout(d);
+        const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
+        const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
         return `<tr ${trStyle}>
-        <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</td>
-        <td>${scoreBadge(score)}</td>
-        <td><span class="score-pill ${d['RS Score']>70?'pill-green':d['RS Score']>40?'pill-amber':'pill-red'}">${d['RS Score']!=null?d['RS Score'].toFixed(1):'—'}</span></td>
-        <td><span class="score-pill ${d['Vol Relativa']<0.8?'pill-green':d['Vol Relativa']<1?'pill-amber':'pill-red'}">${d['Vol Relativa']!=null?d['Vol Relativa'].toFixed(2)+'x':'—'}</span></td>
-        <td><span class="score-pill ${volSecCls}">${volSec != null ? volSec.toFixed(2)+'x' : '—'}</span></td>
-        <td style="text-align:center">${dot(cEma)}</td>
-        <td style="text-align:center">${dot(cSma)}</td>
-        <td style="text-align:center">${dot(cMin)}</td>
-        <td style="text-align:center">${dot(cVol)}</td>
-      </tr>`;
+          <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</td>
+          <td>${scoreBadge(score)}</td>
+          <td style="text-align:center">${gatesHtml}</td>
+          <td style="text-align:center">${pilarBadge(pa, 25)}</td>
+          <td style="text-align:center">${pilarBadge(pb, 30)}</td>
+          <td style="text-align:center">${pilarBadge(pc, 30)}</td>
+          <td style="text-align:center">${pilarBadge(pd, 15)}</td>
+          <td style="text-align:center">${penHtml}</td>
+        </tr>`;
       }).join('');
 }
 
