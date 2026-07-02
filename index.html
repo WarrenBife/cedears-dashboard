@@ -4284,5 +4284,180 @@ if ('serviceWorker' in navigator) {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V3 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V4: PULIDO VISUAL PREMIUM + ALINEACIÓN (aditivo) ═══════════════ -->
+<style id="wb-v4-css">
+  /* ── Scrollbars premium ── */
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.16);border-radius:5px;border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(34,201,138,0.4);}
+  ::selection{background:rgba(34,201,138,0.28);color:#fff;}
+
+  /* ── Paneles: relieve + hover con vida ── */
+  .panel{transition:border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);}
+  @media(hover:hover){
+    .panel:hover{transform:translateY(-1px);box-shadow:var(--shadow-panel),0 14px 40px -18px rgba(0,0,0,0.75);}
+  }
+  .panel::before{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.09),transparent);}
+  .panel{position:relative;}
+
+  /* ── Zonas con identidad de color ── */
+  .wb-zone{margin:30px 0 16px;}
+  .wb-zone .wb-zone-title{display:flex;align-items:center;gap:8px;font-size:11.5px;}
+  .wb-zone .wb-zone-title::before{content:'';width:7px;height:7px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
+  .wb-zone.wbz-rot .wb-zone-title{color:var(--blue);}
+  .wb-zone.wbz-rot .wb-zone-title::before{background:var(--blue);box-shadow:0 0 10px rgba(79,142,247,0.8);}
+  .wb-zone.wbz-rot::after{background:linear-gradient(90deg,rgba(79,142,247,0.35),transparent);}
+  .wb-zone.wbz-sig .wb-zone-title{color:var(--green);}
+  .wb-zone.wbz-sig .wb-zone-title::before{background:var(--green);box-shadow:0 0 10px rgba(34,201,138,0.8);}
+  .wb-zone.wbz-sig::after{background:linear-gradient(90deg,rgba(34,201,138,0.35),transparent);}
+  .wb-zone.wbz-lab .wb-zone-title{color:var(--purple);}
+  .wb-zone.wbz-lab .wb-zone-title::before{background:var(--purple);box-shadow:0 0 10px rgba(167,139,250,0.8);}
+  .wb-zone.wbz-lab::after{background:linear-gradient(90deg,rgba(167,139,250,0.35),transparent);}
+
+  /* ── Tablas: legibilidad de terminal financiera ── */
+  #view-dashboard table thead th{letter-spacing:0.11em;}
+  #view-dashboard table tbody tr:nth-child(even) td{background:rgba(255,255,255,0.013);}
+  #view-dashboard table tbody tr{transition:background .12s var(--ease);}
+  @media(hover:hover){
+    #view-dashboard table tbody tr:hover td{background:rgba(34,201,138,0.045)!important;}
+    #view-dashboard table tbody tr:hover td:first-child{box-shadow:inset 2px 0 0 var(--accent);}
+    #view-planilla .pl-table tbody tr:hover td:first-child{box-shadow:inset 2px 0 0 var(--blue);}
+  }
+  .wb-num{font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
+
+  /* ── Ticker strip: fade en los bordes ── */
+  .ticker-strip,#ticker-strip{-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);}
+
+  /* ── Topbar: hairline con gradiente de marca ── */
+  .topbar{position:relative;}
+  .topbar::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(34,201,138,0.35) 25%,rgba(79,142,247,0.3) 60%,rgba(167,139,250,0.25) 85%,transparent);}
+
+  /* ── Inputs y foco accesible ── */
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(34,201,138,0.35);}
+  input,select{transition:border-color .2s var(--ease),box-shadow .2s var(--ease);}
+
+  /* ── Stat cards: número protagonista ── */
+  .stat-value{letter-spacing:-0.025em;}
+  @media(hover:hover){.stat-card:hover{border-color:rgba(34,201,138,0.35);}}
+
+  /* ── Spotlight: pulso vivo en el nº1 ── */
+  @keyframes wbGoldPulse{0%,100%{border-color:rgba(245,193,66,0.4);}50%{border-color:rgba(245,193,66,0.75);}}
+  .wb-spot-card.rank1{animation:wbGoldPulse 3.2s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){.wb-spot-card.rank1{animation:none;}}
+
+  /* ── Bottom nav: tab activa con cápsula ── */
+  @media(max-width:600px){
+    .wb-nav-btn.active{background:rgba(34,201,138,0.09);}
+  }
+
+  /* ── Empty states más amables ── */
+  .wb-empty{letter-spacing:0.01em;}
+</style>
+
+<script id="wb-v4-js">
+(function(){
+  'use strict';
+
+  /* ═══ 1. Identidad de color por zona ═══ */
+  try{
+    document.querySelectorAll('.wb-zone').forEach(function(z){
+      var t = z.textContent || '';
+      if(t.indexOf('Rotación') >= 0) z.classList.add('wbz-rot');
+      else if(t.indexOf('Señales') >= 0) z.classList.add('wbz-sig');
+      else if(t.indexOf('Análisis') >= 0) z.classList.add('wbz-lab');
+    });
+  }catch(e){}
+
+  /* ═══ 2. Alineador inteligente de columnas ═══
+     Detecta columnas numéricas muestreando el contenido real y alinea:
+     números → derecha (estándar financiero), texto → izquierda,
+     con el header siempre siguiendo a su columna. Re-aplica en cada render. */
+  var RE_NUM = /^[▲▼△▽]?\s*[+\-−]?\s*\$?\s*[\d.,]+\s*(%|pts?|x|d|k|m|b)?$/i;
+  function tipoCelda(td){
+    if(td.querySelector('input,select,button')) return 'skip';
+    var t = (td.textContent || '').trim();
+    if(!t || t === '—' || t === '-' || t === '·') return null;
+    if(td.querySelector('.score-pill')) return 'num';
+    return RE_NUM.test(t) ? 'num' : 'txt';
+  }
+  function alinearTabla(tabla){
+    var tbody = tabla.tBodies && tabla.tBodies[0]; if(!tbody) return;
+    var filas = Array.prototype.slice.call(tbody.rows, 0, 15).filter(function(r){
+      return !r.querySelector('[colspan]');
+    });
+    if(!filas.length) return;
+    var nCols = filas[0].cells.length, stats = [];
+    for(var c=0; c<nCols; c++) stats.push({num:0, txt:0});
+    filas.forEach(function(r){
+      if(r.cells.length !== nCols) return;
+      for(var c=0; c<nCols; c++){
+        var tp = tipoCelda(r.cells[c]);
+        if(tp==='num') stats[c].num++; else if(tp==='txt') stats[c].txt++;
+      }
+    });
+    var aligns = stats.map(function(s,c){
+      if(c===0) return 'left';
+      var tot = s.num + s.txt;
+      if(!tot) return null;
+      return (s.num/tot >= 0.6) ? 'right' : 'left';
+    });
+    /* aplicar a celdas del cuerpo */
+    Array.prototype.forEach.call(tbody.rows, function(r){
+      if(r.cells.length !== nCols) return;
+      for(var c=0; c<nCols; c++){
+        if(!aligns[c]) continue;
+        r.cells[c].style.textAlign = aligns[c];
+        if(aligns[c]==='right' && tipoCelda(r.cells[c])==='num') r.cells[c].classList.add('wb-num');
+      }
+    });
+    /* header sigue a su columna */
+    var thead = tabla.tHead;
+    if(thead && thead.rows.length){
+      var hr = thead.rows[thead.rows.length-1];
+      if(hr.cells.length === nCols){
+        for(var h=0; h<nCols; h++){
+          if(aligns[h]) hr.cells[h].style.textAlign = aligns[h];
+        }
+      }
+    }
+  }
+  function wbAlinearTodas(){
+    try{
+      document.querySelectorAll('#view-dashboard table, #view-planilla table').forEach(alinearTabla);
+    }catch(e){}
+  }
+  window.wbAlinearTodas = wbAlinearTodas;
+
+  /* Re-alinear en cada render de datos (encadena sobre los wrappers previos) */
+  try{
+    if(typeof window.renderTodo === 'function'){
+      var _rt4 = window.renderTodo;
+      window.renderTodo = function(){
+        var r = _rt4.apply(this, arguments);
+        setTimeout(wbAlinearTodas, 60);
+        return r;
+      };
+    }
+  }catch(e){}
+  /* Planilla se re-renderiza por su cuenta */
+  try{
+    var plGrid = document.getElementById('pl-grid');
+    if(plGrid && window.MutationObserver){
+      var t4 = null;
+      new MutationObserver(function(){
+        clearTimeout(t4); t4 = setTimeout(wbAlinearTodas, 80);
+      }).observe(plGrid, {childList:true, subtree:true});
+    }
+  }catch(e){}
+  /* Primeras pasadas (datos async) */
+  [400, 1200, 3000].forEach(function(ms){ setTimeout(wbAlinearTodas, ms); });
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V4 ═══════════════ -->
+
 </body>
 </html>
