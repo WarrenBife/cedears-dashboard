@@ -609,7 +609,7 @@ def calcular_regimen(hist_spy, hist_qqq):
 
     vix = None
     try:
-        vix_hist = yf.download('^VIX', period='10d', auto_adjust=True, progress=False)
+        vix_hist = yf.Ticker('^VIX').history(period='10d')
         if not vix_hist.empty:
             vix = round(float(vix_hist['Close'].iloc[-1]), 2)
     except Exception as e:
@@ -617,9 +617,12 @@ def calcular_regimen(hist_spy, hist_qqq):
 
     putcall_5d = None
     try:
-        pc_hist = yf.download('^PCE', period='20d', auto_adjust=False, progress=False)
+        # ^CPCE = CBOE Equity Put/Call Ratio (ticker correcto en Yahoo Finance)
+        pc_hist = yf.Ticker('^CPCE').history(period='20d')
         if not pc_hist.empty and len(pc_hist) >= 5:
             putcall_5d = round(float(pc_hist['Close'].tail(5).mean()), 3)
+        elif not pc_hist.empty:
+            putcall_5d = round(float(pc_hist['Close'].iloc[-1]), 3)
     except Exception as e:
         print(f"  ⚠️  P/C ratio no disponible: {e}")
 
