@@ -3349,6 +3349,8 @@ if ('serviceWorker' in navigator) {
   .wb-zone-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
   .wb-zone::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
   .wb-mb{margin-bottom:16px;}
+  /* ── Warren Score: centrar cabeceras ── */
+  #warren-table th{text-align:center;}
 
   /* ── Franja de régimen de mercado ── */
   #wb-regimen{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 24px;
@@ -3515,8 +3517,13 @@ if ('serviceWorker' in navigator) {
       '<span><i style="background:var(--red)"></i>Rezagado</span>'+
       '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
       '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
-      '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span></div>'+
-    '<div class="chart-wrap" style="height:420px"><canvas id="wbRrgChart"></canvas></div>',
+      '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span>'+
+      '<select id="wbRrgMesFilter" onchange="try{wbRenderRRG()}catch(e){}" style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);font-size:9.5px;padding:2px 6px;border-radius:6px;cursor:pointer;">'+
+        '<option value="all">Todos</option>'+
+        '<option value="mes">RS subió vs mes ant.</option>'+
+      '</select>'+
+    '</div>'+
+    '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>',
     'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. El tamaño de la burbuja representa el Market Cap del activo. Cuadrante azul (Mejorando): RS bajo pero acelerando, suelen ser los futuros líderes.');
 
   /* — Episodic Pivots — */
@@ -3677,15 +3684,20 @@ if ('serviceWorker' in navigator) {
   }};
   function wbRenderRRG(){
     var cv=$('wbRrgChart'); if(!cv || !datosOK() || typeof Chart==='undefined') return;
+    var soloMes = (function(){ var s=$('wbRrgMesFilter'); return s && s.value==='mes'; })();
     var pts = filtrados().map(function(d){
       var rs=num(d['RS Score']), prev=num(d['RS Semana ant.']), cap=num(d['Market Cap USD']);
+      var mes=num(d['RS Mes ant.']);
       if(rs==null||prev==null) return null;
+      var dy=rs-prev;
+      if(dy < -30) return null;                              /* excluir por debajo del eje */
+      if(soloMes && (mes==null || rs<=mes)) return null;     /* filtro RS vs mes anterior */
       var isBrk = b_(d['Breakout Fresh']);
       var vi    = num(d['Vol Inusual %'])||0;
       var r     = capToR(cap);
       if(isBrk)    r = Math.min(22, r+2);
       else if(vi>=100) r = Math.min(20, r+1);
-      return {x:rs, y:rs-prev, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
+      return {x:rs, y:dy, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
     }).filter(Boolean).slice(0,200);
     /* mismo estilo que el Mapa de Resurgimiento: fill ~30% + border ~92% */
     function quadFill(p){
@@ -3730,7 +3742,7 @@ if ('serviceWorker' in navigator) {
         } } } },
         scales:{
           x:{ min:0, max:100, title:{display:true,text:'RS Score',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} },
-          y:{ title:{display:true,text:'Δ RS vs semana ant.',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} }
+          y:{ min:-30, title:{display:true,text:'Δ RS vs semana ant.',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} }
         } }
     });
   }
