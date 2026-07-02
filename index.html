@@ -3554,6 +3554,8 @@ if ('serviceWorker' in navigator) {
     P.cmp
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
+  /* eliminar explícitamente los paneles que ya no van en el layout */
+  [P.sema, P.resurg].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
   [P.cart, P.warren, snapP, P.cmp].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
   /* limpiar grid-2 que quedaron vacíos */
   main.querySelectorAll('.grid-2').forEach(function(g){ if(!g.children.length) g.remove(); });
@@ -3831,14 +3833,42 @@ if ('serviceWorker' in navigator) {
       '<table class="wb-mini-table"><thead><tr><th>#</th><th>Ticker</th><th>Score</th><th>Precio entonces</th><th>Precio hoy</th><th>Retorno</th></tr></thead><tbody>'+filas+'</tbody></table>';
   }
 
-  /* ═══ 8. Hook a renderTodo + primer render ═══ */
+  /* ═══ 8. Cartelera: sin límite de altura + logos ═══ */
+  function wbCarteleraEnhance(){
+    var body = document.getElementById('cartelera-body');
+    if(!body) return;
+    body.style.maxHeight = 'none';
+    body.style.overflowY = 'visible';
+    body.querySelectorAll('.ticker-badge').forEach(function(badge){
+      if(badge.previousElementSibling && badge.previousElementSibling.classList.contains('wb-logo-img')) return;
+      var ticker = badge.textContent.trim();
+      var img = document.createElement('img');
+      img.className = 'wb-logo-img';
+      img.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(ticker) + '.png';
+      img.style.cssText = 'width:26px;height:26px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;border:1px solid rgba(255,255,255,0.07);';
+      img.onerror = function(){ this.style.display='none'; };
+      badge.parentNode.insertBefore(img, badge);
+    });
+  }
+  try{
+    if(typeof window.renderCartelera === 'function'){
+      var _rcart = window.renderCartelera;
+      window.renderCartelera = function(){
+        var r = _rcart.apply(this, arguments);
+        try{ wbCarteleraEnhance(); }catch(e){}
+        return r;
+      };
+    }
+  }catch(e){}
+
+  /* ═══ 9. Hook a renderTodo + primer render ═══ */
   function wbRenderExtras(){
     try{ wbRenderRegimen(); }catch(e){ console.error('wbRegimen',e); }
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
     try{ wbSnapGuardar(); wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
-    try{ wbPoblarRiskSelect(); }catch(e){ console.error('wbRisk',e); }
+    try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
       ['wb-ep-body','wb-snap-body'].forEach(function(id){ var el=$(id); if(el && !el.classList.contains('wb-scrollx')) el.classList.add('wb-scrollx'); });
     }catch(e){}
