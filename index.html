@@ -3533,14 +3533,11 @@ if ('serviceWorker' in navigator) {
     '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">Stop sugerido: pivot/última contracción del VCP (tightness) o 5% si no hay VCP. Es una guía educativa, no una recomendación de inversión.</div>',
     'Con el capital y el % de riesgo que definas, calcula cuántos nominales comprar para que si salta el stop pierdas exactamente ese %.');
 
-  /* — Track record — */
-  var trackP = mkPanel('wb-track-panel','Track record de señales',
-    'Despegues y top de ranking registrados en este navegador · retorno desde la señal',
-    '<div id="wb-track-body" style="max-height:320px;overflow-y:auto"></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+
-    '<span style="font-size:9.5px;color:var(--muted)">Se registra automáticamente al cargar datos cada día.</span>'+
-    '<button onclick="wbTrackClear()" style="font-size:10px;color:var(--muted);background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 9px;cursor:pointer">Borrar historial</button></div>',
-    'Cada día se guardan los Despegues Frescos y el Top 3 del Warren Score con su precio. El retorno se calcula contra el precio actual. Almacenado localmente en tu navegador.');
+  /* — Retorno Top 10 — */
+  var snapP = mkPanel('wb-snap-panel','Retorno Top 10 de la semana',
+    'Cómo rindieron las 10 mejores acciones del Warren Score hace 7 días',
+    '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
+    'Cada vez que abrís el dashboard se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde hace 7 días.');
 
   /* — Reordenar todo — */
   var orden = [
@@ -3549,7 +3546,7 @@ if ('serviceWorker' in navigator) {
     mkGrid(rrgP, P.sema), P.resurg,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
     P.brk, mkGrid(epP, P.cart), P.warren,
-    mkGrid(riskP, trackP),
+    mkGrid(riskP, snapP),
     mkZone('🔬 &nbsp;Análisis — profundizá'),
     mkGrid(P.trend, P.sv), mkGrid(P.vinu, P.scan),
     P.cmp
@@ -3740,49 +3737,76 @@ if ('serviceWorker' in navigator) {
       box('% del capital', capital>0?fmt(posicion/capital*100,1)+'%':'—');
   };
 
-  /* ═══ 7. Track record (localStorage) ═══ */
-  var TRACK_KEY='wb_track_v1';
-  function trackLoad(){ try{ return JSON.parse(localStorage.getItem(TRACK_KEY)||'[]'); }catch(e){ return []; } }
-  function trackSave(a){ try{ localStorage.setItem(TRACK_KEY, JSON.stringify(a.slice(-200))); }catch(e){} }
-  window.wbTrackClear = function(){
-    if(confirm('¿Borrar todo el historial de señales de este navegador?')){ trackSave([]); wbRenderTrack(); }
-  };
-  function wbTrackRegistrar(){
+  /* ═══ 7. Retorno Top 10 semanal (snapshot localStorage) ═══ */
+  var SNAP_KEY = 'wb_snap_v1';
+  function snapLoad(){ try{ return JSON.parse(localStorage.getItem(SNAP_KEY)||'{}'); }catch(e){ return {}; } }
+  function snapSave(o){ try{ localStorage.setItem(SNAP_KEY, JSON.stringify(o)); }catch(e){} }
+
+  function wbSnapGuardar(){
     if(!datosOK() || typeof calcWarrenDetalle!=='function') return;
-    var log=trackLoad(), hoy=hoyISO();
-    function ya(t,tipo){ return log.some(function(e){ return e.t===t && e.tipo===tipo && e.f===hoy; }); }
-    DATOS.forEach(function(d){
-      if(b_(d['Breakout Fresh']) && !ya(d['Ticker'],'🚀')){
-        var p=num(d['Precio']); if(p) log.push({f:hoy, t:d['Ticker'], tipo:'🚀', p:p});
-      }
-    });
-    DATOS.map(function(d){ return {d:d, s:calcWarrenDetalle(d).score}; })
-      .sort(function(a,b){ return b.s-a.s; }).slice(0,3)
-      .forEach(function(r){
-        if(!ya(r.d['Ticker'],'🏆')){
-          var p=num(r.d['Precio']); if(p) log.push({f:hoy, t:r.d['Ticker'], tipo:'🏆', p:p, s:Math.round(r.s)});
-        }
-      });
-    trackSave(log);
+    var hoy = hoyISO();
+    var store = snapLoad();
+    if(store[hoy]) return;
+    var top10 = DATOS
+      .map(function(d){ return { t: d['Ticker'], p: num(d['Precio']), s: Math.round(calcWarrenDetalle(d).score) }; })
+      .filter(function(x){ return x.p > 0; })
+      .sort(function(a,b){ return b.s - a.s; })
+      .slice(0, 10);
+    store[hoy] = top10;
+    var keys = Object.keys(store).sort();
+    if(keys.length > 30) keys.slice(0, keys.length - 30).forEach(function(k){ delete store[k]; });
+    snapSave(store);
   }
-  function wbRenderTrack(){
-    var body=$('wb-track-body'); if(!body) return;
-    var log=trackLoad().slice().reverse();
-    if(!log.length){ body.innerHTML='<div class="wb-empty">Todavía no hay señales registradas.<br>A partir de hoy, cada Despegue Fresco 🚀 y cada Top 3 del ranking 🏆 quedan logueados con su precio.</div>'; return; }
-    var precios={}; if(datosOK()) DATOS.forEach(function(d){ var p=num(d['Precio']); if(p) precios[d['Ticker']]=p; });
+
+  function wbRenderSnap(){
+    var body = $('wb-snap-body'); if(!body) return;
+    var store = snapLoad();
+    var keys = Object.keys(store).sort();
+    var todayStr = hoyISO();
+    var snapKey = null;
+    var hace7str = new Date(new Date().getTime() - 7*86400000).toISOString().slice(0,10);
+    for(var i = keys.length-1; i >= 0; i--){
+      if(keys[i] <= hace7str){ snapKey = keys[i]; break; }
+    }
+    if(!snapKey){
+      for(var j = 0; j < keys.length; j++){
+        if(keys[j] !== todayStr){ snapKey = keys[j]; break; }
+      }
+    }
+    if(!snapKey || keys.length < 2){
+      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">A partir de hoy se guarda el Top 10 diario.<br>En 7 días vas a ver el retorno acá.</div>';
+      return;
+    }
+    var snap = store[snapKey];
+    var diasAtras = Math.round((new Date().getTime() - new Date(snapKey).getTime()) / 86400000);
+    var preciosHoy = {};
+    if(datosOK()) DATOS.forEach(function(d){ var p=num(d['Precio']); if(p) preciosHoy[d['Ticker']]=p; });
     var wins=0, conRet=0, sumRet=0;
-    var filas = log.slice(0,60).map(function(e){
-      var act=precios[e.t], ret=(act&&e.p)?(act/e.p-1)*100:null;
-      if(ret!=null && e.f!==hoyISO()){ conRet++; sumRet+=ret; if(ret>0) wins++; }
-      var col = ret==null?'var(--muted)':ret>=0?'var(--green)':'var(--red)';
-      return '<tr><td style="color:var(--muted);font-size:10px">'+e.f.slice(5)+'</td><td>'+e.tipo+'</td>'+
-        '<td style="font-weight:500">'+esc(e.t)+'</td><td>$'+fmt(e.p,2)+'</td>'+
-        '<td style="color:'+col+'">'+(ret==null?'—':(ret>=0?'+':'')+ret.toFixed(1)+'%')+'</td></tr>';
+    var filas = snap.map(function(item, idx){
+      var pHoy = preciosHoy[item.t] || 0;
+      var ret = (pHoy>0 && item.p>0) ? (pHoy/item.p-1)*100 : null;
+      if(ret!=null){ conRet++; sumRet+=ret; if(ret>0) wins++; }
+      var col = ret==null?'var(--muted)':ret>0?'var(--green)':ret<0?'var(--red)':'var(--text)';
+      var sBadge = item.s>=70?'var(--green)':item.s>=50?'var(--blue)':'var(--amber)';
+      return '<tr>'+
+        '<td style="color:var(--muted);font-size:10px">'+(idx+1)+'</td>'+
+        '<td style="font-weight:500">'+esc(item.t)+'</td>'+
+        '<td style="font-family:\'DM Mono\',monospace;color:'+sBadge+'">'+item.s+'</td>'+
+        '<td style="font-family:\'DM Mono\',monospace;font-variant-numeric:tabular-nums">$'+fmt(item.p,2)+'</td>'+
+        '<td style="font-family:\'DM Mono\',monospace;font-variant-numeric:tabular-nums">'+(pHoy>0?'$'+fmt(pHoy,2):'—')+'</td>'+
+        '<td style="color:'+col+';font-family:\'DM Mono\',monospace;font-weight:600;font-variant-numeric:tabular-nums">'+
+          (ret==null?'—':(ret>=0?'+':'')+ret.toFixed(1)+'%')+'</td>'+
+        '</tr>';
     }).join('');
-    var resumen = conRet>0 ? '<div style="font-size:10px;color:var(--muted);padding:6px 8px">Señales con historia: <b style="color:var(--text)">'+conRet+
-      '</b> · Win rate: <b style="color:var(--green)">'+(wins/conRet*100).toFixed(0)+'%</b> · Retorno medio: <b style="color:'+(sumRet>=0?'var(--green)':'var(--red)')+'">'+
-      (sumRet/conRet>=0?'+':'')+(sumRet/conRet).toFixed(1)+'%</b></div>' : '';
-    body.innerHTML = resumen+'<table class="wb-mini-table"><thead><tr><th>Fecha</th><th></th><th>Ticker</th><th>Precio señal</th><th>Retorno</th></tr></thead><tbody>'+filas+'</tbody></table>';
+    var avgRet = conRet>0 ? sumRet/conRet : null;
+    var resumen = '<div style="display:flex;gap:16px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;flex-wrap:wrap;background:rgba(255,255,255,0.02)">'+
+      (avgRet!=null?'<span style="color:var(--muted)">Retorno medio: <b style="color:'+(avgRet>=0?'var(--green)':'var(--red)','')+'">'+
+        (avgRet>=0?'+':'')+avgRet.toFixed(1)+'%</b></span>'+
+        '<span style="color:var(--muted)">Win rate: <b style="color:var(--text)">'+wins+'/'+conRet+'</b></span>':'')+
+      '<span style="color:var(--muted)">Hace <b style="color:var(--text)">'+diasAtras+' días</b> ('+snapKey+')</span>'+
+      '</div>';
+    body.innerHTML = resumen+
+      '<table class="wb-mini-table"><thead><tr><th>#</th><th>Ticker</th><th>Score</th><th>Precio entonces</th><th>Precio hoy</th><th>Retorno</th></tr></thead><tbody>'+filas+'</tbody></table>';
   }
 
   /* ═══ 8. Hook a renderTodo + primer render ═══ */
@@ -3791,10 +3815,10 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
-    try{ wbTrackRegistrar(); wbRenderTrack(); }catch(e){ console.error('wbTrack',e); }
+    try{ wbSnapGuardar(); wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbPoblarRiskSelect(); }catch(e){ console.error('wbRisk',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
-      ['wb-ep-body','wb-track-body'].forEach(function(id){ var el=$(id); if(el && !el.classList.contains('wb-scrollx')) el.classList.add('wb-scrollx'); });
+      ['wb-ep-body','wb-snap-body'].forEach(function(id){ var el=$(id); if(el && !el.classList.contains('wb-scrollx')) el.classList.add('wb-scrollx'); });
     }catch(e){}
   }
   try{
