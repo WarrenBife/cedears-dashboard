@@ -3513,7 +3513,7 @@ if ('serviceWorker' in navigator) {
       '<span><i style="background:var(--blue)"></i>Mejorando</span>'+
       '<span><i style="background:var(--amber)"></i>Debilitando</span>'+
       '<span><i style="background:var(--red)"></i>Rezagado</span>'+
-      '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #f5c842;box-shadow:0 0 5px #f5c842"></i>🚀 Despegue fresco</span>'+
+      '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
       '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
       '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span></div>'+
     '<div class="chart-wrap" style="height:420px"><canvas id="wbRrgChart"></canvas></div>',
@@ -3701,13 +3701,13 @@ if ('serviceWorker' in navigator) {
       return 'rgba(240,96,90,0.92)';
     }
     var bgColors = pts.map(function(p){
-      if(p.brk)     return 'rgba(245,200,66,0.28)';
-      if(p.vi>=100) return 'rgba(34,238,232,0.22)';
+      if(p.brk)     return 'rgba(167,139,250,0.25)';   /* violeta */
+      if(p.vi>=100) return 'rgba(34,238,232,0.22)';    /* cyan */
       return quadFill(p);
     });
     var borderColors = pts.map(function(p){
-      if(p.brk)     return 'rgba(245,200,66,0.95)';
-      if(p.vi>=100) return 'rgba(34,238,232,0.95)';
+      if(p.brk)     return 'rgba(167,139,250,0.97)';   /* violeta brillante */
+      if(p.vi>=100) return 'rgba(34,238,232,0.95)';    /* cyan */
       return quadBorder(p);
     });
     var borderWidths = pts.map(function(p){

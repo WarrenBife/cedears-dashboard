@@ -609,22 +609,35 @@ def calcular_regimen(hist_spy, hist_qqq):
 
     vix = None
     try:
-        vix_hist = yf.Ticker('^VIX').history(period='10d')
+        vix_hist = yf.Ticker('^VIX').history(period='1mo')
         if not vix_hist.empty:
-            vix = round(float(vix_hist['Close'].iloc[-1]), 2)
+            closes = vix_hist['Close'].dropna()
+            if not closes.empty:
+                vix = round(float(closes.iloc[-1]), 2)
+                print(f"    VIX obtenido: {vix}")
+            else:
+                print("    ⚠️ VIX: columna Close vacía")
+        else:
+            print("    ⚠️ VIX: historia vacía")
     except Exception as e:
         print(f"  ⚠️  VIX no disponible: {e}")
 
     putcall_5d = None
-    try:
-        # ^CPCE = CBOE Equity Put/Call Ratio (ticker correcto en Yahoo Finance)
-        pc_hist = yf.Ticker('^CPCE').history(period='20d')
-        if not pc_hist.empty and len(pc_hist) >= 5:
-            putcall_5d = round(float(pc_hist['Close'].tail(5).mean()), 3)
-        elif not pc_hist.empty:
-            putcall_5d = round(float(pc_hist['Close'].iloc[-1]), 3)
-    except Exception as e:
-        print(f"  ⚠️  P/C ratio no disponible: {e}")
+    for pc_ticker in ['^CPCE', '^CPC']:
+        try:
+            pc_hist = yf.Ticker(pc_ticker).history(period='1mo')
+            if not pc_hist.empty:
+                closes = pc_hist['Close'].dropna()
+                if not closes.empty:
+                    putcall_5d = round(float(closes.tail(5).mean() if len(closes) >= 5 else closes.iloc[-1]), 3)
+                    print(f"    P/C ratio obtenido de {pc_ticker}: {putcall_5d}")
+                    break
+                else:
+                    print(f"    ⚠️ {pc_ticker}: columna Close vacía")
+            else:
+                print(f"    ⚠️ {pc_ticker}: historia vacía")
+        except Exception as e:
+            print(f"  ⚠️  P/C ({pc_ticker}) no disponible: {e}")
 
     return {
         "fecha":          datetime.now().strftime('%Y-%m-%d'),
