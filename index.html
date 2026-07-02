@@ -3118,5 +3118,699 @@ if ('serviceWorker' in navigator) {
   #tg-fab:hover { transform:translateY(-3px) scale(1.08); box-shadow:0 8px 28px rgba(42,171,238,0.6); }
   #tg-fab:active { transform:translateY(0) scale(1); }
 </style>
+<!-- ═══════════════════ WB VISUAL UPGRADE (aditivo, no toca lógica) ═══════════════════ -->
+<style id="wb-upgrade-css">
+  /* ── Entrada escalonada de paneles y stat cards ── */
+  @keyframes wbPanelIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  #view-dashboard .panel{animation:wbPanelIn .5s var(--ease) backwards;animation-delay:calc(var(--wb-i,0)*60ms);}
+  #view-dashboard .stat-card{animation:wbPanelIn .45s var(--ease) backwards;animation-delay:calc(var(--wb-i,0)*45ms);}
+  @media (prefers-reduced-motion: reduce){
+    #view-dashboard .panel,#view-dashboard .stat-card{animation:none;}
+  }
+
+  /* ── Barra de proporción en stat cards ── */
+  .wb-statbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,0.05);overflow:hidden;border-radius:0 0 var(--r-md) var(--r-md);}
+  .wb-statbar i{display:block;height:100%;width:0;border-radius:2px;transition:width .7s var(--ease);box-shadow:0 0 8px currentColor;background:currentColor;opacity:.85;}
+
+  /* ── Shimmer en pantalla de carga ── */
+  #loading::after{content:'';width:180px;height:3px;border-radius:2px;margin-top:6px;
+    background:linear-gradient(90deg,rgba(34,201,138,0.08) 25%,rgba(34,201,138,0.55) 50%,rgba(34,201,138,0.08) 75%);
+    background-size:200% 100%;animation:wbShimmer 1.4s linear infinite;}
+  @keyframes wbShimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+
+  /* ── Tablas con scroll horizontal + primera columna sticky ── */
+  .wb-scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+  .wb-scrollx.wb-more{-webkit-mask-image:linear-gradient(90deg,#000 87%,rgba(0,0,0,0.15));mask-image:linear-gradient(90deg,#000 87%,rgba(0,0,0,0.15));}
+  @media(max-width:700px){
+    .wb-scrollx table th:first-child,.wb-scrollx table td:first-child{
+      position:sticky;left:0;z-index:5;background:var(--bg2);
+      box-shadow:6px 0 12px -6px rgba(0,0,0,0.55);
+    }
+    .wb-scrollx table thead th:first-child{z-index:6;}
+  }
+
+  /* ── Mobile: tipografía + layout ── */
+  @media(max-width:600px){
+    body{font-size:14px;}
+    .stat-value{font-size:26px;}
+    .panel-title{font-size:14px;}
+    .tagline{display:none;}
+
+    /* Stat cards: carrusel horizontal con snap */
+    .stats-row{display:flex;overflow-x:auto;gap:10px;scroll-snap-type:x mandatory;
+      margin:0 -14px 18px;padding:2px 14px 6px;scrollbar-width:none;}
+    .stats-row::-webkit-scrollbar{display:none;}
+    .stat-card{min-width:46%;flex:0 0 auto;scroll-snap-align:start;}
+
+    /* Espacio para la bottom nav */
+    #view-dashboard .main{padding-bottom:82px;}
+    #view-planilla{padding-bottom:82px;}
+    #tg-fab{bottom:86px !important;width:46px !important;height:46px !important;}
+  }
+
+  /* ── Bottom navigation (solo mobile) ── */
+  #wb-bottomnav{display:none;}
+  @media(max-width:600px){
+    #wb-bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:500;
+      background:rgba(10,13,19,0.88);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      border-top:1px solid var(--border2);
+      padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+      justify-content:space-around;align-items:stretch;}
+    #wb-bottomnav::before{content:'';position:absolute;left:0;right:0;top:-1px;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(34,201,138,0.4) 30%,rgba(79,142,247,0.3) 70%,transparent);}
+    .wb-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+      background:none;border:none;cursor:pointer;color:var(--muted);
+      font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:0.04em;
+      padding:6px 4px;min-height:48px;border-radius:10px;transition:color .2s var(--ease);}
+    .wb-nav-btn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;transition:filter .25s var(--ease);}
+    .wb-nav-btn.active{color:var(--green);}
+    .wb-nav-btn.active svg{filter:drop-shadow(0 0 6px rgba(34,201,138,0.7));}
+    .wb-nav-btn.active::after{content:'';width:4px;height:4px;border-radius:50%;
+      background:var(--green);box-shadow:0 0 8px rgba(34,201,138,0.9);}
+  }
+</style>
+
+<nav id="wb-bottomnav">
+  <button class="wb-nav-btn active" id="wb-nav-home" onclick="showView('home')">
+    <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>
+    Inicio
+  </button>
+  <button class="wb-nav-btn" id="wb-nav-dashboard" onclick="irAlDashboard()">
+    <svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-8l-2.5 3"/></svg>
+    Dashboard
+  </button>
+  <button class="wb-nav-btn" id="wb-nav-planilla" onclick="irAPlanilla()">
+    <svg viewBox="0 0 24 24"><rect x="4.5" y="4" width="15" height="16" rx="2"/><path d="M8.5 9h7"/><path d="M8.5 13h7"/><path d="M8.5 17h4"/></svg>
+    Planilla
+  </button>
+</nav>
+
+<script id="wb-upgrade-js">
+(function(){
+  'use strict';
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── 1. Índices para la entrada escalonada ── */
+  try{
+    document.querySelectorAll('#view-dashboard .stat-card').forEach(function(el,i){
+      el.style.setProperty('--wb-i', Math.min(i,8));
+    });
+    document.querySelectorAll('#view-dashboard .panel').forEach(function(el,i){
+      el.style.setProperty('--wb-i', Math.min(i,10));
+    });
+  }catch(e){}
+
+  /* ── 2. Scroll horizontal en tablas + fade indicador ── */
+  function marcarScrollX(el){
+    if(!el || el.classList.contains('wb-scrollx')) return;
+    el.classList.add('wb-scrollx');
+    function chk(){
+      var more = el.scrollWidth - el.clientWidth - el.scrollLeft > 12;
+      el.classList.toggle('wb-more', more);
+    }
+    el.addEventListener('scroll', chk, {passive:true});
+    window.addEventListener('resize', chk);
+    setTimeout(chk, 400); setTimeout(chk, 1500);
+  }
+  try{
+    var wt = document.getElementById('warren-table');
+    if(wt && wt.parentElement) marcarScrollX(wt.parentElement);
+    document.querySelectorAll('.scanner-wrap').forEach(marcarScrollX);
+    marcarScrollX(document.getElementById('trendRankTable'));
+    marcarScrollX(document.getElementById('cmp-tabla'));
+    document.querySelectorAll('#view-planilla .pl-card, .pl-card').forEach(marcarScrollX);
+  }catch(e){}
+  /* Las pl-cards se re-renderizan: observar y volver a marcar */
+  try{
+    var plGrid = document.getElementById('pl-grid');
+    if(plGrid && window.MutationObserver){
+      new MutationObserver(function(){
+        plGrid.querySelectorAll('.pl-card').forEach(marcarScrollX);
+      }).observe(plGrid,{childList:true});
+    }
+  }catch(e){}
+
+  /* ── 3. Bottom nav: estado activo sincronizado con showView ── */
+  function wbNavActive(name){
+    ['home','dashboard','planilla'].forEach(function(v){
+      var b = document.getElementById('wb-nav-'+v);
+      if(b) b.classList.toggle('active', v===name);
+    });
+  }
+  try{
+    if(typeof window.showView === 'function'){
+      var _sv = window.showView;
+      window.showView = function(name){
+        var r = _sv.apply(this, arguments);
+        try{ wbNavActive(name); }catch(e){}
+        return r;
+      };
+    }
+  }catch(e){}
+
+  /* ── 4. Count-up + barras de proporción en stat cards ── */
+  var STAT_IDS = ['st-total','st-ema','st-rs','st-sma50','st-vol','st-quality'];
+
+  function countUp(el, from, to){
+    if(reduceMotion || from===to){ el.textContent = to; return; }
+    if(el._wbRaf) cancelAnimationFrame(el._wbRaf);
+    var t0 = null, dur = 450;
+    function step(ts){
+      if(t0===null) t0 = ts;
+      var p = Math.min((ts-t0)/dur, 1);
+      p = 1 - Math.pow(1-p, 3); /* easeOutCubic */
+      el.textContent = Math.round(from + (to-from)*p);
+      if(p < 1) el._wbRaf = requestAnimationFrame(step);
+    }
+    el._wbRaf = requestAnimationFrame(step);
+  }
+
+  function asegurarBarra(card, valueEl){
+    var bar = card.querySelector('.wb-statbar');
+    if(!bar){
+      bar = document.createElement('div');
+      bar.className = 'wb-statbar';
+      bar.appendChild(document.createElement('i'));
+      card.appendChild(bar);
+    }
+    try{ bar.firstChild.style.color = getComputedStyle(valueEl).color; }catch(e){}
+    return bar.firstChild;
+  }
+
+  function wbAfterStats(){
+    try{
+      var totalEl = document.getElementById('st-total');
+      if(!totalEl) return;
+      var total = parseInt(totalEl.textContent, 10);
+      var universo = (typeof DATOS !== 'undefined' && DATOS && DATOS.length) ? DATOS.length : total;
+
+      STAT_IDS.forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        var val = parseInt(el.textContent, 10);
+        if(isNaN(val)) return;
+
+        var prev = parseInt(el.dataset.wbPrev, 10);
+        if(isNaN(prev)) prev = 0;
+        el.dataset.wbPrev = val;
+        countUp(el, prev, val);
+
+        var card = el.closest('.stat-card');
+        if(!card) return;
+        var fill = asegurarBarra(card, el);
+        var denom = (id === 'st-total') ? universo : (total || 1);
+        var pct = denom > 0 ? Math.max(0, Math.min(100, val/denom*100)) : 0;
+        requestAnimationFrame(function(){ fill.style.width = pct.toFixed(1) + '%'; });
+      });
+    }catch(e){}
+  }
+
+  try{
+    if(typeof window.renderStats === 'function'){
+      var _rst = window.renderStats;
+      window.renderStats = function(){
+        var r = _rst.apply(this, arguments);
+        wbAfterStats();
+        return r;
+      };
+      /* Si ya había datos renderizados al cargar este script */
+      wbAfterStats();
+    }
+  }catch(e){}
+})();
+</script>
+<!-- ═══════════════════ FIN WB VISUAL UPGRADE ═══════════════════ -->
+
+<!-- ═══════════════ WB UPGRADE V2: ZONAS + SPOTLIGHT + PANELES NUEVOS (aditivo) ═══════════════ -->
+<style id="wb-v2-css">
+  /* ── Separadores de zona ── */
+  .wb-zone{display:flex;align-items:center;gap:12px;margin:26px 0 14px;}
+  .wb-zone-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
+  .wb-zone::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
+  .wb-mb{margin-bottom:16px;}
+
+  /* ── Franja de régimen de mercado ── */
+  #wb-regimen{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 24px;
+    background:rgba(13,17,24,0.72);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
+  .wb-reg-verdict{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;font-weight:500;}
+  .wb-reg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .wb-reg-dot.g{background:var(--green);box-shadow:0 0 12px rgba(34,201,138,0.9);animation:pulse 1.8s infinite;}
+  .wb-reg-dot.a{background:var(--amber);box-shadow:0 0 12px rgba(245,166,35,0.9);}
+  .wb-reg-dot.r{background:var(--red);box-shadow:0 0 12px rgba(240,96,90,0.9);}
+  .wb-reg-metrics{display:flex;gap:14px;flex-wrap:wrap;}
+  .wb-reg-m{display:flex;align-items:baseline;gap:5px;font-size:11px;color:var(--muted);}
+  .wb-reg-m b{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);}
+  @media(max-width:600px){#wb-regimen{padding:9px 14px;gap:10px;}.wb-reg-metrics{gap:10px;}}
+
+  /* ── Warren Score Spotlight ── */
+  #wb-spotlight{border:1px solid rgba(34,201,138,0.28);position:relative;margin-bottom:20px;
+    background:linear-gradient(180deg,rgba(34,201,138,0.05),transparent 40%),var(--bg2);}
+  #wb-spotlight::after{content:'';position:absolute;inset:-1px;border-radius:var(--r-lg);padding:1px;pointer-events:none;
+    background:linear-gradient(120deg,rgba(34,201,138,0.55),rgba(79,142,247,0.25) 40%,transparent 60%,rgba(34,201,138,0.4));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.7;}
+  .wb-spot-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:16px 20px 10px;}
+  .wb-spot-title{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.04em;
+    background:linear-gradient(92deg,#eef1f7,#22c98a 80%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .wb-spot-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+  .wb-spot-cta{font-size:11px;color:var(--green);background:rgba(34,201,138,0.09);border:1px solid rgba(34,201,138,0.3);
+    border-radius:999px;padding:5px 13px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s var(--ease);}
+  .wb-spot-cta:hover{background:rgba(34,201,138,0.18);box-shadow:0 0 14px rgba(34,201,138,0.2);}
+  .wb-spot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:6px 20px 18px;}
+  .wb-spot-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent 55%),var(--bg3);
+    border:1px solid var(--border2);border-radius:14px;padding:16px;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;gap:10px;transition:transform .22s var(--ease),border-color .22s var(--ease);}
+  .wb-spot-card:hover{transform:translateY(-3px);border-color:rgba(34,201,138,0.45);}
+  .wb-spot-card.rank1{border-color:rgba(245,193,66,0.45);background:linear-gradient(180deg,rgba(245,193,66,0.06),transparent 50%),var(--bg3);}
+  .wb-spot-rank{position:absolute;top:10px;right:12px;font-size:16px;opacity:.9;}
+  .wb-spot-top{display:flex;align-items:center;gap:14px;}
+  .wb-ring{position:relative;width:74px;height:74px;flex-shrink:0;}
+  .wb-ring svg{transform:rotate(-90deg);}
+  .wb-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'DM Mono',monospace;font-size:21px;font-weight:500;letter-spacing:-0.03em;}
+  .wb-spot-ticker{font-family:'DM Mono',monospace;font-size:19px;font-weight:500;letter-spacing:0.02em;}
+  .wb-spot-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .wb-badge{font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.06em;padding:2px 7px;border-radius:5px;border:1px solid;}
+  .wb-badge.stage2{color:var(--green);border-color:rgba(34,201,138,0.4);background:var(--green-bg);}
+  .wb-badge.stage1{color:var(--blue);border-color:rgba(79,142,247,0.4);background:var(--blue-bg);}
+  .wb-badge.stage3{color:var(--amber);border-color:rgba(245,166,35,0.4);background:var(--amber-bg);}
+  .wb-badge.stage4{color:var(--red);border-color:rgba(240,96,90,0.4);background:var(--red-bg);}
+  .wb-badge.delta-up{color:var(--green);border-color:rgba(34,201,138,0.4);background:var(--green-bg);}
+  .wb-badge.delta-dn{color:var(--red);border-color:rgba(240,96,90,0.4);background:var(--red-bg);}
+  .wb-badge.neutral{color:var(--muted);border-color:var(--border2);background:rgba(255,255,255,0.03);}
+  .wb-pilares{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+  .wb-pilar{display:flex;flex-direction:column;gap:3px;}
+  .wb-pilar-lbl{font-size:8.5px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;display:flex;justify-content:space-between;}
+  .wb-pilar-bar{height:3.5px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+  .wb-pilar-bar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),rgba(34,201,138,0.5));transition:width .8s var(--ease);}
+  .wb-spot-mark{position:absolute;bottom:8px;right:14px;font-family:'DM Mono',monospace;font-size:9px;color:rgba(115,125,143,0.4);letter-spacing:0.06em;pointer-events:none;}
+  @media(max-width:900px){.wb-spot-grid{grid-template-columns:1fr;}}
+  @media(max-width:600px){
+    .wb-spot-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 14px 16px;scrollbar-width:none;}
+    .wb-spot-grid::-webkit-scrollbar{display:none;}
+    .wb-spot-card{min-width:82%;flex:0 0 auto;scroll-snap-align:start;}
+  }
+
+  /* ── RRG cuadrantes ── */
+  .wb-rrg-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:9.5px;color:var(--muted);padding:0 4px 6px;}
+  .wb-rrg-legend span{display:flex;align-items:center;gap:4px;}
+  .wb-rrg-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* ── Tablas chicas de paneles nuevos ── */
+  .wb-mini-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .wb-mini-table th{text-align:left;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;
+    padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0;background:var(--bg2);}
+  .wb-mini-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
+  .wb-mini-table tr:hover td{background:rgba(255,255,255,0.02);}
+  .wb-empty{color:var(--muted);font-size:11.5px;padding:22px 14px;text-align:center;line-height:1.6;}
+
+  /* ── Calculadora de riesgo ── */
+  .wb-risk-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:4px 0 12px;}
+  .wb-risk-form label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
+  .wb-risk-form input,.wb-risk-form select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+    padding:5px 9px;border-radius:7px;font-size:11.5px;font-family:'DM Mono',monospace;width:98px;}
+  .wb-risk-form input:focus,.wb-risk-form select:focus{outline:none;border-color:var(--accent);}
+  .wb-risk-out{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+  .wb-risk-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+  .wb-risk-box .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;}
+  .wb-risk-box .v{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;}
+</style>
+
+<script id="wb-v2-js">
+(function(){
+  'use strict';
+
+  /* ═══ Helpers ═══ */
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  var b_ = (typeof window._bool === 'function') ? window._bool : function(v){
+    if(v===true) return true; if(v===false||v==null) return false;
+    if(typeof v==='number') return v!==0;
+    return ['TRUE','SI','SÍ','YES','1','VERDADERO','OK'].indexOf(String(v).trim().toUpperCase())>=0;
+  };
+  function num(v){ var n = (typeof v==='string') ? parseFloat(v.replace('%','').replace(',','.')) : v; return (n===null||isNaN(n)) ? null : n; }
+  function fmt(n,d){ return n==null ? '—' : n.toLocaleString('es-AR',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0}); }
+  function datosOK(){ return (typeof DATOS!=='undefined' && DATOS && DATOS.length); }
+  function filtrados(){ try{ return (typeof getDatosFiltrados==='function') ? getDatosFiltrados() : (datosOK()?DATOS:[]); }catch(e){ return datosOK()?DATOS:[]; } }
+  function hoyISO(){ return new Date().toISOString().slice(0,10); }
+
+  /* Stage de Weinstein: matriz (precio vs EMA200, pendiente EMA200) */
+  function wbStage(d){
+    var dist = num(d['Dist EMA200 %']), slope = num(d['EMA200 Slope']);
+    if(dist==null || slope==null) return null;
+    if(dist>0 && slope>0)  return {n:2, lbl:'STAGE 2', cls:'stage2', tip:'Avance confirmado'};
+    if(dist>0 && slope<=0) return {n:3, lbl:'STAGE 3', cls:'stage3', tip:'Posible techo'};
+    if(dist<=0 && slope>0) return {n:1, lbl:'STAGE 1', cls:'stage1', tip:'Base / acumulación'};
+    return {n:4, lbl:'STAGE 4', cls:'stage4', tip:'Declive'};
+  }
+
+  /* ═══ 1. Construcción de estructura (una sola vez) ═══ */
+  var main = document.querySelector('#view-dashboard .main');
+  if(!main) return;
+
+  function panelOf(id){ var el=$(id); return el ? el.closest('.panel') : null; }
+  var P = {
+    resurg: panelOf('resurgChart'),  warren: panelOf('warren-table'),
+    brk:    panelOf('brk-content'),  trend:  panelOf('trendRankTable'),
+    sv:     panelOf('svChart'),      vinu:   panelOf('vinuChart'),
+    cart:   panelOf('cartelera-body'), scan: panelOf('scanner-body'),
+    sema:   panelOf('sema-grid'),    cmp:    panelOf('cmp-tabla')
+  };
+  var statsRow = main.querySelector('.stats-row');
+
+  function mkZone(txt){ var z=document.createElement('div'); z.className='wb-zone'; z.innerHTML='<span class="wb-zone-title">'+txt+'</span>'; return z; }
+  function mkGrid(){ var g=document.createElement('div'); g.className='grid-2'; for(var i=0;i<arguments.length;i++){ if(arguments[i]) g.appendChild(arguments[i]); } return g; }
+  function mkPanel(id, title, sub, bodyHTML, tooltip){
+    var p=document.createElement('div'); p.className='panel'; p.id=id;
+    p.innerHTML='<div class="panel-head"><div><div class="panel-title"'+(tooltip?' data-tooltip="'+esc(tooltip)+'"':'')+'>'+title+
+      '</div><div class="panel-sub">'+sub+'</div></div></div><div class="panel-body">'+bodyHTML+'</div>';
+    return p;
+  }
+
+  /* — Franja de régimen (antes de .main) — */
+  var reg = document.createElement('div');
+  reg.id='wb-regimen';
+  reg.innerHTML='<div class="wb-reg-verdict"><span class="wb-reg-dot a" id="wb-reg-dot"></span><span id="wb-reg-label">Calculando régimen…</span></div>'+
+    '<div class="wb-reg-metrics" id="wb-reg-metrics"></div>';
+  main.parentNode.insertBefore(reg, main);
+
+  /* — Spotlight — */
+  var spot = document.createElement('div');
+  spot.className='panel'; spot.id='wb-spotlight';
+  spot.innerHTML =
+    '<div class="wb-spot-head"><div><div class="wb-spot-title">🏆 WARREN SCORE — Podio del día</div>'+
+    '<div class="wb-spot-sub">Los papeles más cargados según el score compuesto 0–100 · 4 pilares + gates Stage 2</div></div>'+
+    '<button class="wb-spot-cta" onclick="document.getElementById(\'warren-table\').closest(\'.panel\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">Ver ranking completo ↓</button></div>'+
+    '<div class="wb-spot-grid" id="wb-spot-grid"><div class="wb-empty">Cargando datos…</div></div>'+
+    '<span class="wb-spot-mark">warrenbife.com</span>';
+
+  /* — RRG — */
+  var rrgP = mkPanel('wb-rrg-panel','Cuadrantes de rotación',
+    'RS Score vs momentum del RS (últ. semana) — el cuadrante azul anticipa a los futuros líderes',
+    '<div class="wb-rrg-legend">'+
+      '<span><i style="background:var(--green)"></i>Líderes</span>'+
+      '<span><i style="background:var(--blue)"></i>Mejorando</span>'+
+      '<span><i style="background:var(--amber)"></i>Debilitándose</span>'+
+      '<span><i style="background:var(--red)"></i>Rezagados</span></div>'+
+    '<div class="chart-wrap" style="height:380px"><canvas id="wbRrgChart"></canvas></div>',
+    'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. Arriba-derecha = líderes; arriba-izquierda (Mejorando) = RS bajo pero acelerando: futuros líderes.');
+
+  /* — Episodic Pivots — */
+  var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots hoy',
+    'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional',
+    '<div id="wb-ep-body" style="max-height:320px;overflow-y:auto"></div>',
+    'Setup de gap con volumen: suba fuerte del día acompañada de volumen muy superior al promedio. Suele coincidir con earnings o noticias y tiene continuación estadística.');
+
+  /* — Calculadora de riesgo — */
+  var riskP = mkPanel('wb-risk-panel','Calculadora de posición',
+    'Del setup al trade: stop sugerido y tamaño según tu riesgo',
+    '<div class="wb-risk-form">'+
+      '<label>Ticker</label><select id="wb-risk-ticker" onchange="wbRenderRisk()"></select>'+
+      '<label>Capital $</label><input id="wb-risk-capital" type="number" value="1000000" min="0" oninput="wbRenderRisk()">'+
+      '<label>Riesgo %</label><input id="wb-risk-pct" type="number" value="1" min="0.1" max="10" step="0.1" style="width:64px" oninput="wbRenderRisk()">'+
+    '</div><div class="wb-risk-out" id="wb-risk-out"></div>'+
+    '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">Stop sugerido: pivot/última contracción del VCP (tightness) o 5% si no hay VCP. Es una guía educativa, no una recomendación de inversión.</div>',
+    'Con el capital y el % de riesgo que definas, calcula cuántos nominales comprar para que si salta el stop pierdas exactamente ese %.');
+
+  /* — Track record — */
+  var trackP = mkPanel('wb-track-panel','Track record de señales',
+    'Despegues y top de ranking registrados en este navegador · retorno desde la señal',
+    '<div id="wb-track-body" style="max-height:320px;overflow-y:auto"></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+
+    '<span style="font-size:9.5px;color:var(--muted)">Se registra automáticamente al cargar datos cada día.</span>'+
+    '<button onclick="wbTrackClear()" style="font-size:10px;color:var(--muted);background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 9px;cursor:pointer">Borrar historial</button></div>',
+    'Cada día se guardan los Despegues Frescos y el Top 3 del Warren Score con su precio. El retorno se calcula contra el precio actual. Almacenado localmente en tu navegador.');
+
+  /* — Reordenar todo — */
+  var orden = [
+    spot, statsRow,
+    mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
+    mkGrid(rrgP, P.sema), P.resurg,
+    mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
+    P.brk, mkGrid(epP, P.cart), P.warren,
+    mkGrid(riskP, trackP),
+    mkZone('🔬 &nbsp;Análisis — profundizá'),
+    mkGrid(P.trend, P.sv), mkGrid(P.vinu, P.scan),
+    P.cmp
+  ];
+  orden.forEach(function(el){ if(el) main.appendChild(el); });
+  [P.resurg, P.brk, P.warren, P.cmp].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
+  /* limpiar grid-2 que quedaron vacíos */
+  main.querySelectorAll('.grid-2').forEach(function(g){ if(!g.children.length) g.remove(); });
+  /* recalcular índices de entrada escalonada con el nuevo orden */
+  main.querySelectorAll('.panel').forEach(function(el,i){ el.style.setProperty('--wb-i', Math.min(i,10)); });
+
+  /* ═══ 2. Régimen de mercado ═══ */
+  function wbRenderRegimen(){
+    if(!datosOK()) return;
+    var u = DATOS, n = u.length; if(!n) return;
+    var sobreE = 0, sobre50 = 0, frescos = 0, vcp = 0;
+    u.forEach(function(d){
+      if(num(d['Dist EMA200 %'])>0) sobreE++;
+      if(num(d['Dist SMA50 %'])>0) sobre50++;
+      if(b_(d['Breakout Fresh'])) frescos++;
+      if(b_(d['VCP Detected'])) vcp++;
+    });
+    var pE = sobreE/n*100, p50 = sobre50/n*100;
+    var estado, cls, tip;
+    if(pE>=60 && p50>=55){ estado='RÉGIMEN ALCISTA — operar con confianza'; cls='g'; }
+    else if(pE<40 || p50<35){ estado='RÉGIMEN DÉBIL — proteger capital'; cls='r'; }
+    else { estado='RÉGIMEN MIXTO — ser selectivo'; cls='a'; }
+    var dot=$('wb-reg-dot'); dot.className='wb-reg-dot '+cls;
+    $('wb-reg-label').textContent = estado;
+    $('wb-reg-label').style.color = cls==='g'?'var(--green)':cls==='r'?'var(--red)':'var(--amber)';
+    $('wb-reg-metrics').innerHTML =
+      '<span class="wb-reg-m">Sobre EMA200 <b>'+pE.toFixed(0)+'%</b></span>'+
+      '<span class="wb-reg-m">Sobre SMA50 <b>'+p50.toFixed(0)+'%</b></span>'+
+      '<span class="wb-reg-m">Despegues frescos <b>'+frescos+'</b></span>'+
+      '<span class="wb-reg-m">VCP activos <b>'+vcp+'</b></span>';
+  }
+
+  /* ═══ 3. Spotlight ═══ */
+  var RING_R = 32, RING_C = 2*Math.PI*RING_R;
+  function ringSVG(score){
+    var col = score>=70?'#22c98a':score>=50?'#4f8ef7':'#f5a623';
+    var off = RING_C*(1-Math.max(0,Math.min(100,score))/100);
+    return '<svg width="74" height="74" viewBox="0 0 74 74">'+
+      '<circle cx="37" cy="37" r="'+RING_R+'" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>'+
+      '<circle cx="37" cy="37" r="'+RING_R+'" fill="none" stroke="'+col+'" stroke-width="5" stroke-linecap="round" '+
+      'stroke-dasharray="'+RING_C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" style="filter:drop-shadow(0 0 5px '+col+'99)"/></svg>';
+  }
+  function wbScoresPrev(){
+    try{
+      var cur = JSON.parse(localStorage.getItem('wb_ws_hoy')||'null');
+      var prev = JSON.parse(localStorage.getItem('wb_ws_prev')||'null');
+      if(cur && cur.fecha !== hoyISO()){ localStorage.setItem('wb_ws_prev', JSON.stringify(cur)); prev = cur; localStorage.removeItem('wb_ws_hoy'); }
+      return prev && prev.scores ? prev.scores : {};
+    }catch(e){ return {}; }
+  }
+  function wbScoresGuardarHoy(map){
+    try{ localStorage.setItem('wb_ws_hoy', JSON.stringify({fecha:hoyISO(), scores:map})); }catch(e){}
+  }
+  function wbRenderSpotlight(){
+    var grid=$('wb-spot-grid');
+    if(!grid || !datosOK() || typeof calcWarrenDetalle!=='function') return;
+    var prev = wbScoresPrev();
+    var rows = filtrados().map(function(d){ var r=calcWarrenDetalle(d); r.d=d; return r; })
+      .filter(function(r){ return r.score>0; })
+      .sort(function(a,b){ return b.score-a.score; });
+    var mapHoy={}; rows.slice(0,60).forEach(function(r){ mapHoy[r.d['Ticker']]=r.score; });
+    wbScoresGuardarHoy(mapHoy);
+    var top = rows.slice(0,3);
+    if(!top.length){ grid.innerHTML='<div class="wb-empty">Sin papeles con score — ajustá los filtros globales.</div>'; return; }
+    var medals=['🥇','🥈','🥉'];
+    grid.innerHTML = top.map(function(r,i){
+      var t=r.d['Ticker'], st=wbStage(r.d), dPrev=prev[t];
+      var delta = (dPrev!=null) ? Math.round((r.score-dPrev)*10)/10 : null;
+      var deltaB = delta==null ? '<span class="wb-badge neutral">Δ ayer —</span>'
+        : delta>=0 ? '<span class="wb-badge delta-up">▲ +'+delta+' pts</span>'
+        : '<span class="wb-badge delta-dn">▼ '+delta+' pts</span>';
+      var gatesB = r.fallas.length===0 ? '<span class="wb-badge stage2">GATES OK</span>' : '<span class="wb-badge neutral">CAP 40</span>';
+      function pil(lbl,v,max){ return '<div class="wb-pilar"><div class="wb-pilar-lbl"><span>'+lbl+'</span><span>'+Math.round(v)+'/'+max+
+        '</span></div><div class="wb-pilar-bar"><i style="width:'+Math.max(0,Math.min(100,v/max*100)).toFixed(0)+'%"></i></div></div>'; }
+      return '<div class="wb-spot-card'+(i===0?' rank1':'')+'">'+
+        '<span class="wb-spot-rank">'+medals[i]+'</span>'+
+        '<div class="wb-spot-top"><div class="wb-ring">'+ringSVG(r.score)+'<div class="wb-ring-val">'+Math.round(r.score)+'</div></div>'+
+        '<div><div class="wb-spot-ticker">'+esc(t)+'</div>'+
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(r.d['Sector']||'')+' · $'+fmt(num(r.d['Precio']),2)+'</div>'+
+        '<div class="wb-spot-meta">'+(st?'<span class="wb-badge '+st.cls+'" title="'+st.tip+'">'+st.lbl+'</span>':'')+gatesB+deltaB+'</div></div></div>'+
+        '<div class="wb-pilares">'+pil('Tend',r.pa,25)+pil('F.Rel',r.pb,30)+pil('Contr',r.pc,30)+pil('Gatillo',r.pd,15)+'</div>'+
+        '</div>';
+    }).join('');
+  }
+
+  /* ═══ 4. RRG cuadrantes ═══ */
+  var quadPlugin = { id:'wbQuads', beforeDraw:function(chart){
+    var a=chart.chartArea, s=chart.scales, ctx=chart.ctx; if(!a) return;
+    var x50 = s.x.getPixelForValue(50), y0 = s.y.getPixelForValue(0);
+    x50=Math.max(a.left,Math.min(a.right,x50)); y0=Math.max(a.top,Math.min(a.bottom,y0));
+    function fill(x1,y1,x2,y2,c){ ctx.fillStyle=c; ctx.fillRect(x1,y1,x2-x1,y2-y1); }
+    fill(x50,a.top,a.right,y0,'rgba(34,201,138,0.045)');
+    fill(a.left,a.top,x50,y0,'rgba(79,142,247,0.045)');
+    fill(x50,y0,a.right,a.bottom,'rgba(245,166,35,0.04)');
+    fill(a.left,y0,x50,a.bottom,'rgba(240,96,90,0.04)');
+    ctx.strokeStyle='rgba(148,163,184,0.18)'; ctx.setLineDash([4,4]); ctx.beginPath();
+    ctx.moveTo(x50,a.top); ctx.lineTo(x50,a.bottom); ctx.moveTo(a.left,y0); ctx.lineTo(a.right,y0);
+    ctx.stroke(); ctx.setLineDash([]);
+  }};
+  function wbRenderRRG(){
+    var cv=$('wbRrgChart'); if(!cv || !datosOK() || typeof Chart==='undefined') return;
+    var pts = filtrados().map(function(d){
+      var rs=num(d['RS Score']), prev=num(d['RS Semana ant.']);
+      if(rs==null||prev==null) return null;
+      return {x:rs, y:rs-prev, t:d['Ticker']};
+    }).filter(Boolean).slice(0,200);
+    var colors = pts.map(function(p){
+      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.8)';
+      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,0.8)';
+      if(p.x>=50)           return 'rgba(245,166,35,0.8)';
+      return 'rgba(240,96,90,0.7)';
+    });
+    if(window._wbRrg){ try{ window._wbRrg.destroy(); }catch(e){} }
+    window._wbRrg = new Chart(cv, {
+      type:'scatter', plugins:[quadPlugin],
+      data:{ datasets:[{ data:pts, backgroundColor:colors, pointRadius:4, pointHoverRadius:6, borderWidth:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false, animation:{duration:400},
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){
+          var p=c.raw; return p.t+'  ·  RS '+p.x.toFixed(0)+'  ·  Δ semana '+(p.y>=0?'+':'')+p.y.toFixed(1); } } } },
+        scales:{
+          x:{ min:0, max:100, title:{display:true,text:'RS Score',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} },
+          y:{ title:{display:true,text:'Δ RS vs semana ant.',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} }
+        } }
+    });
+  }
+
+  /* ═══ 5. Episodic Pivots ═══ */
+  function wbRenderEP(){
+    var body=$('wb-ep-body'); if(!body || !datosOK()) return;
+    var rows = filtrados().filter(function(d){
+      var v=num(d['Var Día %']), vi=num(d['Vol Inusual %']);
+      return v!=null && vi!=null && v>=4 && vi>=100;
+    }).sort(function(a,b){ return num(b['Vol Inusual %'])-num(a['Vol Inusual %']); }).slice(0,12);
+    if(!rows.length){
+      body.innerHTML='<div class="wb-empty">Sin EPs hoy — no hay movimientos ≥ +4% con volumen ≥ +100%.<br>Los mejores EPs suelen aparecer en semanas de earnings. 👀</div>';
+      return;
+    }
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Var día</th><th>Vol inusual</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
+      rows.map(function(d){
+        var st=wbStage(d);
+        return '<tr><td style="font-weight:500">'+esc(d['Ticker'])+'</td>'+
+          '<td style="color:var(--green)">+'+fmt(num(d['Var Día %']),1)+'%</td>'+
+          '<td style="color:var(--amber)">+'+fmt(num(d['Vol Inusual %']),0)+'%</td>'+
+          '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
+          '<td>'+(st?'<span class="wb-badge '+st.cls+'">'+st.n+'</span>':'—')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+  }
+
+  /* ═══ 6. Calculadora de riesgo ═══ */
+  function wbPoblarRiskSelect(){
+    var sel=$('wb-risk-ticker'); if(!sel || !datosOK()) return;
+    var actual = sel.value;
+    var vcps = filtrados().filter(function(d){ return b_(d['VCP Detected']); })
+      .sort(function(a,b){ return (num(b['RS Score'])||0)-(num(a['RS Score'])||0); });
+    var lista = vcps.length ? vcps : filtrados().slice().sort(function(a,b){ return (num(b['RS Score'])||0)-(num(a['RS Score'])||0); }).slice(0,30);
+    sel.innerHTML = lista.map(function(d){ return '<option value="'+esc(d['Ticker'])+'">'+esc(d['Ticker'])+(b_(d['VCP Detected'])?' ◆':'')+'</option>'; }).join('');
+    if(actual && lista.some(function(d){ return d['Ticker']===actual; })) sel.value=actual;
+    wbRenderRisk();
+  }
+  window.wbRenderRisk = function(){
+    var out=$('wb-risk-out'); if(!out || !datosOK()) return;
+    var t=$('wb-risk-ticker').value;
+    var d = DATOS.find(function(x){ return x['Ticker']===t; });
+    if(!d){ out.innerHTML='<div class="wb-empty">Elegí un ticker.</div>'; return; }
+    var precio=num(d['Precio']);
+    var capital=parseFloat($('wb-risk-capital').value)||0;
+    var rpct=parseFloat($('wb-risk-pct').value)||1;
+    if(!precio || !capital){ out.innerHTML='<div class="wb-empty">Ingresá capital y riesgo.</div>'; return; }
+    var tight=num(d['VCP Tightness']);
+    var stopPct = (tight!=null && tight>0) ? Math.max(2,Math.min(12,tight)) : 5;
+    var stop = precio*(1-stopPct/100);
+    var riesgoMax = capital*rpct/100;
+    var porAccion = precio-stop;
+    var nominales = porAccion>0 ? Math.floor(riesgoMax/porAccion) : 0;
+    var posicion = nominales*precio;
+    function box(l,v,c){ return '<div class="wb-risk-box"><div class="l">'+l+'</div><div class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'</div></div>'; }
+    out.innerHTML =
+      box('Precio', '$'+fmt(precio,2)) +
+      box('Stop sugerido ('+stopPct.toFixed(1)+'%)', '$'+fmt(stop,2), 'var(--red)') +
+      box('Riesgo máx', '$'+fmt(riesgoMax,0), 'var(--amber)') +
+      box('Nominales', fmt(nominales,0), 'var(--green)') +
+      box('Posición', '$'+fmt(posicion,0)) +
+      box('% del capital', capital>0?fmt(posicion/capital*100,1)+'%':'—');
+  };
+
+  /* ═══ 7. Track record (localStorage) ═══ */
+  var TRACK_KEY='wb_track_v1';
+  function trackLoad(){ try{ return JSON.parse(localStorage.getItem(TRACK_KEY)||'[]'); }catch(e){ return []; } }
+  function trackSave(a){ try{ localStorage.setItem(TRACK_KEY, JSON.stringify(a.slice(-200))); }catch(e){} }
+  window.wbTrackClear = function(){
+    if(confirm('¿Borrar todo el historial de señales de este navegador?')){ trackSave([]); wbRenderTrack(); }
+  };
+  function wbTrackRegistrar(){
+    if(!datosOK() || typeof calcWarrenDetalle!=='function') return;
+    var log=trackLoad(), hoy=hoyISO();
+    function ya(t,tipo){ return log.some(function(e){ return e.t===t && e.tipo===tipo && e.f===hoy; }); }
+    DATOS.forEach(function(d){
+      if(b_(d['Breakout Fresh']) && !ya(d['Ticker'],'🚀')){
+        var p=num(d['Precio']); if(p) log.push({f:hoy, t:d['Ticker'], tipo:'🚀', p:p});
+      }
+    });
+    DATOS.map(function(d){ return {d:d, s:calcWarrenDetalle(d).score}; })
+      .sort(function(a,b){ return b.s-a.s; }).slice(0,3)
+      .forEach(function(r){
+        if(!ya(r.d['Ticker'],'🏆')){
+          var p=num(r.d['Precio']); if(p) log.push({f:hoy, t:r.d['Ticker'], tipo:'🏆', p:p, s:Math.round(r.s)});
+        }
+      });
+    trackSave(log);
+  }
+  function wbRenderTrack(){
+    var body=$('wb-track-body'); if(!body) return;
+    var log=trackLoad().slice().reverse();
+    if(!log.length){ body.innerHTML='<div class="wb-empty">Todavía no hay señales registradas.<br>A partir de hoy, cada Despegue Fresco 🚀 y cada Top 3 del ranking 🏆 quedan logueados con su precio.</div>'; return; }
+    var precios={}; if(datosOK()) DATOS.forEach(function(d){ var p=num(d['Precio']); if(p) precios[d['Ticker']]=p; });
+    var wins=0, conRet=0, sumRet=0;
+    var filas = log.slice(0,60).map(function(e){
+      var act=precios[e.t], ret=(act&&e.p)?(act/e.p-1)*100:null;
+      if(ret!=null && e.f!==hoyISO()){ conRet++; sumRet+=ret; if(ret>0) wins++; }
+      var col = ret==null?'var(--muted)':ret>=0?'var(--green)':'var(--red)';
+      return '<tr><td style="color:var(--muted);font-size:10px">'+e.f.slice(5)+'</td><td>'+e.tipo+'</td>'+
+        '<td style="font-weight:500">'+esc(e.t)+'</td><td>$'+fmt(e.p,2)+'</td>'+
+        '<td style="color:'+col+'">'+(ret==null?'—':(ret>=0?'+':'')+ret.toFixed(1)+'%')+'</td></tr>';
+    }).join('');
+    var resumen = conRet>0 ? '<div style="font-size:10px;color:var(--muted);padding:6px 8px">Señales con historia: <b style="color:var(--text)">'+conRet+
+      '</b> · Win rate: <b style="color:var(--green)">'+(wins/conRet*100).toFixed(0)+'%</b> · Retorno medio: <b style="color:'+(sumRet>=0?'var(--green)':'var(--red)')+'">'+
+      (sumRet/conRet>=0?'+':'')+(sumRet/conRet).toFixed(1)+'%</b></div>' : '';
+    body.innerHTML = resumen+'<table class="wb-mini-table"><thead><tr><th>Fecha</th><th></th><th>Ticker</th><th>Precio señal</th><th>Retorno</th></tr></thead><tbody>'+filas+'</tbody></table>';
+  }
+
+  /* ═══ 8. Hook a renderTodo + primer render ═══ */
+  function wbRenderExtras(){
+    try{ wbRenderRegimen(); }catch(e){ console.error('wbRegimen',e); }
+    try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
+    try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
+    try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
+    try{ wbTrackRegistrar(); wbRenderTrack(); }catch(e){ console.error('wbTrack',e); }
+    try{ wbPoblarRiskSelect(); }catch(e){ console.error('wbRisk',e); }
+    try{ /* re-marcar scroll horizontal en tablas nuevas */
+      ['wb-ep-body','wb-track-body'].forEach(function(id){ var el=$(id); if(el && !el.classList.contains('wb-scrollx')) el.classList.add('wb-scrollx'); });
+    }catch(e){}
+  }
+  try{
+    if(typeof window.renderTodo === 'function'){
+      var _rt = window.renderTodo;
+      window.renderTodo = function(){
+        var r = _rt.apply(this, arguments);
+        wbRenderExtras();
+        return r;
+      };
+    }
+  }catch(e){}
+  if(datosOK()) wbRenderExtras();
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V2 ═══════════════ -->
+
 </body>
 </html>
