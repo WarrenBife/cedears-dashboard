@@ -4215,6 +4215,19 @@ if ('serviceWorker' in navigator) {
   try{wbBrkV3Registrar();}catch(e){}
   try{wbRenderRegimenPanel();}catch(e){}
 
+  /* ── Fetch de regimen.json (activa capas 1 y 4 automáticamente en Fase 2) ── */
+  try{
+    fetch('https://warrenbife.github.io/cedears-dashboard/regimen.json?_='+Date.now())
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){
+        if(data&&data.fecha){
+          window.REGIMEN_DATA=data;
+          try{ wbRenderRegimenPanel(); }catch(e){}
+        }
+      })
+      .catch(function(){});
+  }catch(e){}
+
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V3 ═══════════════ -->

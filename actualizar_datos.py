@@ -546,9 +546,113 @@ def calcular_kpis(ticker_symbol, hist_spy):
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
         return None
 
+def calcular_regimen(hist_spy, hist_qqq):
+    """
+    Calcula los scores de régimen de mercado para SPY y QQQ.
+    Devuelve un dict compatible con el contrato del frontend (V3 REGIMEN_DATA).
+    """
+    def analizar_indice(hist):
+        c = hist['Close'].squeeze()
+        v = hist['Volume'].squeeze()
+        h = hist['High'].squeeze()
+        l = hist['Low'].squeeze()
+        ema50  = c.ewm(span=50,  adjust=False).mean()
+        ema200 = c.ewm(span=200, adjust=False).mean()
+
+        # Tendencia (10 pts)
+        tend = 0
+        if float(c.iloc[-1]) > float(ema50.iloc[-1]):  tend += 4
+        if float(c.iloc[-1]) > float(ema200.iloc[-1]): tend += 4
+        if len(ema200) >= 21 and float(ema200.iloc[-1]) > float(ema200.iloc[-21]): tend += 2
+
+        # Días de distribución en las últimas 25 ruedas (con expiración +5%)
+        ret  = c.pct_change()
+        dist = 0
+        for i in range(-25, 0):
+            try:
+                ci = float(c.iloc[i]); ci_prev = float(c.iloc[i-1])
+                vi = float(v.iloc[i]); vi_prev = float(v.iloc[i-1])
+                hi = float(h.iloc[i]); li = float(l.iloc[i])
+                ri = float(ret.iloc[i]) if not pd.isna(ret.iloc[i]) else 0
+                cae   = ri <= -0.002
+                stall = (0 <= ri < 0.001) and (ci < (hi + li) / 2)
+                mas_vol   = vi > vi_prev
+                expirado  = float(c.iloc[-1]) >= ci * 1.05
+                if (cae or stall) and mas_vol and not expirado:
+                    dist += 1
+            except:
+                pass
+        dist_score = max(0, 10 - max(0, dist - 1) * 2)
+
+        # Follow-through / estado del rally (5 pts)
+        if float(c.iloc[-1]) > float(ema50.iloc[-1]):
+            ftd = 5
+        else:
+            max_60    = float(c.rolling(60).max().iloc[-1])
+            correccion = float(c.iloc[-1]) < max_60 * 0.94
+            ret_vals   = ret.values; v_vals = v.values
+            hubo_ftd   = any(
+                (not pd.isna(ret_vals[i]) and float(ret_vals[i]) >= 0.015
+                 and float(v_vals[i]) > float(v_vals[i-1]))
+                for i in range(max(-15, -len(ret_vals)), 0)
+            )
+            ftd = 4 if (correccion and hubo_ftd) else (2 if correccion else 0)
+
+        return int(tend), int(dist), int(dist_score), int(ftd)
+
+    try:
+        spy_tend, spy_dist_days, spy_dist_score, spy_ftd = analizar_indice(hist_spy)
+        qqq_tend, qqq_dist_days, qqq_dist_score, qqq_ftd = analizar_indice(hist_qqq)
+    except Exception as e:
+        print(f"  ⚠️  Error analizando índices: {e}")
+        return None
+
+    vix = None
+    try:
+        vix_hist = yf.download('^VIX', period='10d', auto_adjust=True, progress=False)
+        if not vix_hist.empty:
+            vix = round(float(vix_hist['Close'].iloc[-1]), 2)
+    except Exception as e:
+        print(f"  ⚠️  VIX no disponible: {e}")
+
+    putcall_5d = None
+    try:
+        pc_hist = yf.download('^PCE', period='20d', auto_adjust=False, progress=False)
+        if not pc_hist.empty and len(pc_hist) >= 5:
+            putcall_5d = round(float(pc_hist['Close'].tail(5).mean()), 3)
+    except Exception as e:
+        print(f"  ⚠️  P/C ratio no disponible: {e}")
+
+    return {
+        "fecha":          datetime.now().strftime('%Y-%m-%d'),
+        "spy_tendencia":  spy_tend,
+        "spy_dist_days":  spy_dist_days,
+        "spy_dist_score": spy_dist_score,
+        "spy_ftd_score":  spy_ftd,
+        "qqq_tendencia":  qqq_tend,
+        "qqq_dist_days":  qqq_dist_days,
+        "qqq_dist_score": qqq_dist_score,
+        "qqq_ftd_score":  qqq_ftd,
+        "vix":            vix,
+        "putcall_5d":     putcall_5d,
+    }
+
+
 # ── DESCARGA SPY ──────────────────────────────────────────────
 print("⏳ Descargando SPY como referencia...")
 hist_spy = yf.Ticker("SPY").history(period="2y")
+
+print("⏳ Descargando QQQ para régimen de mercado...")
+hist_qqq = yf.Ticker("QQQ").history(period="2y")
+
+print("⏳ Calculando régimen de mercado (SPY/QQQ + VIX + P/C)...")
+regimen_data = calcular_regimen(hist_spy, hist_qqq)
+if regimen_data:
+    spy_pts = regimen_data['spy_tendencia'] + regimen_data['spy_dist_score'] + regimen_data['spy_ftd_score']
+    qqq_pts = regimen_data['qqq_tendencia'] + regimen_data['qqq_dist_score'] + regimen_data['qqq_ftd_score']
+    print(f"  ✅ SPY {spy_pts}/25 pts | QQQ {qqq_pts}/25 pts | VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']}")
+else:
+    print("  ⚠️  Régimen no disponible, las capas 1 y 4 quedarán inactivas")
 
 # ── LOOP PRINCIPAL ────────────────────────────────────────────
 print("⏳ Calculando KPIs + Market Cap + Sector + Volumen...")
@@ -642,6 +746,24 @@ if resp.status_code in [200, 201]:
 else:
     print(f"\n❌ Error subiendo JSON: {resp.status_code} — {resp.json().get('message')}")
     exit(1)
+
+# ── EXPORTAR REGIMEN.JSON A GITHUB ────────────────────────────
+if regimen_data:
+    regimen_str = json.dumps(regimen_data, ensure_ascii=False)
+    regimen_b64 = base64.b64encode(regimen_str.encode()).decode()
+    url_reg = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/regimen.json"
+    resp_reg = requests.get(url_reg, headers=headers)
+    sha_reg  = resp_reg.json().get("sha") if resp_reg.status_code == 200 else None
+    payload_reg = {"message": f"Auto-update régimen {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": regimen_b64}
+    if sha_reg:
+        payload_reg["sha"] = sha_reg
+    resp_reg = requests.put(url_reg, headers=headers, json=payload_reg)
+    if resp_reg.status_code in [200, 201]:
+        print(f"✅ regimen.json actualizado en GitHub")
+    else:
+        print(f"⚠️  Error subiendo regimen.json: {resp_reg.status_code} — {resp_reg.json().get('message')}")
+else:
+    print("⚠️  regimen.json no exportado (datos insuficientes)")
 
 # ── FIN — el resto de las celdas son solo para Colab ──────────
 import sys; sys.exit(0)
