@@ -3687,63 +3687,38 @@ if ('serviceWorker' in navigator) {
       else if(vi>=100) r = Math.min(20, r+1);
       return {x:rs, y:rs-prev, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
     }).filter(Boolean).slice(0,200);
-    /* colores base por cuadrante */
-    function quadColor(p, alpha){
-      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,'+alpha+')';
-      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,'+alpha+')';
-      if(p.x>=50)           return 'rgba(245,166,35,'+alpha+')';
-      return 'rgba(240,96,90,'+alpha+')';
+    /* mismo estilo que el Mapa de Resurgimiento: fill ~30% + border ~92% */
+    function quadFill(p){
+      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.28)';
+      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,0.28)';
+      if(p.x>=50)           return 'rgba(245,166,35,0.28)';
+      return 'rgba(240,96,90,0.28)';
     }
-    function quadHex(p){
-      if(p.x>=50 && p.y>=0) return '#22c98a';
-      if(p.x<50  && p.y>=0) return '#4f8ef7';
-      if(p.x>=50)           return '#f5a623';
-      return '#f0605a';
+    function quadBorder(p){
+      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.92)';
+      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,0.92)';
+      if(p.x>=50)           return 'rgba(245,166,35,0.92)';
+      return 'rgba(240,96,90,0.92)';
     }
-    var bgColors     = pts.map(function(p){ return quadColor(p,'0.70'); });
+    var bgColors = pts.map(function(p){
+      if(p.brk)     return 'rgba(245,200,66,0.28)';
+      if(p.vi>=100) return 'rgba(34,238,232,0.22)';
+      return quadFill(p);
+    });
     var borderColors = pts.map(function(p){
-      if(p.brk)     return '#f5c842';
-      if(p.vi>=100) return '#22eee8';
-      return quadHex(p);
+      if(p.brk)     return 'rgba(245,200,66,0.95)';
+      if(p.vi>=100) return 'rgba(34,238,232,0.95)';
+      return quadBorder(p);
     });
     var borderWidths = pts.map(function(p){
-      if(p.brk)     return 3;
-      if(p.vi>=100) return 2.5;
+      if(p.brk)     return 2.5;
+      if(p.vi>=100) return 2;
       return 1.5;
     });
-    /* glow neon en canvas — todas las burbujas, intensidad variable */
-    var wbGlowPlugin = { id:'wbGlow', afterDatasetsDraw:function(chart){
-      var ctx=chart.ctx, meta=chart.getDatasetMeta(0);
-      pts.forEach(function(pt, i){
-        var el=meta.data[i]; if(!el) return;
-        var r=el.options.radius||4;
-        ctx.save();
-        if(pt.brk){
-          /* doble pasada para glow más intenso */
-          ctx.shadowColor='#f5c842'; ctx.shadowBlur=22;
-          ctx.strokeStyle='#f5c842'; ctx.lineWidth=3;
-          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
-          ctx.shadowBlur=10; ctx.lineWidth=1.5;
-          ctx.beginPath(); ctx.arc(el.x,el.y,r+2,0,Math.PI*2); ctx.stroke();
-        } else if(pt.vi>=100){
-          ctx.shadowColor='#22eee8'; ctx.shadowBlur=18;
-          ctx.strokeStyle='#22eee8'; ctx.lineWidth=2.5;
-          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
-          ctx.shadowBlur=8; ctx.lineWidth=1;
-          ctx.beginPath(); ctx.arc(el.x,el.y,r+1.5,0,Math.PI*2); ctx.stroke();
-        } else {
-          /* glow suave en color de cuadrante para todas las burbujas */
-          ctx.shadowColor=quadHex(pt); ctx.shadowBlur=8;
-          ctx.strokeStyle=quadHex(pt); ctx.lineWidth=1.5;
-          ctx.globalAlpha=0.7;
-          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
-        }
-        ctx.restore();
-      });
-    }};
+    var wbGlowPlugin = null;
     if(window._wbRrg){ try{ window._wbRrg.destroy(); }catch(e){} }
     window._wbRrg = new Chart(cv, {
-      type:'bubble', plugins:[quadPlugin, wbGlowPlugin],
+      type:'bubble', plugins:[quadPlugin],
       data:{ datasets:[{ data:pts, backgroundColor:bgColors, borderColor:borderColors, borderWidth:borderWidths, hoverBorderWidth:2.5, hoverBorderColor:'rgba(255,255,255,0.7)' }] },
       options:{ responsive:true, maintainAspectRatio:false, animation:{duration:400},
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){
