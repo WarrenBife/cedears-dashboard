@@ -3687,43 +3687,57 @@ if ('serviceWorker' in navigator) {
       else if(vi>=100) r = Math.min(20, r+1);
       return {x:rs, y:rs-prev, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
     }).filter(Boolean).slice(0,200);
-    var bgColors = pts.map(function(p){
-      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.72)';
-      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,0.72)';
-      if(p.x>=50)           return 'rgba(245,166,35,0.72)';
-      return 'rgba(240,96,90,0.62)';
-    });
-    /* bordes neon: dorado para despegue fresco, cyan para vol inusual, sutil para el resto */
+    /* colores base por cuadrante */
+    function quadColor(p, alpha){
+      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,'+alpha+')';
+      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,'+alpha+')';
+      if(p.x>=50)           return 'rgba(245,166,35,'+alpha+')';
+      return 'rgba(240,96,90,'+alpha+')';
+    }
+    function quadHex(p){
+      if(p.x>=50 && p.y>=0) return '#22c98a';
+      if(p.x<50  && p.y>=0) return '#4f8ef7';
+      if(p.x>=50)           return '#f5a623';
+      return '#f0605a';
+    }
+    var bgColors     = pts.map(function(p){ return quadColor(p,'0.70'); });
     var borderColors = pts.map(function(p){
       if(p.brk)     return '#f5c842';
       if(p.vi>=100) return '#22eee8';
-      if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.5)';
-      if(p.x<50  && p.y>=0) return 'rgba(79,142,247,0.5)';
-      if(p.x>=50)           return 'rgba(245,166,35,0.5)';
-      return 'rgba(240,96,90,0.45)';
+      return quadHex(p);
     });
     var borderWidths = pts.map(function(p){
-      if(p.brk)     return 2.5;
-      if(p.vi>=100) return 2;
-      return 1;
+      if(p.brk)     return 3;
+      if(p.vi>=100) return 2.5;
+      return 1.5;
     });
-    /* plugin de glow neon sobre burbujas especiales */
+    /* glow neon en canvas — todas las burbujas, intensidad variable */
     var wbGlowPlugin = { id:'wbGlow', afterDatasetsDraw:function(chart){
       var ctx=chart.ctx, meta=chart.getDatasetMeta(0);
       pts.forEach(function(pt, i){
-        if(!pt.brk && pt.vi<100) return;
         var el=meta.data[i]; if(!el) return;
+        var r=el.options.radius||4;
         ctx.save();
         if(pt.brk){
-          ctx.shadowColor='#f5c842'; ctx.shadowBlur=16;
-          ctx.strokeStyle='rgba(245,200,66,0.9)'; ctx.lineWidth=2.5;
+          /* doble pasada para glow más intenso */
+          ctx.shadowColor='#f5c842'; ctx.shadowBlur=22;
+          ctx.strokeStyle='#f5c842'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
+          ctx.shadowBlur=10; ctx.lineWidth=1.5;
+          ctx.beginPath(); ctx.arc(el.x,el.y,r+2,0,Math.PI*2); ctx.stroke();
+        } else if(pt.vi>=100){
+          ctx.shadowColor='#22eee8'; ctx.shadowBlur=18;
+          ctx.strokeStyle='#22eee8'; ctx.lineWidth=2.5;
+          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
+          ctx.shadowBlur=8; ctx.lineWidth=1;
+          ctx.beginPath(); ctx.arc(el.x,el.y,r+1.5,0,Math.PI*2); ctx.stroke();
         } else {
-          ctx.shadowColor='#22eee8'; ctx.shadowBlur=13;
-          ctx.strokeStyle='rgba(34,238,232,0.85)'; ctx.lineWidth=2;
+          /* glow suave en color de cuadrante para todas las burbujas */
+          ctx.shadowColor=quadHex(pt); ctx.shadowBlur=8;
+          ctx.strokeStyle=quadHex(pt); ctx.lineWidth=1.5;
+          ctx.globalAlpha=0.7;
+          ctx.beginPath(); ctx.arc(el.x,el.y,r,0,Math.PI*2); ctx.stroke();
         }
-        ctx.beginPath();
-        ctx.arc(el.x, el.y, el.options.radius||4, 0, Math.PI*2);
-        ctx.stroke();
         ctx.restore();
       });
     }};
@@ -3936,7 +3950,7 @@ if ('serviceWorker' in navigator) {
 <style id="wb-v3-css">
   /* ── Fila Régimen + Cartelera lado a lado ── */
   .wb-rgm-cart-row{display:flex;gap:16px;align-items:stretch;}
-  .wb-rgm-cart-row>#wb-rgm-panel{flex:0 0 300px;min-width:260px;margin:0;}
+  .wb-rgm-cart-row>#wb-rgm-panel{flex:1;min-width:260px;margin:0;}
   .wb-rgm-cart-row>.panel:last-child{flex:1;min-width:0;margin:0;}
 
   /* ── Layout interno del panel ── */
