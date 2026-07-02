@@ -4355,6 +4355,15 @@ if ('serviceWorker' in navigator) {
 
   /* ── Empty states más amables ── */
   .wb-empty{letter-spacing:0.01em;}
+
+  /* ── Bloquear scroll horizontal en toda la app ── */
+  html,body{overflow-x:hidden;max-width:100vw;}
+
+  /* ── Vista de pago: permitir scroll vertical (teclado mobile) ── */
+  #view-pago{overflow-y:auto!important;overflow-x:hidden;justify-content:flex-start!important;padding:28px 16px;}
+  @media(min-height:600px){
+    #view-pago{padding-top:max(28px,calc(50vh - 280px));}
+  }
 </style>
 
 <script id="wb-v4-js">
