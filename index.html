@@ -3888,5 +3888,336 @@ if ('serviceWorker' in navigator) {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V2 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V3: RÉGIMEN DE MERCADO — score 0-100 + exposición (aditivo) ═══════════════ -->
+<style id="wb-v3-css">
+  /* ── Panel layout ── */
+  #wb-rgm-panel .wb-rgm-main{display:flex;gap:24px;align-items:flex-start;padding:16px 20px 8px;}
+  .wb-rgm-gauge-col{flex-shrink:0;width:172px;display:flex;flex-direction:column;align-items:center;}
+  .wb-rgm-layers{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;padding:4px 0;}
+
+  /* ── Filas de capa ── */
+  .wb-rgm-layer{display:flex;flex-direction:column;gap:4px;}
+  .wb-rgm-layer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .wb-rgm-layer-lbl{font-size:11.5px;color:var(--text);font-weight:500;}
+  .wb-rgm-layer-pts{font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap;text-align:right;}
+  .wb-rgm-bar-wrap{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+  .wb-rgm-bar-wrap i{display:block;height:100%;border-radius:2px;width:0;transition:width .7s var(--ease);}
+  .wb-rgm-micro{font-size:9.5px;color:var(--muted);line-height:1.4;}
+
+  /* ── Exposición ── */
+  .wb-rgm-expo{padding:14px 20px 16px;border-top:1px solid var(--border);}
+  .wb-rgm-expo-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .wb-rgm-expo-frase{font-size:14px;font-weight:600;margin-bottom:12px;line-height:1.3;}
+  .wb-rgm-expo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .wb-rgm-expo-range{border:1px solid var(--border);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;gap:3px;transition:border-color .3s,background .3s;}
+  .wb-rgm-expo-rango{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;}
+  .wb-rgm-expo-txt{font-size:9.5px;line-height:1.4;}
+  .wb-rgm-foot{padding:7px 20px;font-size:9px;color:rgba(148,163,184,0.35);letter-spacing:0.04em;border-top:1px solid var(--border);}
+
+  /* ── Responsive ── */
+  @media(max-width:700px){.wb-rgm-expo-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:600px){
+    #wb-rgm-panel .wb-rgm-main{flex-direction:column;align-items:center;}
+    .wb-rgm-gauge-col{width:100%;max-width:180px;}
+    .wb-rgm-layers{width:100%;}
+  }
+</style>
+
+<script id="wb-v3-js">
+(function(){
+  'use strict';
+
+  /* ── Helpers (independientes del scope de V2) ── */
+  function $(id){ return document.getElementById(id); }
+  function datosOK(){ return typeof DATOS!=='undefined' && DATOS && DATOS.length; }
+  function num(v){ var n=typeof v==='string'?parseFloat(v.replace('%','').replace(',','.')):v; return(n===null||isNaN(n))?null:n; }
+  function b_(v){ if(v===true)return true; if(!v)return false; return['TRUE','SI','SÍ','YES','1'].indexOf(String(v).toUpperCase().trim())>=0; }
+  function hoyISO(){ return new Date().toISOString().slice(0,10); }
+
+  /* ── localStorage ── */
+  var BRK_KEY='wb_brk_v3', HIST_KEY='wb_regimen_hist';
+  function brkLoad(){ try{return JSON.parse(localStorage.getItem(BRK_KEY)||'[]');}catch(e){return[];} }
+  function brkSave(a){ try{localStorage.setItem(BRK_KEY,JSON.stringify(a.slice(-200)));}catch(e){} }
+  function histLoad(){ try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){return[];} }
+  function histSave(a){ try{localStorage.setItem(HIST_KEY,JSON.stringify(a.slice(-120)));}catch(e){} }
+
+  /* ── Capa 3: logging de breakouts en key propia (sin tocar wb_track_v1) ── */
+  function wbBrkV3Registrar(){
+    if(!datosOK()) return;
+    var log=brkLoad(), hoy=hoyISO(), ya={};
+    log.forEach(function(e){ if(e.f===hoy) ya[e.t]=true; });
+    DATOS.forEach(function(d){
+      if(b_(d['Breakout Fresh'])&&!ya[d['Ticker']]){
+        var p=num(d['Precio']); if(p) log.push({f:hoy,t:d['Ticker'],p:p});
+      }
+    });
+    brkSave(log);
+  }
+
+  /* ── Capa 2: amplitud del universo (25 pts) ── */
+  function calcAmplitud(datos){
+    var n=datos.length; if(!n) return null;
+    var sobreE=0,sobreS=0,nh=0,nl=0,volM=0,volB=0;
+    datos.forEach(function(d){
+      if(num(d['Dist EMA200 %'])>0) sobreE++;
+      if(num(d['Dist SMA50 %'])>0) sobreS++;
+      var mx=num(d['Dist Máx52W %']); if(mx!=null&&mx>-5) nh++;
+      var mn=num(d['Dist Mín52W %']); if(mn!=null&&mn<5) nl++;
+      var vm=num(d['Vol días + 10s']); if(vm>0) volM+=vm;
+      var vb=num(d['Vol días - 10s']); if(vb>0) volB+=vb;
+    });
+    var pE=sobreE/n*100, pS=sobreS/n*100;
+    var ptE=Math.max(0,Math.min(8,(pE-35)/(70-35)*8));
+    var ptS=Math.max(0,Math.min(7,(pS-30)/(65-30)*7));
+    var ptNH=(nh+nl===0)?3:Math.max(0,Math.min(6,(nh/(nh+nl)-0.3)/(0.8-0.3)*6));
+    var ratioAcum=volB>0?volM/volB:(volM>0?99:1);
+    var ptAcum=Math.max(0,Math.min(4,(ratioAcum-0.8)/(1.3-0.8)*4));
+    return {
+      pts:ptE+ptS+ptNH+ptAcum, max:25,
+      detail:{pE:Math.round(pE),pS:Math.round(pS),nh:nh,nl:nl,
+              ratioAcum:volB>0?Math.round(volM/volB*100)/100:null,
+              ptE:ptE,ptS:ptS,ptNH:ptNH,ptAcum:ptAcum}
+    };
+  }
+
+  /* ── Capa 3: feedback de breakouts (15 pts) ── */
+  function calcFeedback(log, datos){
+    var precios={}, hoy=new Date();
+    if(datos&&datos.length) datos.forEach(function(d){ var p=num(d['Precio']); if(p) precios[d['Ticker']]=p; });
+    var eval_=[];
+    log.forEach(function(e){
+      if(Math.round((hoy.getTime()-new Date(e.f).getTime())/86400000)>=3) eval_.push(e);
+    });
+    eval_=eval_.slice(-10);
+    if(eval_.length<4) return {pts:null,max:15,detail:{evaluadas:eval_.length,minimas:4}};
+    var vigentes=eval_.filter(function(e){ var pA=precios[e.t]; return pA!=null&&e.p>0&&pA>=e.p; });
+    var tasa=vigentes.length/eval_.length;
+    return {pts:Math.max(0,Math.min(15,(tasa-0.3)/(0.8-0.3)*15)),max:15,
+            detail:{vigentes:vigentes.length,evaluadas:eval_.length,tasa:Math.round(tasa*100)}};
+  }
+
+  /* ── Capa 1: índices SPY/QQQ (50 pts) — requiere pipeline ── */
+  function calcIndices(reg){
+    if(!reg) return null;
+    var fields=['spy_tendencia','spy_dist_score','spy_ftd_score','qqq_tendencia','qqq_dist_score','qqq_ftd_score'];
+    for(var i=0;i<fields.length;i++){ if(num(reg[fields[i]])==null) return null; }
+    var spy=(num(reg.spy_tendencia)||0)+(num(reg.spy_dist_score)||0)+(num(reg.spy_ftd_score)||0);
+    var qqq=(num(reg.qqq_tendencia)||0)+(num(reg.qqq_dist_score)||0)+(num(reg.qqq_ftd_score)||0);
+    return {pts:spy+qqq,max:50,detail:{spy:spy,qqq:qqq,spyDist:num(reg.spy_dist_days),qqqDist:num(reg.qqq_dist_days)}};
+  }
+
+  /* ── Capa 4: sentimiento VIX/P-C (10 pts) — requiere pipeline ── */
+  function calcSentimiento(reg, capa1, capa2){
+    if(!reg) return null;
+    var vix=num(reg.vix), pc=num(reg.putcall_5d);
+    if(vix===null&&pc===null) return null;
+    var sumO=(capa1?capa1.pts:0)+(capa2?capa2.pts:0);
+    var sumM=(capa1?capa1.max:0)+(capa2?capa2.max:0);
+    var fuertes=sumM>0&&sumO/sumM>0.6;
+    var ptVIX=3;
+    if(vix!==null){
+      if(vix>=13&&vix<20) ptVIX=5;
+      else if(vix>=20&&vix<28) ptVIX=3;
+      else if(vix<13) ptVIX=2;
+      else ptVIX=fuertes?4:0;
+    }
+    var ptPC=3;
+    if(pc!==null){
+      if(pc>=0.7&&pc<=1.0) ptPC=5;
+      else if(pc>1.0&&pc<=1.2) ptPC=3;
+      else if(pc>1.2) ptPC=fuertes?4:1;
+      else if(pc>=0.55) ptPC=2;
+      else ptPC=0;
+    }
+    return {pts:ptVIX+ptPC,max:10,detail:{vix:vix,pc:pc,ptVIX:ptVIX,ptPC:ptPC}};
+  }
+
+  /* ── Función central: score compuesto con reponderación automática ── */
+  function wbRegimenCalc(){
+    var datos=datosOK()?DATOS:[];
+    var reg=(typeof window.REGIMEN_DATA!=='undefined'&&window.REGIMEN_DATA)?window.REGIMEN_DATA:null;
+    var capa1=calcIndices(reg);
+    var capa2=datos.length?calcAmplitud(datos):null;
+    var capa3=datos.length?calcFeedback(brkLoad(),datos):null;
+    var capa4=calcSentimiento(reg,capa1,capa2);
+    var sumO=0,sumM=0;
+    [capa1,capa2,capa3,capa4].forEach(function(c){ if(c&&c.pts!=null){sumO+=c.pts;sumM+=c.max;} });
+    var score=sumM>0?Math.round(sumO/sumM*100):null;
+    var v=score===null?null:score>=60?'g':score>=40?'a':'r';
+    var CMAP={g:'#22c98a',a:'#f5a623',r:'#f0605a'};
+    var color=v?CMAP[v]:'#737d8f';
+    var expoList=[
+      {min:0,  max:39, rango:'0–39',   txt:'Cash es posición — no operar',                  cls:'r'},
+      {min:40, max:59, rango:'40–59',  txt:'25–50% · posiciones chicas, stops cortos',       cls:'a'},
+      {min:60, max:79, rango:'60–79',  txt:'50–75% · solo setups A+',                        cls:'g'},
+      {min:80, max:100,rango:'80–100', txt:'Exposición plena · agresivo con breakouts',       cls:'g'}
+    ];
+    var expo=score===null?null:(expoList.filter(function(e){return score>=e.min&&score<=e.max;})[0]||expoList[3]);
+    return {score:score,capa1:capa1,capa2:capa2,capa3:capa3,capa4:capa4,v:v,color:color,expo:expo,expoList:expoList,sumM:sumM};
+  }
+
+  /* ── Gauge SVG semicircular ── */
+  var ARC=Math.PI*82; /* 257.6 = semiperímetro r=82 */
+  function gaugeSVG(score, color){
+    return '<svg id="wb-rgm-svg" viewBox="0 0 200 108" width="100%" style="max-width:180px">'+
+      '<path d="M18,100 A82,82 0 0,1 182,100" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>'+
+      '<path id="wb-rgm-arc" d="M18,100 A82,82 0 0,1 182,100" fill="none" stroke="'+color+'" stroke-width="12" stroke-linecap="round" '+
+        'stroke-dasharray="'+ARC.toFixed(1)+'" stroke-dashoffset="'+ARC.toFixed(1)+'" '+
+        'style="filter:drop-shadow(0 0 8px '+color+'55);transition:stroke-dashoffset .85s cubic-bezier(.4,0,.2,1)"/>'+
+      '<text x="100" y="80" text-anchor="middle" font-family="\'DM Mono\',monospace" font-size="46" font-weight="500" fill="'+color+'">'+(score!=null?score:'—')+'</text>'+
+      '<text x="100" y="98" text-anchor="middle" font-family="\'DM Sans\',sans-serif" font-size="9" fill="rgba(148,163,184,0.5)" letter-spacing="1.5">de 100</text>'+
+      '</svg>';
+  }
+
+  /* ── Render del panel ── */
+  function wbRenderRegimenPanel(){
+    var body=$('wb-rgm-body'); if(!body) return;
+    if(!datosOK()){
+      body.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Cargando datos…</div>';
+      return;
+    }
+    var R=wbRegimenCalc();
+    var CMAP={g:'#22c98a',a:'#f5a623',r:'#f0605a'};
+    var BGMAP={g:'rgba(34,201,138,0.08)',a:'rgba(245,166,35,0.08)',r:'rgba(240,96,90,0.08)'};
+
+    /* Sincronizar franja #wb-regimen de V2 */
+    try{
+      var dot=$('wb-reg-dot'),lbl=$('wb-reg-label'),met=$('wb-reg-metrics');
+      if(dot) dot.className='wb-reg-dot '+(R.v||'a');
+      if(lbl){
+        lbl.textContent=R.score!=null?'SCORE '+R.score+' — '+(R.v==='g'?'RÉGIMEN ALCISTA':R.v==='r'?'RÉGIMEN DÉBIL':'RÉGIMEN MIXTO'):'Sin datos suficientes';
+        lbl.style.color=R.color;
+      }
+      if(met&&R.capa2){
+        var d=R.capa2.detail;
+        met.innerHTML='<span class="wb-reg-m">EMA200 <b>'+d.pE+'%</b></span>'+
+          '<span class="wb-reg-m">SMA50 <b>'+d.pS+'%</b></span>'+
+          '<span class="wb-reg-m">NH/NL <b>'+d.nh+'/'+d.nl+'</b></span>'+
+          '<span class="wb-reg-m">Score <b style="color:'+R.color+'">'+R.score+'</b></span>';
+      }
+    }catch(e){}
+
+    /* Historial diario */
+    try{
+      if(R.score!=null){
+        var hist=histLoad(),hoy=hoyISO();
+        if(!hist.length||hist[hist.length-1].f!==hoy){
+          hist.push({f:hoy,s:R.score,e:R.expo?R.expo.rango:null});
+          histSave(hist);
+        }
+      }
+    }catch(e){}
+
+    /* Definición de capas para render */
+    var layerDefs=[
+      {ico:'📈',lbl:'Índices SPY / QQQ',max:50,capa:R.capa1,
+       micro:R.capa1?'SPY '+Math.round(R.capa1.detail.spy)+' pts · QQQ '+Math.round(R.capa1.detail.qqq)+' pts'+(R.capa1.detail.spyDist!=null?' · '+R.capa1.detail.spyDist+' dist days SPY':''):null,
+       pendMsg:'Pendiente de pipeline'},
+      {ico:'🌐',lbl:'Amplitud del universo',max:25,capa:R.capa2,
+       micro:R.capa2?R.capa2.detail.pE+'% sobre EMA200 · '+R.capa2.detail.pS+'% sobre SMA50 · NH '+R.capa2.detail.nh+' vs NL '+R.capa2.detail.nl:null,
+       pendMsg:null},
+      {ico:'🚀',lbl:'Feedback de breakouts',max:15,capa:R.capa3,
+       micro:R.capa3&&R.capa3.pts!=null?R.capa3.detail.vigentes+' de '+R.capa3.detail.evaluadas+' despegues sobre su precio de señal ('+R.capa3.detail.tasa+'%)':null,
+       pendMsg:R.capa3?'Juntando historia — '+R.capa3.detail.evaluadas+'/4 señales':'Sin señales aún'},
+      {ico:'🧠',lbl:'Sentimiento (VIX / P-C ratio)',max:10,capa:R.capa4,
+       micro:R.capa4?'VIX '+(R.capa4.detail.vix!=null?R.capa4.detail.vix.toFixed(1):'—')+'  ·  P/C ratio '+(R.capa4.detail.pc!=null?R.capa4.detail.pc.toFixed(2):'—'):null,
+       pendMsg:'Pendiente de pipeline'}
+    ];
+
+    function layerHTML(def){
+      var avail=def.capa&&def.capa.pts!=null;
+      var pct=avail?Math.max(0,Math.min(100,def.capa.pts/def.max*100)):0;
+      var barColor=!avail?'rgba(148,163,184,0.15)':pct>=70?'#22c98a':pct>=50?'#4f8ef7':'#f5a623';
+      var obtStr=avail?(Math.round(def.capa.pts)+'/'+def.max+' pts'):(def.pendMsg||'No disponible');
+      var micro=avail?(def.micro||''):(def.capa&&def.capa.pts==null?def.pendMsg:'');
+      return '<div class="wb-rgm-layer">'+
+        '<div class="wb-rgm-layer-head">'+
+          '<span class="wb-rgm-layer-lbl">'+def.ico+'&nbsp;'+def.lbl+'</span>'+
+          '<span class="wb-rgm-layer-pts" style="color:'+(avail?barColor:'rgba(148,163,184,0.45)')+'">'+obtStr+'</span>'+
+        '</div>'+
+        '<div class="wb-rgm-bar-wrap"><i style="width:'+pct.toFixed(0)+'%;background:'+barColor+'"></i></div>'+
+        (micro?'<div class="wb-rgm-micro">'+micro+'</div>':'')+
+        '</div>';
+    }
+
+    /* Exposición */
+    var activeIdx=R.score===null?-1:R.score>=80?3:R.score>=60?2:R.score>=40?1:0;
+    var expoHTML=R.expoList.map(function(ex,i){
+      var active=i===activeIdx, c=CMAP[ex.cls];
+      var st=active?'border-color:'+c+';background:'+BGMAP[ex.cls]+';':'';
+      return '<div class="wb-rgm-expo-range" style="'+st+'">'+
+        '<span class="wb-rgm-expo-rango" style="color:'+(active?c:'rgba(148,163,184,0.4)')+'">'+ex.rango+'</span>'+
+        '<span class="wb-rgm-expo-txt" style="color:'+(active?'var(--text)':'rgba(148,163,184,0.4)')+'">'+ex.txt+'</span>'+
+        '</div>';
+    }).join('');
+
+    var ahora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+    body.innerHTML=
+      '<div class="wb-rgm-main">'+
+        '<div class="wb-rgm-gauge-col">'+gaugeSVG(R.score,R.color)+'</div>'+
+        '<div class="wb-rgm-layers">'+layerDefs.map(layerHTML).join('')+'</div>'+
+      '</div>'+
+      '<div class="wb-rgm-expo">'+
+        '<div class="wb-rgm-expo-title">Exposición sugerida</div>'+
+        '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
+        '<div class="wb-rgm-expo-grid">'+expoHTML+'</div>'+
+      '</div>'+
+      '<div class="wb-rgm-foot">'+ahora+' · calculado sobre '+R.sumM+' pts disponibles de 100'+
+        (R.sumM<100?' (capas de índices y sentimiento activan con pipeline)':'')+
+      '</div>';
+
+    /* Animar gauge: doble-rAF para triggear CSS transition sobre elemento recién insertado */
+    if(R.score!=null){
+      requestAnimationFrame(function(){
+        var arc=$('wb-rgm-arc');
+        if(arc) requestAnimationFrame(function(){
+          arc.style.strokeDashoffset=String(ARC*(1-R.score/100));
+        });
+      });
+    }
+  }
+
+  /* ── Crear panel e insertar antes de la cartelera ── */
+  var rgmPanel=document.createElement('div');
+  rgmPanel.className='panel wb-mb';
+  rgmPanel.id='wb-rgm-panel';
+  rgmPanel.innerHTML=
+    '<div class="panel-head"><div>'+
+    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 4 capas: índices (pipeline), amplitud del universo, feedback de breakouts y sentimiento (pipeline). Fase 1 activa: capas 2 y 3. Score reponderado automáticamente según las capas disponibles.">'+
+    '⚡ Régimen de mercado</div>'+
+    '<div class="panel-sub">Score de condiciones 0–100 · guía de exposición progresiva</div>'+
+    '</div></div>'+
+    '<div class="panel-body" id="wb-rgm-body">'+
+    '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Calculando…</div>'+
+    '</div>';
+
+  try{
+    var cartEl=$('cartelera-body');
+    var anchor=cartEl?cartEl.closest('.panel'):null;
+    if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(rgmPanel,anchor);
+    else{ var m=document.querySelector('#view-dashboard .main'); if(m) m.appendChild(rgmPanel); }
+  }catch(e){}
+
+  /* ── Monkey-patch independiente de renderTodo (V3, se encadena con V2) ── */
+  try{
+    if(typeof window.renderTodo==='function'){
+      var _rtV3=window.renderTodo;
+      window.renderTodo=function(){
+        var r=_rtV3.apply(this,arguments);
+        try{wbBrkV3Registrar();}catch(e){}
+        try{wbRenderRegimenPanel();}catch(e){}
+        return r;
+      };
+    }
+  }catch(e){}
+
+  try{wbBrkV3Registrar();}catch(e){}
+  try{wbRenderRegimenPanel();}catch(e){}
+
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V3 ═══════════════ -->
+
 </body>
 </html>
