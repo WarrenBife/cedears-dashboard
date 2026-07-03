@@ -4719,6 +4719,11 @@ if ('serviceWorker' in navigator) {
 .wb-search-var{font-family:'DM Mono',monospace;font-size:11px;}
 .wb-search-empty{padding:12px;font-size:11px;color:var(--muted);text-align:center;}
 
+/* ── Heatmap: contenedor con altura fija en mobile para que overflow:auto funcione y no tape la nav ── */
+@media(max-width:600px){
+  #wb-hm-container{max-height:calc(100vh - 220px)!important;min-height:0!important;}
+}
+
 /* ── Search mobile: full-width top row ── */
 @media(max-width:600px){
   #wb-search-wrap{flex-basis:100%;order:-1;width:100%;gap:0;}
@@ -4864,10 +4869,9 @@ function _hmDraw(datos){
     drawH=isMobile ? Math.max(H, nSecs*110) : H;
   }
 
-  var _svgH=isMobile?drawH+80:drawH;
-  svg.setAttribute('viewBox','0 0 '+W+' '+_svgH);
-  svg.setAttribute('width',W); svg.setAttribute('height',_svgH);
-  svg.style.minHeight=_svgH+'px';
+  svg.setAttribute('viewBox','0 0 '+W+' '+drawH);
+  svg.setAttribute('width',W); svg.setAttribute('height',drawH);
+  svg.style.minHeight=drawH+'px';
 
   // Single-sector mode: flat treemap of tickers only
   if(_hmSectorFilter){
