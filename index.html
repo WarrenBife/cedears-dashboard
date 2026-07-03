@@ -141,6 +141,8 @@
   .brk-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 60%),var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s,transform .2s;}
   .brk-card:hover{transform:translateY(-1px);border-color:var(--border2);}
   .brk-card.brk-valid{border-color:rgba(34,201,138,0.45);box-shadow:0 0 16px -6px rgba(34,201,138,0.3);}
+  .brk-card.brk-fail{border-color:rgba(240,70,70,0.65)!important;box-shadow:0 0 14px -3px rgba(240,70,70,0.45),0 0 0 1px rgba(240,70,70,0.12)!important;}
+  .brk-badge-fail{font-size:9px;font-weight:700;letter-spacing:.06em;background:rgba(240,70,70,0.15);color:#f04646;border:1px solid rgba(240,70,70,0.55);box-shadow:0 0 7px rgba(240,70,70,0.35);padding:2px 7px;border-radius:5px;}
   .brk-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
   .brk-ticker{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--text);}
   .brk-badge-valid{font-size:9px;font-weight:700;letter-spacing:.06em;background:rgba(34,201,138,0.15);color:var(--green);border:1px solid rgba(34,201,138,0.35);padding:2px 7px;border-radius:5px;}
@@ -1686,15 +1688,31 @@ function renderBreakout() {
   const daysLabel = ago => ago === 0 ? 'Hoy' : ago === 1 ? 'Ayer' : `hace ${ago} días`;
   const chk = ok => `<span class="chk">${ok ? '✅' : '❌'}</span>`;
 
+  const isFail = d => {
+    const varDia = d['Var Día %'];
+    const volRel = d['Vol Relativa'];
+    const volInus = d['Vol Inusual %'];
+    const sma50  = d['Dist SMA50 %'];
+    const bigDown  = varDia !== null && varDia !== undefined && varDia <= -3;
+    const highVol  = (volRel !== null && volRel !== undefined && volRel >= 1.3) ||
+                     (volInus !== null && volInus !== undefined && volInus >= 50);
+    const belowSma = sma50 !== null && sma50 !== undefined && sma50 < -2;
+    return (bigDown && highVol) || (belowSma && highVol);
+  };
+
   const cards = filtered.map(({ d, l, ok }) => {
-    const ago = d['Breakout Days Ago'];
-    const vr  = d['Breakout Vol Ratio'];
-    const sma = d['Dist SMA50 %'];
+    const ago  = d['Breakout Days Ago'];
+    const vr   = d['Breakout Vol Ratio'];
+    const sma  = d['Dist SMA50 %'];
+    const fail = isFail(d);
     return `
-    <div class="brk-card${ok ? ' brk-valid' : ''}">
+    <div class="brk-card${ok ? ' brk-valid' : ''}${fail ? ' brk-fail' : ''}">
       <div class="brk-head">
         <span class="brk-ticker">${d['Ticker']}</span>
-        ${ok ? '<span class="brk-badge-valid">VÁLIDO</span>' : `<span class="brk-days">${ago !== null ? daysLabel(ago) : ''}</span>`}
+        <span style="display:flex;gap:5px;align-items:center;">
+          ${ok ? '<span class="brk-badge-valid">VÁLIDO</span>' : `<span class="brk-days">${ago !== null ? daysLabel(ago) : ''}</span>`}
+          ${fail ? '<span class="brk-badge-fail">FAIL BREAK OUT</span>' : ''}
+        </span>
       </div>
       <div class="brk-layers">
         <div class="brk-layer${l.precio?' ok':''}">
