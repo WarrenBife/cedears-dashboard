@@ -3751,7 +3751,10 @@ if ('serviceWorker' in navigator) {
       if(btn) btn.style.display=(range<95)?'inline-block':'none';
     }};
 
+    /* cleanup de listeners del chart anterior */
+    if(window._wbRrgCleanup){ try{ window._wbRrgCleanup(); }catch(e){} }
     if(window._wbRrg){ try{ window._wbRrg.destroy(); }catch(e){} }
+
     window._wbRrg = new Chart(cv, {
       type:'bubble', plugins:[quadPlugin, wbLabelPlugin],
       data:{ datasets:[{ data:pts, backgroundColor:bgColors, borderColor:borderColors, borderWidth:borderWidths, hoverBorderWidth:2.5, hoverBorderColor:'rgba(255,255,255,0.7)' }] },
@@ -3777,6 +3780,62 @@ if ('serviceWorker' in navigator) {
         }
       }
     });
+
+    /* ── Zoom estilo TradingView sobre los ejes ── */
+    window._wbRrgCleanup = (function(chart){
+      var LIM = { x:{min:0,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} };
+      var drag = null; /* { axis, startPx, anchorVal, initMin, initMax } */
+
+      function onDown(e){
+        var rect=cv.getBoundingClientRect(), px=e.clientX-rect.left, py=e.clientY-rect.top;
+        var ca=chart.chartArea; if(!ca) return;
+        var xs=chart.scales.x, ys=chart.scales.y;
+        if(py>ca.bottom+1 && px>=ca.left && px<=ca.right){
+          /* eje X: drag horizontal */
+          drag={axis:'x', startPx:px, anchorVal:xs.getValueForPixel(px), initMin:xs.min, initMax:xs.max};
+          e.stopPropagation(); e.preventDefault();
+        } else if(px<ca.left-1 && py>=ca.top && py<=ca.bottom){
+          /* eje Y: drag vertical */
+          drag={axis:'y', startPx:py, anchorVal:ys.getValueForPixel(py), initMin:ys.min, initMax:ys.max};
+          e.stopPropagation(); e.preventDefault();
+        }
+      }
+      function onMove(e){
+        /* cursor feedback */
+        var rect=cv.getBoundingClientRect(), px=e.clientX-rect.left, py=e.clientY-rect.top;
+        var ca=chart.chartArea;
+        if(ca){
+          if(!drag){
+            if(py>ca.bottom+1 && px>=ca.left && px<=ca.right) cv.style.cursor='ew-resize';
+            else if(px<ca.left-1 && py>=ca.top && py<=ca.bottom) cv.style.cursor='ns-resize';
+            else cv.style.cursor='';
+          }
+        }
+        if(!drag) return;
+        var curPx = drag.axis==='x' ? (e.clientX-cv.getBoundingClientRect().left) : (e.clientY-cv.getBoundingClientRect().top);
+        var delta = curPx - drag.startPx;
+        /* X: derecha=zoom in (+delta); Y: arriba=zoom in (-delta porque Y-pixel crece hacia abajo) */
+        var zd = drag.axis==='x' ? delta : -delta;
+        var factor = Math.pow(1.012, zd);
+        var initRange = drag.initMax - drag.initMin;
+        var newRange = Math.max(LIM[drag.axis].minRange, initRange / factor);
+        var frac = (drag.anchorVal - drag.initMin) / initRange;
+        var newMin = drag.anchorVal - frac * newRange;
+        var newMax = newMin + newRange;
+        var lim = LIM[drag.axis];
+        if(newMin < lim.min){ newMin=lim.min; newMax=newMin+newRange; }
+        if(newMax > lim.max){ newMax=lim.max; newMin=newMax-newRange; }
+        chart.scales[drag.axis].options.min = newMin;
+        chart.scales[drag.axis].options.max = newMax;
+        chart.update('none');
+      }
+      function onUp(){ if(drag){ drag=null; cv.style.cursor=''; } }
+
+      cv.addEventListener('mousedown', onDown);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      return function(){ cv.removeEventListener('mousedown',onDown); window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    })(window._wbRrg);
   }
 
   /* ═══ 5. Episodic Pivots ═══ */
