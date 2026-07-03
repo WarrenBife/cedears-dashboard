@@ -4989,9 +4989,9 @@ try{
    BUSCADOR
 ──────────────────────────────────────────────── */
 try{
-  var tl=document.querySelector('.topbar-left');
+  var tr=document.querySelector('.topbar-right');
   var sw=document.getElementById('wb-search-wrap');
-  if(tl&&sw){ tl.appendChild(sw); sw.style.display='flex'; }
+  if(tr&&sw){ tr.appendChild(sw); sw.style.display='flex'; }
 }catch(e){}
 
 var _srchOpen=false, _srchFocus=-1;
@@ -5249,6 +5249,322 @@ window.wbIrARiesgo=function(ticker){
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V5 ═══════════════ -->
+
+<!-- ═══════════════ WB UPGRADE V6: INTRO CINEMÁTICA (aditivo) ═══════════════
+     Pre-market → velas acelerando → estallido → mate + termo cebando (loop 5s) → tocá para entrar.
+     Reglas: una vez por día por dispositivo (localStorage wb_intro_v1), cualquier click salta al
+     final y el siguiente entra, Esc también, prefers-reduced-motion no la muestra, y ante cualquier
+     error se autodestruye sin afectar la página. Si existe window.SPY_HIST (array de cierres del
+     pipeline), las velas replican el mercado real; si no, velas sintéticas con sesgo alcista. -->
+<script id="wb-v6-intro">
+(function(){
+  'use strict';
+  try{
+    var HOY = new Date().toISOString().slice(0,10);
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var visto = null;
+    try{ visto = localStorage.getItem('wb_intro_v1'); }catch(e){}
+    /* La intro se muestra en cada apertura de la app (decision del dueno). Siempre saltable con un toque o Esc. */
+
+    var ov = document.createElement('div');
+    ov.id = 'wb-intro';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#07090e;cursor:pointer;transition:opacity .45s ease;';
+    var cv = document.createElement('canvas');
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+    ov.appendChild(cv);
+    document.body.appendChild(ov);
+
+    var ctx;
+    try{ ctx = cv.getContext('2d'); }catch(e){ ctx = null; }
+    if(!ctx){ ov.remove(); return; }
+
+    var W, H, dpr, raf = null;
+    function resize(){
+      dpr = window.devicePixelRatio || 1;
+      W = ov.clientWidth; H = ov.clientHeight;
+      cv.width = W*dpr; cv.height = H*dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    var TICKERS = ['AAPL','NVDA','MELI','GGAL','TSLA','MSFT','AMZN','META','YPF','PAMP','GOOGL','KO','VIST','BMA','AMD','JPM','DIS','NKE','XOM','SPY'];
+    var GREEN='#22c98a', RED='#f0605a', TEXT='#eef1f7', MUTED='#737d8f', AGUA='rgba(170,215,255,0.85)';
+    var N = 44, candles = [], sched = [], rain = [], parts = [];
+    var t0 = 0, entered = false, finished = false, titleStart = 0;
+    var TITLE = 'WARREN BIFE';
+
+    function build(){
+      candles = []; sched = []; rain = []; parts = [];
+      var hist = (window.SPY_HIST && window.SPY_HIST.length >= 20) ? window.SPY_HIST.slice(-N-1) : null;
+      if(hist){
+        for(var i=1;i<hist.length;i++){
+          var o = +hist[i-1], c = +hist[i];
+          if(!isFinite(o) || !isFinite(c)){ hist = null; break; }
+          var r = Math.abs(c-o);
+          candles.push({o:o,c:c,h:Math.max(o,c)+r*0.35+0.01,l:Math.min(o,c)-r*0.35-0.01});
+        }
+      }
+      if(!hist){
+        candles = [];
+        var price = 100;
+        for(var i2=0;i2<N;i2++){
+          var bias = 0.30 + 0.5*(i2/N);
+          var chg = (Math.random()-0.5+bias*0.35)*2.6;
+          var o2 = price, c2 = price + chg;
+          candles.push({o:o2,c:c2,h:Math.max(o2,c2)+Math.random()*1.1,l:Math.min(o2,c2)-Math.random()*1.1});
+          price = c2;
+        }
+      }
+      var M = candles.length;
+      for(var i3=0;i3<M;i3++) sched.push(0.9 + 3.1*(1 - Math.pow(1 - i3/(M-1), 1.7)));
+      var cols = Math.max(8, Math.floor(W/64));
+      for(var j=0;j<cols;j++){
+        var col = {x:(j+0.5)*(W/cols), y:Math.random()*H, v:26+Math.random()*50, items:[]};
+        for(var k=0;k<7;k++) col.items.push({t:TICKERS[(j*7+k)%TICKERS.length], v:(Math.random()*4).toFixed(1), up:Math.random()>0.42});
+        rain.push(col);
+      }
+    }
+
+    function priceToY(p, pMin, pMax){
+      var pad = H*0.16;
+      return H - pad - (p - pMin)/(pMax - pMin) * (H - pad*2.4);
+    }
+    function smooth(x){ x = x<0?0:(x>1?1:x); return x*x*(3-2*x); }
+
+    function drawMateTermo(cx, baseY, s, tt){
+      var cyc = tt % 5;
+      var tilt;
+      if(cyc < 0.7) tilt = smooth(cyc/0.7);
+      else if(cyc < 2.0) tilt = 1;
+      else if(cyc < 2.7) tilt = 1 - smooth((cyc-2.0)/0.7);
+      else tilt = 0;
+      var pouring = (cyc >= 0.65 && cyc < 2.0);
+      var vaporFuerza = pouring ? 1 : Math.max(0.35, 1 - (cyc-2.0)/3);
+
+      var my = baseY, mx = cx - s*0.75;
+      var tx = cx + s*0.95, ty = baseY;
+      var mw = s*0.30, mh = s*0.52;
+
+      ctx.save();
+      ctx.lineWidth = 2.2; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle = TEXT;
+      ctx.shadowColor = 'rgba(34,201,138,0.3)'; ctx.shadowBlur = 7;
+
+      ctx.beginPath();
+      ctx.moveTo(mx - mw, my - mh);
+      ctx.quadraticCurveTo(mx - mw*1.25, my, mx - mw*0.55, my + mh*0.35);
+      ctx.quadraticCurveTo(mx, my + mh*0.52, mx + mw*0.55, my + mh*0.35);
+      ctx.quadraticCurveTo(mx + mw*1.25, my, mx + mw, my - mh);
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.strokeStyle = GREEN;
+      ctx.beginPath();
+      ctx.moveTo(mx + mw*0.15, my - mh*0.9);
+      ctx.lineTo(mx + mw*1.6, my - mh*2.4);
+      ctx.stroke();
+
+      var ang = -0.98 * tilt;
+      var ca = Math.cos(ang), sa = Math.sin(ang);
+      ctx.strokeStyle = TEXT;
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(ang);
+      var tw = s*0.62, th = s*1.72;
+      ctx.beginPath();
+      ctx.moveTo(-tw/2, 0);
+      ctx.lineTo(-tw/2, -th*0.82);
+      ctx.quadraticCurveTo(-tw/2, -th*0.92, -tw*0.30, -th*0.94);
+      ctx.lineTo(-tw*0.16, -th);
+      ctx.lineTo(tw*0.20, -th);
+      ctx.quadraticCurveTo(tw/2, -th*0.94, tw/2, -th*0.82);
+      ctx.lineTo(tw/2, 0);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-tw/2, -th*0.70); ctx.lineTo(tw/2, -th*0.70);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(tw/2, -th*0.30);
+      ctx.quadraticCurveTo(tw*1.15, -th*0.38, tw*0.62, -th*0.62);
+      ctx.stroke();
+      ctx.restore();
+
+      var px = -tw*0.16, py = -th;
+      var spX = tx + px*ca - py*sa;
+      var spY = ty + px*sa + py*ca;
+
+      if(pouring){
+        var wob = Math.sin(tt*22)*1.5;
+        ctx.strokeStyle = AGUA; ctx.lineWidth = 2.4;
+        ctx.shadowColor = 'rgba(170,215,255,0.5)'; ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(spX, spY);
+        ctx.quadraticCurveTo(spX + wob, (spY + my - mh)/2, mx, my - mh*0.95);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.3;
+      for(var w=0; w<2; w++){
+        var wy = (tt*24 + w*20) % 36;
+        ctx.globalAlpha = (1 - wy/36) * 0.5 * vaporFuerza;
+        ctx.strokeStyle = 'rgba(238,241,247,0.9)';
+        var bx = mx - mw*0.35 + w*mw*0.7;
+        ctx.beginPath();
+        ctx.moveTo(bx, my - mh - 6 - wy*0.55);
+        ctx.quadraticCurveTo(bx + 4, my - mh - 14 - wy*0.55, bx, my - mh - 22 - wy*0.55);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    function draw(now){
+      try{
+        if(!t0) t0 = now;
+        var t = (now - t0)/1000;
+        ctx.clearRect(0,0,W,H);
+
+        ctx.font = '11px "DM Mono",monospace';
+        for(var j=0;j<rain.length;j++){
+          var col = rain[j]; col.y += col.v/60;
+          for(var k=0;k<col.items.length;k++){
+            var yy = (col.y + k*64) % (H+64) - 32;
+            var it = col.items[k];
+            ctx.globalAlpha = 0.10;
+            ctx.fillStyle = it.up ? GREEN : RED;
+            ctx.fillText(it.t+' '+(it.up?'+':'-')+it.v+'%', col.x-24, yy);
+          }
+        }
+        ctx.globalAlpha = 1;
+
+        var M = candles.length, vis = 0;
+        for(var i=0;i<M;i++) if(t >= sched[i]) vis = i+1;
+
+        if(t < 0.9){
+          var y = H*0.56;
+          ctx.strokeStyle = 'rgba(34,201,138,0.5)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+          var bx = (t/0.9)*W;
+          ctx.beginPath(); ctx.moveTo(bx-30,y); ctx.lineTo(bx-14,y); ctx.lineTo(bx-8,y-14); ctx.lineTo(bx-2,y+12); ctx.lineTo(bx+4,y); ctx.lineTo(bx+20,y);
+          ctx.strokeStyle = GREEN; ctx.lineWidth = 2;
+          ctx.shadowColor = GREEN; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
+          ctx.fillStyle = MUTED; ctx.font = '10px "DM Mono",monospace'; ctx.textAlign='center';
+          ctx.fillText('P R E - M A R K E T', W/2, H*0.36); ctx.textAlign='left';
+        }
+
+        if(vis > 0){
+          var pMin = Infinity, pMax = -Infinity;
+          for(var i2=0;i2<vis;i2++){ pMin=Math.min(pMin,candles[i2].l); pMax=Math.max(pMax,candles[i2].h); }
+          var span = (pMax-pMin)||1;
+          pMin -= span*0.04; pMax += span*0.04;
+          var cw = W/(M+6), gap = cw*0.28;
+          var fade = finished ? Math.max(0.20, 1-(t-titleStart)*0.8) : 1;
+          ctx.globalAlpha = fade;
+          for(var i3=0;i3<vis;i3++){
+            var cd = candles[i3], x = (i3+3)*cw, up = cd.c>=cd.o;
+            var born = Math.min(1,(t-sched[i3])/0.22);
+            ctx.strokeStyle = up?GREEN:RED; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.moveTo(x+cw/2-gap/2,priceToY(cd.h,pMin,pMax)); ctx.lineTo(x+cw/2-gap/2,priceToY(cd.l,pMin,pMax)); ctx.stroke();
+            var yO=priceToY(cd.o,pMin,pMax), yC=priceToY(cd.c,pMin,pMax);
+            ctx.fillStyle = up?GREEN:RED;
+            ctx.fillRect(x, Math.min(yO,yC)+(Math.abs(yO-yC)*(1-born))/2, cw-gap, Math.max(2,Math.abs(yO-yC))*born);
+          }
+          ctx.beginPath();
+          for(var i4=0;i4<vis;i4++){
+            var xx=(i4+3)*cw+(cw-1)/2, yy2=priceToY(candles[i4].c,pMin,pMax);
+            i4===0?ctx.moveTo(xx,yy2):ctx.lineTo(xx,yy2);
+          }
+          ctx.strokeStyle='rgba(34,201,138,0.85)'; ctx.lineWidth=1.6;
+          ctx.shadowColor=GREEN; ctx.shadowBlur=9; ctx.stroke(); ctx.shadowBlur=0;
+          ctx.globalAlpha = 1;
+          ctx.font='12px "DM Mono",monospace'; ctx.fillStyle=TEXT; ctx.fillText('SPY',16,24);
+          ctx.fillStyle=GREEN;
+          ctx.fillText((+candles[Math.max(0,vis-1)].c).toFixed(2)+'  ▲',52,24);
+        }
+
+        if(t >= 4.0 && !finished){
+          finished = true; titleStart = t;
+          for(var p=0;p<110;p++) parts.push({x:W*0.78,y:H*0.34,vx:(Math.random()-0.5)*220,vy:-Math.random()*190-30,life:1});
+        }
+        for(var p2=parts.length-1;p2>=0;p2--){
+          var pt=parts[p2];
+          pt.x+=pt.vx/60; pt.y+=pt.vy/60; pt.vy+=150/60; pt.life-=0.016;
+          if(pt.life<=0){parts.splice(p2,1);continue;}
+          ctx.globalAlpha=pt.life;
+          ctx.fillStyle=Math.random()>0.25?GREEN:TEXT;
+          ctx.fillRect(pt.x,pt.y,2.2,2.2);
+        }
+        ctx.globalAlpha=1;
+
+        if(finished){
+          var tt = t - titleStart;
+          var titleFont = Math.min(52, W/11);
+          var titleY = H*0.60;
+          var subGap = H*0.06 - 8;
+          var s = Math.min(64, H*0.135);
+          var baseY = titleY - titleFont*0.78 - subGap - s*0.27;
+
+          ctx.globalAlpha = Math.min(1, tt/0.5);
+          drawMateTermo(W/2, baseY, s, tt);
+          ctx.globalAlpha = 1;
+
+          var chars = Math.min(TITLE.length, Math.floor((tt-0.3>0?tt-0.3:0)/0.09));
+          ctx.textAlign='center';
+          ctx.font='500 '+titleFont+'px "DM Mono",monospace';
+          ctx.fillStyle=TEXT;
+          ctx.shadowColor='rgba(34,201,138,0.6)'; ctx.shadowBlur=18;
+          ctx.fillText(TITLE.slice(0,chars)+(Math.floor(tt*3)%2===0&&chars<TITLE.length?'▌':''), W/2, titleY);
+          ctx.shadowBlur=0;
+          if(chars>=TITLE.length){
+            ctx.font='500 '+Math.max(11,Math.min(14,W/52))+'px "DM Mono",monospace'; ctx.fillStyle=MUTED;
+            ctx.fillText('ANÁLISIS TÉCNICO DE CEDEARS Y MERCADOS GLOBALES', W/2, titleY + H*0.06);
+            ctx.globalAlpha = 0.45+0.4*Math.abs(Math.sin(tt*2.2));
+            ctx.font='500 14px "DM Mono",monospace'; ctx.fillStyle=GREEN;
+            ctx.fillText('TOCÁ PARA ENTRAR', W/2, titleY + H*0.17);
+            ctx.globalAlpha=1;
+          }
+          ctx.textAlign='left';
+        }
+        if(!entered) raf = requestAnimationFrame(draw);
+      }catch(err){ terminar(); }
+    }
+
+    function terminar(){
+      if(entered) return;
+      entered = true;
+      try{ if(raf) cancelAnimationFrame(raf); }catch(e){}
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', resize);
+      ov.style.opacity = '0';
+      setTimeout(function(){ try{ ov.remove(); }catch(e){} }, 480);
+    }
+
+    function avanzar(){
+      if(entered) return;
+      if(!finished){ t0 = performance.now() - 4050; }
+      else { terminar(); }
+    }
+    function onKey(ev){
+      if(ev.key === 'Escape') terminar();
+      else avanzar();
+    }
+
+    ov.addEventListener('click', avanzar);
+    ov.addEventListener('touchstart', function(ev){ ev.preventDefault(); avanzar(); }, {passive:false});
+    window.addEventListener('keydown', onKey);
+
+    build();
+    raf = requestAnimationFrame(draw);
+  }catch(e){
+    try{ var o = document.getElementById('wb-intro'); if(o) o.remove(); }catch(e2){}
+  }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V6 ═══════════════ -->
 
 </body>
 </html>

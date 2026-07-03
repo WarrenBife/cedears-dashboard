@@ -27,6 +27,12 @@
   /* SECTION */
   .section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin:40px 0 16px;display:flex;align-items:center;gap:10px;}
   .section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(34,201,138,0.3),transparent);}
+  .section-label.amber{color:var(--amber);}
+  .section-label.amber::after{background:linear-gradient(90deg,rgba(245,166,35,0.3),transparent);}
+  .section-label.violet{color:var(--violet);}
+  .section-label.violet::after{background:linear-gradient(90deg,rgba(167,139,250,0.3),transparent);}
+  .section-label.blue{color:var(--blue);}
+  .section-label.blue::after{background:linear-gradient(90deg,rgba(79,142,247,0.3),transparent);}
 
   /* KPI */
   .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:12px;}
@@ -59,6 +65,7 @@
   .panel-icon.blue{background:rgba(79,142,247,0.08);border-color:rgba(79,142,247,0.2);}
   .panel-icon.violet{background:rgba(167,139,250,0.08);border-color:rgba(167,139,250,0.2);}
   .panel-icon.red{background:rgba(240,96,90,0.08);border-color:rgba(240,96,90,0.2);}
+  .panel-icon.cyan{background:rgba(34,238,232,0.06);border-color:rgba(34,238,232,0.2);}
   .panel-name{font-size:16px;font-weight:600;margin-bottom:3px;}
   .panel-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
   .panel-body{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -67,6 +74,7 @@
   .block-label.amber{color:var(--amber);}
   .block-label.blue{color:var(--blue);}
   .block-label.violet{color:var(--violet);}
+  .block-label.cyan{color:var(--cyan);}
   .block-text{font-size:13px;color:rgba(232,234,240,0.8);line-height:1.55;}
 
   /* CHART WRAP */
@@ -107,20 +115,11 @@
   .brk-grid-mock{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:6px;}
   .brk-card-mock{border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
   .brk-card-mock.valid{border-color:rgba(34,201,138,0.45);box-shadow:0 0 14px -5px rgba(34,201,138,0.3);}
-  .brk-card-mock.fail{border-color:rgba(240,70,70,0.6);box-shadow:0 0 12px -3px rgba(240,70,70,0.4);}
+  .brk-card-mock.fail{border-color:rgba(240,70,70,0.65);box-shadow:0 0 14px -3px rgba(240,70,70,0.45);}
   .brk-head-mock{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
   .brk-ticker-mock{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;}
   .brk-layer-mock{font-size:11px;color:var(--muted);padding:2px 0;}
   .brk-layer-mock.ok{color:var(--text);}
-
-  /* SECTOR GRID */
-  .sector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
-  .sector-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
-  .sector-name{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
-  .sector-ticker{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-family:'DM Mono',monospace;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
-  .sector-ticker:last-child{border-bottom:none;padding-bottom:0;}
-  .sector-ticker.vol-unusual{border-left:2px solid var(--amber);padding-left:6px;margin-left:-6px;}
-  .sector-rs{font-size:10px;}
 
   /* QUADRANT LEGEND */
   .quad-legend{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
@@ -131,6 +130,42 @@
   .quad-recovering{background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);}
   .quad-title{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;margin-bottom:2px;}
 
+  /* SPOTLIGHT MOCK */
+  .spot-grid-mock{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:10px;}
+  @media(max-width:580px){.spot-grid-mock{grid-template-columns:1fr;}}
+  .spot-card-mock{border:1px solid var(--border2);border-radius:12px;padding:14px;position:relative;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--surface);}
+  .spot-card-mock.rank1{border-color:rgba(245,193,66,0.4);background:linear-gradient(180deg,rgba(245,193,66,0.05),transparent),var(--surface);}
+  .spot-rank{position:absolute;top:10px;right:12px;font-size:15px;}
+  .spot-ring-wrap{position:relative;width:60px;height:60px;flex-shrink:0;}
+  .spot-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .spot-ticker{font-family:'DM Mono',monospace;font-size:16px;font-weight:600;}
+  .spot-score{font-family:'DM Mono',monospace;font-size:13px;color:var(--green);font-weight:500;}
+  .spot-bar-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .spot-bar-label{font-size:9px;color:var(--muted);width:14px;font-family:'DM Mono',monospace;}
+  .spot-bar-track{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;}
+  .spot-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),rgba(34,201,138,0.5));}
+
+  /* EP MOCK */
+  .ep-grid-mock{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .ep-row-mock{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;}
+  .ep-ticker{font-weight:600;min-width:56px;}
+  .ep-var{font-weight:500;}
+  .ep-vol{font-size:10px;color:var(--muted);}
+  .ep-sector{font-size:10px;color:var(--muted);}
+
+  /* SNAP MOCK */
+  .snap-row-mock{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:12px;font-family:'DM Mono',monospace;}
+  .snap-row-mock:last-child{border-bottom:none;}
+  .snap-ticker{font-weight:600;min-width:60px;}
+  .snap-ret{font-weight:500;}
+  .snap-price{font-size:10px;color:var(--muted);}
+
+  /* HEATMAP MOCK */
+  .hm-mock{display:grid;grid-template-columns:repeat(auto-fill,minmax(55px,1fr));gap:3px;margin-top:8px;}
+  .hm-cell{border-radius:5px;padding:5px 4px;text-align:center;font-family:'DM Mono',monospace;font-size:9px;font-weight:600;line-height:1.2;}
+  .hm-ticker{font-size:9px;font-weight:600;color:rgba(255,255,255,0.9);}
+  .hm-var{font-size:8px;color:rgba(255,255,255,0.65);margin-top:1px;}
+
   /* TIP */
   .tip{background:rgba(34,201,138,0.05);border:1px solid rgba(34,201,138,0.15);border-radius:7px;padding:10px 13px;margin-top:14px;font-size:12px;color:rgba(232,234,240,0.7);line-height:1.5;}
   .tip strong{color:var(--green);}
@@ -138,6 +173,8 @@
   .tip.amber strong{color:var(--amber);}
   .tip.blue{background:rgba(79,142,247,0.05);border-color:rgba(79,142,247,0.15);}
   .tip.blue strong{color:var(--blue);}
+  .tip.violet{background:rgba(167,139,250,0.05);border-color:rgba(167,139,250,0.15);}
+  .tip.violet strong{color:var(--violet);}
 
   /* FOOTER */
   .footer{text-align:center;padding-top:40px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;}
@@ -154,7 +191,7 @@
   <p>Todo lo que necesitás saber para leer e interpretar cada panel y tomar mejores decisiones técnicas.</p>
 </div>
 
-<!-- ── KPIs ── -->
+<!-- ─────────────────────────── KPIs ─────────────────────────── -->
 <div class="section-label">Barra de KPIs — resumen rápido del universo</div>
 
 <div class="kpi-mock">
@@ -178,8 +215,8 @@
   <strong>Tip:</strong> Todos los KPIs son clickeables y actúan como filtros rápidos que se aplican sobre todos los paneles al mismo tiempo. Así podés enfocarte en un subconjunto sin tocar los filtros manuales.
 </div>
 
-<!-- ── EARNINGS ── -->
-<div class="section-label">Strip de Earnings</div>
+<!-- ─────────────────────────── EARNINGS ─────────────────────── -->
+<div class="section-label amber">Strip de Earnings — eventos de la semana</div>
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon amber">📅</div>
@@ -221,10 +258,234 @@
   <div class="tip amber"><strong>Tip:</strong> Antes de abrir una posición de corto plazo, revisá si el activo reporta earnings esa semana. Un buen setup técnico puede revertirse completamente con un reporte negativo.</div>
 </div>
 
-<!-- ── PANELES PRINCIPALES ── -->
-<div class="section-label">Paneles principales</div>
+<!-- ─────────────────────────── SPOTLIGHT ───────────────────── -->
+<div class="section-label">Spotlight — top 3 del Warren Score</div>
+<div class="panel-card" style="border-color:rgba(34,201,138,0.2);background:linear-gradient(180deg,rgba(34,201,138,0.04),transparent 30%),var(--surface);">
+  <div class="panel-header">
+    <div class="panel-icon">🏅</div>
+    <div>
+      <div class="panel-name">Warren Score Spotlight</div>
+      <div class="panel-sub">Los 3 activos con mayor puntaje compuesto en este momento</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Tres cards destacadas con los activos mejor puntuados del universo según el Warren Score. Cada card muestra el ticker, el score total como anillo visual, y las barras de los cuatro pilares (Tendencia, Fuerza RS, Contracción y Setup).</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Es un resumen inmediato de los mejores setups del día. Sin necesidad de revisar el ranking completo, el Spotlight te da los tres candidatos más destacados para profundizar en la ficha o el gráfico.</div>
+    </div>
+  </div>
 
-<!-- 1. Warren Score -->
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — Spotlight con top 3</div>
+    <div class="spot-grid-mock">
+
+      <div class="spot-card-mock rank1">
+        <span class="spot-rank">🥇</span>
+        <div class="spot-top">
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="30" cy="30" r="24" fill="none" stroke="#22c98a" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="150.8" stroke-dashoffset="30" transform="rotate(-90 30 30)"/>
+            <text x="30" y="35" text-anchor="middle" fill="#22c98a" font-family="DM Mono" font-size="13" font-weight="500">80</text>
+          </svg>
+          <div>
+            <div class="spot-ticker">NVDA</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Tecnología</div>
+          </div>
+        </div>
+        <div class="spot-bar-row"><span class="spot-bar-label">A</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:92%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">23</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">B</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:73%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">22</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">C</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:70%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">21</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">D</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:93%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">14</span></div>
+      </div>
+
+      <div class="spot-card-mock">
+        <span class="spot-rank">🥈</span>
+        <div class="spot-top">
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="30" cy="30" r="24" fill="none" stroke="#22c98a" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="150.8" stroke-dashoffset="45" transform="rotate(-90 30 30)"/>
+            <text x="30" y="35" text-anchor="middle" fill="#22c98a" font-family="DM Mono" font-size="13" font-weight="500">70</text>
+          </svg>
+          <div>
+            <div class="spot-ticker">GGAL</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Finanzas</div>
+          </div>
+        </div>
+        <div class="spot-bar-row"><span class="spot-bar-label">A</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:84%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">21</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">B</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:67%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">20</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">C</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:60%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">18</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">D</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:73%"></div></div><span style="font-size:9px;color:var(--amber);font-family:'DM Mono',monospace;">11</span></div>
+      </div>
+
+      <div class="spot-card-mock">
+        <span class="spot-rank">🥉</span>
+        <div class="spot-top">
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+            <circle cx="30" cy="30" r="24" fill="none" stroke="#22c98a" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="150.8" stroke-dashoffset="60" transform="rotate(-90 30 30)"/>
+            <text x="30" y="35" text-anchor="middle" fill="#22c98a" font-family="DM Mono" font-size="13" font-weight="500">60</text>
+          </svg>
+          <div>
+            <div class="spot-ticker">META</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Tecnología</div>
+          </div>
+        </div>
+        <div class="spot-bar-row"><span class="spot-bar-label">A</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:76%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">19</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">B</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:60%"></div></div><span style="font-size:9px;color:var(--green);font-family:'DM Mono',monospace;">18</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">C</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:50%"></div></div><span style="font-size:9px;color:var(--amber);font-family:'DM Mono',monospace;">15</span></div>
+        <div class="spot-bar-row"><span class="spot-bar-label">D</span><div class="spot-bar-track"><div class="spot-bar-fill" style="width:67%"></div></div><span style="font-size:9px;color:var(--amber);font-family:'DM Mono',monospace;">10</span></div>
+      </div>
+
+    </div>
+  </div>
+  <div class="tip"><strong>Tip:</strong> Hacé click en "Ver ranking completo" dentro del Spotlight para ir directo al panel Warren Score con el ranking completo de todos los activos.</div>
+</div>
+
+<!-- ─────────────────────────── RÉGIMEN + CARTELERA ──────────── -->
+<div class="section-label">Régimen de mercado &amp; Cartelera del día</div>
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">⚡</div>
+    <div>
+      <div class="panel-name">Régimen de Mercado &amp; Cartelera del día</div>
+      <div class="panel-sub">Estos dos paneles se muestran lado a lado en pantalla completa</div>
+    </div>
+  </div>
+
+  <div class="panel-body" style="margin-bottom:18px;">
+    <div>
+      <div class="block-label">⚡ Régimen de Mercado</div>
+      <div class="block-text">Score de 0 a 100 que resume el estado general de las condiciones del mercado. Se calcula sobre cuatro capas independientes que evalúan distintos aspectos del entorno: índices principales, amplitud del mercado, calidad de los breakouts recientes y sentimiento. Cada capa aporta puntos al total y tiene su propio peso.</div>
+    </div>
+    <div>
+      <div class="block-label">📋 Cartelera del día</div>
+      <div class="block-text">Resumen visual de los activos más destacados de la jornada: mayores subas del día, mayores bajas del día, y activos en zona de sobrecompra (RSI &gt; 70) o sobreventa (RSI &lt; 30). Permite tener un panorama rápido del día sin revisar cada activo individualmente.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — capas del Régimen de Mercado</div>
+    <div class="rgm-layers">
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">📊 Índices SPY / QQQ</span>
+        <span class="rgm-layer-pts green">30 / 40 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🌊 Amplitud del mercado</span>
+        <span class="rgm-layer-pts green">18 / 25 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🚀 Feedback de breakouts</span>
+        <span class="rgm-layer-pts amber">12 / 20 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🧠 Sentimiento (VIX / P-C)</span>
+        <span class="rgm-layer-pts amber">9 / 15 pts</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--text);">Score total</span>
+      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:600;color:var(--green);">69 / 100</span>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">Exposición sugerida según score: alta &gt;70 · media 50–70 · reducida &lt;50</div>
+  </div>
+
+  <div class="tip"><strong>Cómo usarlo:</strong> El Régimen de Mercado no es una señal de compra individual, sino el contexto en que operás. Con score alto podés buscar setups con más convicción; con score bajo, reducí tamaño de posición o esperá mejores condiciones.</div>
+  <div class="tip amber" style="margin-top:8px;"><strong>RSI extremos (Cartelera):</strong> RSI &gt; 70 = posible sobrecompra (precaución para nuevas entradas). RSI &lt; 30 = posible sobreventa (potencial rebote, pero solo si el contexto acompaña).</div>
+</div>
+
+<!-- ─────────────────────────── 📡 ROTACIÓN ──────────────────── -->
+<div class="section-label violet">📡 Rotación — ¿dónde está la plata?</div>
+
+<!-- Cuadrantes de Rotación -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon violet">🔄</div>
+    <div>
+      <div class="panel-name">Cuadrantes de Rotación</div>
+      <div class="panel-sub">RS Score vs variación semanal de RS · burbujas = market cap</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label violet">Qué muestra</div>
+      <div class="block-text">Gráfico de burbujas donde cada activo se ubica según su RS Score actual (eje X) y cuánto subió o bajó ese RS Score respecto a la semana anterior (eje Y). El tamaño de la burbuja refleja el market cap del activo.</div>
+    </div>
+    <div>
+      <div class="block-label violet">Cómo leerlo</div>
+      <div class="block-text">
+        La combinación X/Y define en qué cuadrante está el activo. La posición cambia semana a semana, mostrando la <em>rotación</em> de dinero entre activos y sectores. Un activo que se desplaza hacia la derecha y arriba está ganando momentum.
+      </div>
+    </div>
+  </div>
+
+  <div class="quad-legend">
+    <div class="quad-item quad-leading">
+      <div class="quad-title" style="color:var(--green)">↗ Liderando</div>
+      <div style="font-size:11px;color:var(--muted)">RS alto y mejorando. Los más fuertes del universo.</div>
+    </div>
+    <div class="quad-item quad-weakening">
+      <div class="quad-title" style="color:var(--amber)">↘ Debilitando</div>
+      <div style="font-size:11px;color:var(--muted)">RS alto pero perdiendo momentum. Ojo con posiciones abiertas.</div>
+    </div>
+    <div class="quad-item quad-recovering">
+      <div class="quad-title" style="color:var(--blue)">↗ Recuperando</div>
+      <div style="font-size:11px;color:var(--muted)">RS bajo pero mejorando. Posibles candidatos emergentes.</div>
+    </div>
+    <div class="quad-item quad-lagging">
+      <div class="quad-title" style="color:var(--red)">↙ Rezagando</div>
+      <div style="font-size:11px;color:var(--muted)">RS bajo y empeorando. Evitar o mantener fuera del radar.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" style="margin-top:16px;">
+    <div class="chart-wrap-label">Colores especiales de burbuja</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(167,139,250,0.25);border:2px solid rgba(167,139,250,0.97);box-shadow:0 0 8px rgba(167,139,250,0.5);flex-shrink:0;"></div>
+        <div>
+          <span class="badge badge-violet" style="margin-right:8px;">Despegue Fresco</span>
+          <span style="font-size:12px;color:var(--muted)">El activo rompió un nivel clave recientemente. Borde violeta neon.</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,238,232,0.12);border:2px solid rgba(34,238,232,0.9);box-shadow:0 0 8px rgba(34,238,232,0.4);flex-shrink:0;"></div>
+        <div>
+          <span class="badge badge-cyan" style="margin-right:8px;">Vol. Inusual ≥100%</span>
+          <span style="font-size:12px;color:var(--muted)">El activo tiene volumen muy elevado hoy. Borde cyan neon.</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,201,138,0.28);border:2px solid rgba(34,201,138,0.92);flex-shrink:0;"></div>
+        <div style="font-size:12px;color:var(--muted)">Color del cuadrante al que pertenece el activo (verde / naranja / rojo / azul).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Filtros e interacción disponibles</div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba(232,234,240,0.75);">
+      <div>🔍 <strong>Filtro RS vs mes anterior:</strong> mostrá solo activos que también mejoraron frente al mes pasado, no solo la semana.</div>
+      <div>🖱️ <strong>Scroll:</strong> zoom in/out con la rueda del mouse.</div>
+      <div>✋ <strong>Click y arrastre:</strong> sobre el gráfico = pan (mover la vista). Sobre el eje X o Y = zoom solo en esa dimensión.</div>
+      <div>🏷️ <strong>Labels de tickers:</strong> aparecen automáticamente a medida que hacés zoom in para no saturar la vista general.</div>
+      <div>↺ <strong>Reset zoom:</strong> botón en el panel para volver a la vista completa.</div>
+    </div>
+  </div>
+  <div class="tip violet"><strong>Lo que buscás:</strong> Activos en el cuadrante Liderando (arriba a la derecha), especialmente con borde violeta (Despegue Fresco) o cyan (volumen inusual). Son los que combinan fuerza, momentum y actividad institucional simultáneamente.</div>
+</div>
+
+<!-- ─────────────────────────── 🎯 SEÑALES ───────────────────── -->
+<div class="section-label">🎯 Señales — qué comprar y cuándo</div>
+
+<!-- Warren Score -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon">🏆</div>
@@ -319,215 +580,55 @@
   <div class="tip"><strong>Candidatos de calidad:</strong> El filtro "Candidatos calidad" del KPI superior muestra únicamente los activos que alcanzan un mínimo exigente en los cuatro pilares simultáneamente. Es el grupo más selecto del universo en ese momento.</div>
 </div>
 
-<!-- 2. Cuadrantes de Rotación -->
+<!-- Episodic Pivots + Despegue Fresco (lado a lado en el dashboard, aquí como dos paneles consecutivos) -->
 <div class="panel-card">
   <div class="panel-header">
-    <div class="panel-icon violet">🔄</div>
+    <div class="panel-icon" style="background:rgba(34,238,232,0.06);border-color:rgba(34,238,232,0.2);">⚡</div>
     <div>
-      <div class="panel-name">Cuadrantes de Rotación</div>
-      <div class="panel-sub">RS Score vs variación semanal de RS · burbujas = market cap</div>
+      <div class="panel-name">Episodic Pivots hoy</div>
+      <div class="panel-sub">Movimientos ≥ +4% con volumen ≥ +100% — posible catalizador institucional</div>
     </div>
   </div>
   <div class="panel-body">
     <div>
-      <div class="block-label violet">Qué muestra</div>
-      <div class="block-text">Gráfico de burbujas donde cada activo se ubica según su RS Score actual (eje X) y cuánto subió o bajó ese RS Score respecto a la semana anterior (eje Y). El tamaño de la burbuja refleja el market cap del activo.</div>
+      <div class="block-label cyan">Qué muestra</div>
+      <div class="block-text">Activos que hoy tuvieron un movimiento de precio excepcional (al menos +4%) combinado con volumen muy superior al promedio (al menos el doble). Esta combinación suele señalar la entrada de dinero institucional o la reacción a un catalizador relevante (earnings sorpresa, aprobación regulatoria, etc.).</div>
     </div>
     <div>
-      <div class="block-label violet">Cómo leerlo</div>
-      <div class="block-text">
-        La combinación X/Y define en qué cuadrante está el activo. La posición cambia semana a semana, mostrando la <em>rotación</em> de dinero entre activos y sectores. Un activo que se desplaza hacia la derecha y arriba está ganando momentum.
-      </div>
-    </div>
-  </div>
-
-  <div class="quad-legend">
-    <div class="quad-item quad-leading">
-      <div class="quad-title" style="color:var(--green)">↗ Liderando</div>
-      <div style="font-size:11px;color:var(--muted)">RS alto y mejorando. Los más fuertes del universo.</div>
-    </div>
-    <div class="quad-item quad-weakening">
-      <div class="quad-title" style="color:var(--amber)">↘ Debilitando</div>
-      <div style="font-size:11px;color:var(--muted)">RS alto pero perdiendo momentum. Ojo con posiciones abiertas.</div>
-    </div>
-    <div class="quad-item quad-recovering">
-      <div class="quad-title" style="color:var(--blue)">↗ Recuperando</div>
-      <div style="font-size:11px;color:var(--muted)">RS bajo pero mejorando. Posibles candidatos emergentes.</div>
-    </div>
-    <div class="quad-item quad-lagging">
-      <div class="quad-title" style="color:var(--red)">↙ Rezagando</div>
-      <div style="font-size:11px;color:var(--muted)">RS bajo y empeorando. Evitar o mantener fuera del radar.</div>
-    </div>
-  </div>
-
-  <div class="chart-wrap" style="margin-top:16px;">
-    <div class="chart-wrap-label">Colores especiales de burbuja</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:18px;height:18px;border-radius:50%;background:rgba(167,139,250,0.25);border:2px solid rgba(167,139,250,0.97);box-shadow:0 0 8px rgba(167,139,250,0.5);flex-shrink:0;"></div>
-        <div>
-          <span class="badge badge-violet" style="margin-right:8px;">Despegue Fresco</span>
-          <span style="font-size:12px;color:var(--muted)">El activo rompió un nivel clave recientemente. Borde violeta neon.</span>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,238,232,0.12);border:2px solid rgba(34,238,232,0.9);box-shadow:0 0 8px rgba(34,238,232,0.4);flex-shrink:0;"></div>
-        <div>
-          <span class="badge badge-cyan" style="margin-right:8px;">Vol. Inusual ≥100%</span>
-          <span style="font-size:12px;color:var(--muted)">El activo tiene volumen muy elevado hoy. Borde cyan neon.</span>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,201,138,0.28);border:2px solid rgba(34,201,138,0.92);flex-shrink:0;"></div>
-        <div style="font-size:12px;color:var(--muted)">Color del cuadrante al que pertenece el activo (verde / naranja / rojo / azul).</div>
-      </div>
+      <div class="block-label cyan">Para qué sirve</div>
+      <div class="block-text">Los "episodic pivots" son los movimientos más contundentes del mercado: no son breakouts graduales sino saltos con fuerza descomunal. Muchos de los activos que mejor performan en los 6–12 meses siguientes tuvieron algún episodic pivot en su historia. El panel te alerta cuando eso ocurre en tiempo real.</div>
     </div>
   </div>
 
   <div class="chart-wrap">
-    <div class="chart-wrap-label">Filtros e interacción disponibles</div>
-    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba(232,234,240,0.75);">
-      <div>🔍 <strong>Filtro RS vs mes anterior:</strong> mostrá solo activos que también mejoraron frente al mes pasado, no solo la semana.</div>
-      <div>🖱️ <strong>Scroll:</strong> zoom in/out con la rueda del mouse.</div>
-      <div>✋ <strong>Click y arrastre:</strong> sobre el gráfico = pan (mover la vista). Sobre el eje X o Y = zoom solo en esa dimensión.</div>
-      <div>🏷️ <strong>Labels de tickers:</strong> aparecen automáticamente a medida que hacés zoom in para no saturar la vista general.</div>
-      <div>↺ <strong>Reset zoom:</strong> botón en el panel para volver a la vista completa.</div>
-    </div>
-  </div>
-  <div class="tip" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.04)"><strong style="color:var(--violet)">Lo que buscás:</strong> Activos en el cuadrante Liderando (arriba a la derecha), especialmente con borde violeta (Despegue Fresco) o cyan (volumen inusual). Son los que combinan fuerza, momentum y actividad institucional simultáneamente.</div>
-</div>
-
-<!-- 3. Tendencia RS Score -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon">📈</div>
-    <div>
-      <div class="panel-name">Tendencia RS Score</div>
-      <div class="panel-sub">Evolución del RS Score en las últimas 4 semanas</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Gráfico de líneas con la evolución semanal del RS Score para los activos seleccionados. Permite ver si la fuerza relativa viene mejorando, deteriorándose o manteniéndose estable a lo largo del mes.</div>
-    </div>
-    <div>
-      <div class="block-label">Para qué sirve</div>
-      <div class="block-text">Un activo con RS Score alto hoy pero que viene bajando semana a semana es menos atractivo que uno con RS Score moderado pero en ascenso constante. La tendencia importa tanto como el valor puntual.</div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — RS Score de 4 activos en las últimas 4 semanas</div>
-    <div class="chart-canvas-box"><canvas id="c-tendencia" height="210"></canvas></div>
-  </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Líneas con pendiente ascendente sostenida. GGAL en el ejemplo viene ganando fuerza relativa semana a semana — es preferible a MELI que viene cayendo aunque hoy tenga RS más alto.</div>
-</div>
-
-<!-- 4. Sesiones & Volumen -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon blue">📊</div>
-    <div>
-      <div class="panel-name">Sesiones &amp; Volumen</div>
-      <div class="panel-sub">Ranking por días alcistas × ratio de volumen — últimas 10 ruedas</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Ranking de activos según cuántos días subieron en las últimas 10 ruedas, ponderado por el volumen de esos días. Un activo que sube muchos días con volumen alto rankea mejor que uno que sube con poco volumen.</div>
-    </div>
-    <div>
-      <div class="block-label">Para qué sirve</div>
-      <div class="block-text">Mide la <em>convicción compradora</em>: no solo si subió, sino si lo hizo con participación real del mercado. Subidas con volumen bajo pueden ser menos confiables que subidas con volumen creciente.</div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — Score días alcistas × volumen (últimas 10 ruedas)</div>
-    <div class="chart-canvas-box"><canvas id="c-sesiones" height="210"></canvas></div>
-  </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Activos con score alto en este panel + RS Score alto = señal de acumulación institucional sostenida. La combinación de ambos es más robusta que cada indicador por separado.</div>
-</div>
-
-<!-- 5. Volumen inusual -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon amber">🔥</div>
-    <div>
-      <div class="panel-name">Volumen inusual hoy</div>
-      <div class="panel-sub">Desvío vs promedio de las últimas ruedas</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Lista de activos cuyo volumen operado hoy supera significativamente su promedio histórico reciente. El porcentaje indica cuánto más alto operó respecto al promedio.</div>
-    </div>
-    <div>
-      <div class="block-label">Para qué sirve</div>
-      <div class="block-text">El volumen inusual puede anticipar movimientos relevantes: ingreso de dinero institucional, noticias corporativas o cambio de tendencia. Es una alerta temprana de actividad no habitual en el activo.</div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — % de desvío sobre el promedio de volumen</div>
-    <div class="chart-canvas-box"><canvas id="c-volinusual" height="190"></canvas></div>
-  </div>
-  <div class="tip amber"><strong>Atención:</strong> Volumen inusual no es necesariamente alcista. Combinalo siempre con la dirección del precio ese día: subida con volumen alto = acumulación; caída con volumen alto = distribución.</div>
-</div>
-
-<!-- 6. Régimen de Mercado + Cartelera -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon">⚡</div>
-    <div>
-      <div class="panel-name">Régimen de Mercado &amp; Cartelera del día</div>
-      <div class="panel-sub">Estos dos paneles se muestran lado a lado en pantalla completa</div>
-    </div>
-  </div>
-
-  <div class="panel-body" style="margin-bottom:18px;">
-    <div>
-      <div class="block-label">⚡ Régimen de Mercado</div>
-      <div class="block-text">Score de 0 a 100 que resume el estado general de las condiciones del mercado. Se calcula sobre cuatro capas independientes que evalúan distintos aspectos del entorno: índices principales, amplitud del mercado, calidad de los breakouts recientes y sentimiento. Cada capa aporta puntos al total y tiene su propio peso.</div>
-    </div>
-    <div>
-      <div class="block-label">📋 Cartelera del día</div>
-      <div class="block-text">Resumen visual de los activos más destacados de la jornada: mayores subas del día, mayores bajas del día, y activos en zona de sobrecompra (RSI &gt; 70) o sobreventa (RSI &lt; 30). Permite tener un panorama rápido del día sin revisar cada activo individualmente.</div>
-    </div>
-  </div>
-
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — capas del Régimen de Mercado</div>
-    <div class="rgm-layers">
-      <div class="rgm-layer-row">
-        <span class="rgm-layer-lbl">📊 Índices SPY / QQQ</span>
-        <span class="rgm-layer-pts green">30 / 40 pts</span>
+    <div class="chart-wrap-label">Ejemplo — Episodic Pivots detectados hoy</div>
+    <div class="ep-grid-mock">
+      <div class="ep-row-mock">
+        <span class="ep-ticker" style="color:var(--cyan);">SMCI</span>
+        <span class="ep-var" style="color:var(--green);">+18.4%</span>
+        <span class="ep-vol">Vol: +340%</span>
+        <span class="ep-sector">Tecnología</span>
+        <span class="badge badge-cyan" style="font-size:9px;">EP</span>
       </div>
-      <div class="rgm-layer-row">
-        <span class="rgm-layer-lbl">🌊 Amplitud del mercado</span>
-        <span class="rgm-layer-pts green">18 / 25 pts</span>
+      <div class="ep-row-mock">
+        <span class="ep-ticker" style="color:var(--cyan);">GLOB</span>
+        <span class="ep-var" style="color:var(--green);">+9.2%</span>
+        <span class="ep-vol">Vol: +180%</span>
+        <span class="ep-sector">Servicios</span>
+        <span class="badge badge-cyan" style="font-size:9px;">EP</span>
       </div>
-      <div class="rgm-layer-row">
-        <span class="rgm-layer-lbl">🚀 Feedback de breakouts</span>
-        <span class="rgm-layer-pts amber">12 / 20 pts</span>
-      </div>
-      <div class="rgm-layer-row">
-        <span class="rgm-layer-lbl">🧠 Sentimiento (VIX / P-C)</span>
-        <span class="rgm-layer-pts amber">9 / 15 pts</span>
+      <div class="ep-row-mock">
+        <span class="ep-ticker" style="color:var(--cyan);">MELI</span>
+        <span class="ep-var" style="color:var(--green);">+6.1%</span>
+        <span class="ep-vol">Vol: +120%</span>
+        <span class="ep-sector">Cons. Discr.</span>
+        <span class="badge badge-cyan" style="font-size:9px;">EP</span>
       </div>
     </div>
-    <div style="margin-top:12px;background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;color:var(--text);">Score total</span>
-      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:600;color:var(--green);">69 / 100</span>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">Exposición sugerida según score: alta &gt;70 · media 50–70 · reducida &lt;50</div>
   </div>
-
-  <div class="tip"><strong>Cómo usarlo:</strong> El Régimen de Mercado no es una señal de compra individual, sino el contexto en que operás. Con score alto podés buscar setups con más convicción; con score bajo, reducí tamaño de posición o esperá mejores condiciones.</div>
-  <div class="tip amber" style="margin-top:8px;"><strong>RSI extremos (Cartelera):</strong> RSI &gt; 70 = posible sobrecompra (precaución para nuevas entradas). RSI &lt; 30 = posible sobreventa (potencial rebote, pero solo si el contexto acompaña).</div>
+  <div class="tip blue"><strong>Cómo usarlos:</strong> Un EP no siempre es señal de compra inmediata — el precio puede estar extendido. Agregalo a tu watchlist, esperá una consolidación de 2–4 semanas y buscá un pullback ordenado antes de ingresar.</div>
 </div>
 
-<!-- 7. Despegue Fresco -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon violet">🚀</div>
@@ -577,7 +678,7 @@
       <div class="brk-card-mock fail">
         <div class="brk-head-mock">
           <span class="brk-ticker-mock">GLW</span>
-          <span class="badge badge-red" style="font-size:9px;">FAIL BREAK OUT</span>
+          <span class="badge badge-red" style="font-size:9px;box-shadow:0 0 7px rgba(240,70,70,0.35);">FAIL BREAK OUT</span>
         </div>
         <div class="brk-layer-mock ok">✅ Precio: cruzó pivot ayer</div>
         <div class="brk-layer-mock ok">✅ Volumen: 2.4x avg50 ≥1.5x ✓</div>
@@ -590,15 +691,135 @@
   <div class="chart-wrap" style="margin-top:12px;">
     <div class="chart-wrap-label">Qué significa FAIL BREAK OUT</div>
     <div style="font-size:13px;color:rgba(232,234,240,0.8);line-height:1.6;">
-      Un activo marcado con <span class="badge badge-red">FAIL BREAK OUT</span> rompió el nivel de resistencia pero luego <strong>devolvió la suba con volumen alto</strong> en la jornada siguiente o en las dos siguientes. Esto sugiere que el breakout no tuvo seguimiento comprador y el precio volvió a caer por debajo del nivel clave.<br><br>
-      La card se resalta con <span style="color:var(--red)">borde rojo neon</span> para que puedas identificarla visualmente de inmediato. Un Fail Breakout no significa que el activo no vuelva a intentarlo, pero es una señal de precaución y conviene esperar una nueva consolidación antes de considerar un ingreso.
+      Un activo marcado con <span class="badge badge-red" style="font-size:10px;">FAIL BREAK OUT</span> rompió el nivel de resistencia pero luego <strong>devolvió la suba con volumen alto</strong>: el precio cayó fuerte (≥3%) o volvió a quedar por debajo del SMA50, ambos con participación de mercado alta. Esto sugiere que el breakout no tuvo seguimiento comprador real.<br><br>
+      La card se resalta con <span style="color:var(--red)">borde rojo neon</span> y no muestra el badge VÁLIDO. Un Fail Breakout no significa que el activo no vuelva a intentarlo, pero conviene esperar una nueva consolidación antes de considerar un ingreso.
     </div>
   </div>
 
-  <div class="tip" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.04)"><strong style="color:var(--violet)">Filtros disponibles:</strong> Podés filtrar por "Solo válidos" (las 3 capas ok), "Parciales" (2 de 3) o "Todos". También filtrás por RS Score mínimo para quedarte solo con los breakouts de activos con mayor fuerza relativa.</div>
+  <div class="tip violet"><strong>Filtros disponibles:</strong> Podés filtrar por "Solo válidos" (las 3 capas ok), "Parciales" (2 de 3) o "Todos". También filtrás por RS Score mínimo para quedarte solo con los breakouts de activos con mayor fuerza relativa.</div>
 </div>
 
-<!-- 8. Scanner de calidad -->
+<!-- Retorno Top 10 -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">📸</div>
+    <div>
+      <div class="panel-name">Retorno Top 10 de la semana</div>
+      <div class="panel-sub">Cómo rindieron las 10 mejores acciones del Warren Score en los últimos 7 días</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Cada vez que abrís el dashboard, el sistema guarda automáticamente el Top 10 del Warren Score junto con el precio del momento. Este panel compara esos precios guardados hace 7 días con el precio actual, mostrando el retorno real de haber seguido el ranking la semana pasada.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Es un "backtest visual" de corto plazo del Warren Score. Permite ver si la selección de la semana pasada hubiera resultado en ganancias o pérdidas, y con qué magnitud. Es una forma de calibrar la efectividad reciente del score en el contexto actual del mercado.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — retorno de la selección de hace 7 días</div>
+    <div style="background:rgba(255,255,255,0.015);border-radius:6px;overflow:hidden;">
+      <div class="snap-row-mock" style="background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border);">
+        <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;">Ticker</span>
+        <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;">Precio 7d atrás</span>
+        <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;">Precio actual</span>
+        <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;">Retorno</span>
+      </div>
+      <div class="snap-row-mock"><span class="snap-ticker">NVDA</span><span class="snap-price">$142.30</span><span class="snap-price">$158.60</span><span class="snap-ret" style="color:var(--green);">+11.5%</span></div>
+      <div class="snap-row-mock"><span class="snap-ticker">GGAL</span><span class="snap-price">$68.10</span><span class="snap-price">$74.40</span><span class="snap-ret" style="color:var(--green);">+9.2%</span></div>
+      <div class="snap-row-mock"><span class="snap-ticker">META</span><span class="snap-price">$598.20</span><span class="snap-price">$614.50</span><span class="snap-ret" style="color:var(--green);">+2.7%</span></div>
+      <div class="snap-row-mock"><span class="snap-ticker">MELI</span><span class="snap-price">$2,180</span><span class="snap-price">$2,195</span><span class="snap-ret" style="color:var(--green);">+0.7%</span></div>
+      <div class="snap-row-mock"><span class="snap-ticker">TSLA</span><span class="snap-price">$305.40</span><span class="snap-price">$291.80</span><span class="snap-ret" style="color:var(--red);">−4.5%</span></div>
+    </div>
+  </div>
+  <div class="tip"><strong>Nota:</strong> Los precios guardados corresponden al momento exacto en que vos abriste el dashboard. Si no abriste el dashboard hace 7 días, el panel mostrará el snapshot más antiguo disponible.</div>
+</div>
+
+<!-- ─────────────────────────── 🔬 ANÁLISIS ──────────────────── -->
+<div class="section-label blue">🔬 Análisis — profundizá</div>
+
+<!-- Tendencia RS Score -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon">📈</div>
+    <div>
+      <div class="panel-name">Tendencia RS Score</div>
+      <div class="panel-sub">Evolución del RS Score en las últimas 4 semanas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Gráfico de líneas con la evolución semanal del RS Score para los activos seleccionados. Permite ver si la fuerza relativa viene mejorando, deteriorándose o manteniéndose estable a lo largo del mes.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Un activo con RS Score alto hoy pero que viene bajando semana a semana es menos atractivo que uno con RS Score moderado pero en ascenso constante. La tendencia importa tanto como el valor puntual.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — RS Score de 4 activos en las últimas 4 semanas</div>
+    <div class="chart-canvas-box"><canvas id="c-tendencia" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Líneas con pendiente ascendente sostenida. GGAL en el ejemplo viene ganando fuerza relativa semana a semana — es preferible a MELI que viene cayendo aunque hoy tenga RS más alto.</div>
+</div>
+
+<!-- Sesiones & Volumen -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon blue">📊</div>
+    <div>
+      <div class="panel-name">Sesiones &amp; Volumen</div>
+      <div class="panel-sub">Ranking por días alcistas × ratio de volumen — últimas 10 ruedas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Ranking de activos según cuántos días subieron en las últimas 10 ruedas, ponderado por el volumen de esos días. Un activo que sube muchos días con volumen alto rankea mejor que uno que sube con poco volumen.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">Mide la <em>convicción compradora</em>: no solo si subió, sino si lo hizo con participación real del mercado. Subidas con volumen bajo pueden ser menos confiables que subidas con volumen creciente.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — Score días alcistas × volumen (últimas 10 ruedas)</div>
+    <div class="chart-canvas-box"><canvas id="c-sesiones" height="210"></canvas></div>
+  </div>
+  <div class="tip"><strong>Lo que buscás:</strong> Activos con score alto en este panel + RS Score alto = señal de acumulación institucional sostenida. La combinación de ambos es más robusta que cada indicador por separado.</div>
+</div>
+
+<!-- Volumen inusual -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon amber">🔥</div>
+    <div>
+      <div class="panel-name">Volumen inusual hoy</div>
+      <div class="panel-sub">Desvío vs promedio de las últimas ruedas</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label">Qué muestra</div>
+      <div class="block-text">Lista de activos cuyo volumen operado hoy supera significativamente su promedio histórico reciente. El porcentaje indica cuánto más alto operó respecto al promedio.</div>
+    </div>
+    <div>
+      <div class="block-label">Para qué sirve</div>
+      <div class="block-text">El volumen inusual puede anticipar movimientos relevantes: ingreso de dinero institucional, noticias corporativas o cambio de tendencia. Es una alerta temprana de actividad no habitual en el activo.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — % de desvío sobre el promedio de volumen</div>
+    <div class="chart-canvas-box"><canvas id="c-volinusual" height="190"></canvas></div>
+  </div>
+  <div class="tip amber"><strong>Atención:</strong> Volumen inusual no es necesariamente alcista. Combinalo siempre con la dirección del precio ese día: subida con volumen alto = acumulación; caída con volumen alto = distribución.</div>
+</div>
+
+<!-- Scanner de calidad -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon">🔍</div>
@@ -648,7 +869,7 @@
           <td><span class="badge badge-green">74</span></td>
         </tr>
         <tr>
-          <td style="text-align:left" style="opacity:.5"><strong>META</strong></td>
+          <td style="text-align:left"><strong>META</strong></td>
           <td style="color:var(--amber)">19 ✗</td>
           <td style="color:var(--green)">21 ✓</td>
           <td style="color:var(--green)">20 ✓</td>
@@ -661,62 +882,7 @@
   <div class="tip"><strong>Lo que buscás:</strong> Este grupo es el punto de partida ideal para buscar setups. Combinalo con el Régimen de Mercado: si las condiciones generales son favorables (score &gt;60) y un activo está en Candidatos de calidad, el contexto y el activo están alineados.</div>
 </div>
 
-<!-- 9. Semáforo por sector -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon">🏭</div>
-    <div>
-      <div class="panel-name">Semáforo por sector — Top 3</div>
-      <div class="panel-sub">Top 3 RS Score por sector · borde naranja = volumen inusual</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Los tres activos con mayor RS Score dentro de cada sector económico. Permite ver de un vistazo qué sectores están liderando el mercado y qué acciones los encabezan.</div>
-    </div>
-    <div>
-      <div class="block-label">Cómo leerlo</div>
-      <div class="block-text">
-        Sectores con RS Scores altos en sus top 3 = sector fuerte.<br><br>
-        <strong style="color:var(--amber)">Borde naranja</strong> = ese activo tiene volumen inusual hoy.<br><br>
-        Color del score: verde = sobre medias, rojo = bajo medias.
-      </div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — top 3 por sector (borde naranja = volumen inusual)</div>
-    <div class="sector-grid">
-      <div class="sector-card">
-        <div class="sector-name">Tecnología</div>
-        <div class="sector-ticker"><span>NVDA</span><span class="sector-rs" style="color:var(--green)">85</span></div>
-        <div class="sector-ticker vol-unusual"><span>MSFT</span><span class="sector-rs" style="color:var(--green)">71</span></div>
-        <div class="sector-ticker"><span>AAPL</span><span class="sector-rs" style="color:var(--green)">58</span></div>
-      </div>
-      <div class="sector-card">
-        <div class="sector-name">Finanzas</div>
-        <div class="sector-ticker vol-unusual"><span>BMA</span><span class="sector-rs" style="color:var(--green)">65</span></div>
-        <div class="sector-ticker"><span>GGAL</span><span class="sector-rs" style="color:var(--green)">72</span></div>
-        <div class="sector-ticker"><span>JPM</span><span class="sector-rs" style="color:var(--green)">61</span></div>
-      </div>
-      <div class="sector-card">
-        <div class="sector-name">Consumo discrecional</div>
-        <div class="sector-ticker"><span>MELI</span><span class="sector-rs" style="color:var(--green)">78</span></div>
-        <div class="sector-ticker"><span>AMZN</span><span class="sector-rs" style="color:var(--muted)">48</span></div>
-        <div class="sector-ticker"><span>TSLA</span><span class="sector-rs" style="color:var(--red)">32</span></div>
-      </div>
-      <div class="sector-card">
-        <div class="sector-name">Energía</div>
-        <div class="sector-ticker"><span>XOM</span><span class="sector-rs" style="color:var(--muted)">52</span></div>
-        <div class="sector-ticker vol-unusual"><span>YPF</span><span class="sector-rs" style="color:var(--red)">35</span></div>
-        <div class="sector-ticker"><span>CVX</span><span class="sector-rs" style="color:var(--muted)">44</span></div>
-      </div>
-    </div>
-  </div>
-  <div class="tip"><strong>Estrategia:</strong> Identificá el sector más fuerte del día y buscá dentro de él los activos mejor posicionados. Operar en línea con el sector líder mejora la probabilidad del trade.</div>
-</div>
-
-<!-- 10. Comparador -->
+<!-- Comparador -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon blue">⚖️</div>
@@ -739,7 +905,150 @@
     <div class="chart-wrap-label">Ejemplo — GGAL vs MELI, RS Score últimas 8 semanas</div>
     <div class="chart-canvas-box"><canvas id="c-comparador" height="210"></canvas></div>
   </div>
-  <div class="tip"><strong>Caso de uso:</strong> En el ejemplo, GGAL viene con pendiente ascendente y superó a MELI en las últimas semanas. Entre los dos, GGAL es el candidato técnicamente más fuerte en este momento.</div>
+  <div class="tip blue"><strong>Caso de uso:</strong> En el ejemplo, GGAL viene con pendiente ascendente y superó a MELI en las últimas semanas. Entre los dos, GGAL es el candidato técnicamente más fuerte en este momento.</div>
+</div>
+
+<!-- ─────────────────────────── HERRAMIENTAS ─────────────────── -->
+<div class="section-label amber">Herramientas de trading</div>
+
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon amber">🧮</div>
+    <div>
+      <div class="panel-name">Calculadora de posición</div>
+      <div class="panel-sub">Del setup al trade — stop sugerido y tamaño según tu riesgo</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label amber">Qué hace</div>
+      <div class="block-text">Calcula el tamaño de posición ideal para un activo dado tu capital total y el porcentaje máximo que estás dispuesto a arriesgar por operación. El stop loss sugerido se basa en la última zona de contracción del precio (pivot/VCP) o en un 5% fijo si no hay referencia clara.</div>
+    </div>
+    <div>
+      <div class="block-label amber">Cómo usarla</div>
+      <div class="block-text">Seleccioná el ticker del activo, ingresá tu capital disponible y el porcentaje de riesgo por trade (ej: 1%). La calculadora te devuelve: el stop sugerido en pesos/dólares, la cantidad de acciones a comprar y el monto total de la posición.</div>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo de salida — NVDA con capital $100,000 y riesgo 1%</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:4px;">
+      <div style="background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Stop sugerido</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--amber);">$145.80</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Riesgo por acción</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red);">$8.20</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Acciones a comprar</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text);">121</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Total posición</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--green);">$18,644</div>
+      </div>
+    </div>
+  </div>
+  <div class="tip amber"><strong>Importante:</strong> Los cálculos son educativos. El stop real debe definirse siempre sobre el gráfico del activo según la estructura técnica específica del setup. No constituye asesoramiento de inversión.</div>
+</div>
+
+<!-- ─────────────────────────── HEATMAP V5 ───────────────────── -->
+<div class="section-label cyan">Heatmap de mercado — acceso libre</div>
+
+<div class="panel-card" style="border-color:rgba(34,238,232,0.2);">
+  <div class="panel-header">
+    <div class="panel-icon cyan">🗺️</div>
+    <div>
+      <div class="panel-name">Heatmap del universo</div>
+      <div class="panel-sub">Vista libre · sin necesidad de cuenta · acceso desde el menú principal</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label cyan">Qué muestra</div>
+      <div class="block-text">Mapa de calor de todos los activos del universo Warren Bife, agrupados por sector. Cada rectángulo representa un ticker y su color refleja la variación del día: verde intenso = sube fuerte, rojo intenso = cae fuerte, gris = sin movimiento. El tamaño del rectángulo es proporcional al market cap.</div>
+    </div>
+    <div>
+      <div class="block-label cyan">Para qué sirve</div>
+      <div class="block-text">Permite ver de un vistazo en qué sectores está entrando dinero hoy y cuáles están bajo presión vendedora. Es una radiografía visual instantánea del mercado, ideal para orientar el análisis antes de entrar al dashboard completo.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — heatmap por variación diaria</div>
+    <div class="hm-mock">
+      <div class="hm-cell" style="background:rgba(31,208,139,0.8);grid-column:span 2;padding:10px 8px;"><div class="hm-ticker">NVDA</div><div class="hm-var">+3.8%</div></div>
+      <div class="hm-cell" style="background:rgba(31,208,139,0.55);"><div class="hm-ticker">META</div><div class="hm-var">+2.1%</div></div>
+      <div class="hm-cell" style="background:rgba(42,49,64,0.8);border:1px solid rgba(255,255,255,0.05);"><div class="hm-ticker">AAPL</div><div class="hm-var">0.0%</div></div>
+      <div class="hm-cell" style="background:rgba(229,72,77,0.45);"><div class="hm-ticker">TSLA</div><div class="hm-var">−2.4%</div></div>
+      <div class="hm-cell" style="background:rgba(31,208,139,0.65);"><div class="hm-ticker">GGAL</div><div class="hm-var">+2.8%</div></div>
+      <div class="hm-cell" style="background:rgba(229,72,77,0.7);"><div class="hm-ticker">YPF</div><div class="hm-var">−3.1%</div></div>
+      <div class="hm-cell" style="background:rgba(31,208,139,0.4);"><div class="hm-ticker">MELI</div><div class="hm-var">+1.5%</div></div>
+      <div class="hm-cell" style="background:rgba(31,208,139,0.3);"><div class="hm-ticker">AMZN</div><div class="hm-var">+0.9%</div></div>
+      <div class="hm-cell" style="background:rgba(229,72,77,0.35);"><div class="hm-ticker">XOM</div><div class="hm-var">−1.2%</div></div>
+      <div class="hm-cell" style="background:rgba(31,208,139,0.25);"><div class="hm-ticker">JPM</div><div class="hm-var">+0.5%</div></div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" style="margin-top:12px;">
+    <div class="chart-wrap-label">Interacción disponible</div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba(232,234,240,0.75);">
+      <div>🖱️ <strong>Click en un ticker:</strong> abre la Ficha del ticker con el análisis Warren Score completo, directamente sobre el heatmap.</div>
+      <div>🔍 <strong>Buscador (lupa en la barra superior):</strong> buscá cualquier ticker del universo por nombre o símbolo para abrir su ficha sin navegar el heatmap.</div>
+      <div>📱 <strong>Disponible en móvil:</strong> el heatmap se adapta al tamaño de pantalla automáticamente. En pantallas pequeñas los rectángulos se redistribuyen.</div>
+    </div>
+  </div>
+  <div class="tip" style="border-color:rgba(34,238,232,0.2);background:rgba(34,238,232,0.04);"><strong style="color:var(--cyan)">Acceso libre:</strong> El heatmap no requiere cuenta ni login. Podés compartir el link del dashboard con cualquier persona y tendrá acceso directo al heatmap para explorar el mercado.</div>
+</div>
+
+<!-- Ficha de Ticker -->
+<div class="panel-card" style="border-color:rgba(34,238,232,0.15);">
+  <div class="panel-header">
+    <div class="panel-icon cyan">📋</div>
+    <div>
+      <div class="panel-name">Ficha del ticker</div>
+      <div class="panel-sub">Análisis completo de un activo — se abre desde el heatmap o el buscador</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label cyan">Qué muestra</div>
+      <div class="block-text">Panel lateral que se despliega al hacer click en cualquier activo del heatmap o en los resultados del buscador. Muestra el Warren Score completo con desglose de los cuatro pilares, métricas clave (precio, variación, RS Score, distancia a medias, volatilidad) y el estadio técnico del activo.</div>
+    </div>
+    <div>
+      <div class="block-label cyan">Estadio técnico</div>
+      <div class="block-text">Clasifica cada activo en cuatro estadios según su posición relativa a la EMA200 y la pendiente de esa media: <strong>Estadio 2</strong> (sobre EMA, pendiente positiva — el más favorable), <strong>Estadio 3</strong> (sobre EMA, pendiente negativa), <strong>Estadio 1</strong> (bajo EMA, pendiente positiva) y <strong>Estadio 4</strong> (bajo EMA, pendiente negativa — el más desfavorable).</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — ficha de NVDA</div>
+    <div style="background:rgba(255,255,255,0.015);border-radius:8px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;">NVDA</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">NVIDIA Corporation · Tecnología</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;">$154.00</div>
+          <div style="font-size:12px;color:var(--green);margin-top:2px;">+3.8% hoy</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-family:'DM Mono',monospace;font-size:28px;font-weight:600;color:var(--green);">80</span>
+        <span style="font-size:12px;color:var(--muted);">Warren Score</span>
+        <span class="badge badge-green" style="margin-left:auto;">Estadio 2</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;font-family:'DM Mono',monospace;">
+        <div style="padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:5px;">RS Score: <span style="color:var(--green)">85</span></div>
+        <div style="padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:5px;">Dist EMA200: <span style="color:var(--green)">+18.4%</span></div>
+        <div style="padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:5px;">Dist SMA50: <span style="color:var(--green)">+3.2%</span></div>
+        <div style="padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:5px;">Vol relativa: <span style="color:var(--amber)">2.1x</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="tip" style="border-color:rgba(34,238,232,0.2);background:rgba(34,238,232,0.04);"><strong style="color:var(--cyan)">Flujo recomendado:</strong> Abrí el heatmap para ver el panorama general del mercado → hacé click en el activo que te llame la atención → revisá la ficha para el análisis completo → si te convence, entrá al dashboard para ver los paneles de señales.</div>
 </div>
 
 <!-- FOOTER -->
