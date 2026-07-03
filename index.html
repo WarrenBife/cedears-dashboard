@@ -617,10 +617,10 @@
               <th data-tooltip="Símbolo del activo">Ticker</th>
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2.">Score</th>
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
-              <th data-tooltip="Pilar A — Calidad de tendencia (máx 25 pts): posición vs máx 52W, SMA50, EMA200 y pendiente de la EMA200.">A /25</th>
-              <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector.">B /30</th>
-              <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra.">C /30</th>
-              <th data-tooltip="Pilar D — Gatillo/setup (máx 15 pts): VCP detectado, distancia al pivot y breakout fresco con volumen.">D /15</th>
+              <th data-tooltip="Pilar A — Calidad de tendencia (máx 25 pts): posición vs máx 52W, SMA50, EMA200 y pendiente de la EMA200.">Tendencia</th>
+              <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector.">Fuerza RS</th>
+              <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra.">Contracción</th>
+              <th data-tooltip="Pilar D — Gatillo/setup (máx 15 pts): VCP detectado, distancia al pivot y breakout fresco con volumen.">Setup</th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido.">Pen.</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
@@ -1289,7 +1289,7 @@ function renderWarrenScore() {
         const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
         const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
         return `<tr ${trStyle}>
-          <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</td>
+          <td><div style="display:flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(d['Ticker'])}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</div></td>
           <td>${scoreBadge(score)}</td>
           <td style="text-align:center">${gatesHtml}</td>
           <td style="text-align:center">${pilarBadge(pa, 25)}</td>
