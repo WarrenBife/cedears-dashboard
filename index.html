@@ -3350,8 +3350,10 @@ if ('serviceWorker' in navigator) {
   .wb-zone-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
   .wb-zone::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent);}
   .wb-mb{margin-bottom:16px;}
-  /* ── Warren Score: centrar cabeceras ── */
+  /* ── Warren Score: centrar cabeceras y celdas ── */
   #warren-table th{text-align:center;}
+  #warren-table td{text-align:center!important;}
+  #warren-table td:first-child>div{justify-content:center;}
 
   /* ── Franja de régimen de mercado ── */
   #wb-regimen{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 24px;
