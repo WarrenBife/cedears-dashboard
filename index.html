@@ -4529,7 +4529,7 @@ if ('serviceWorker' in navigator) {
   }
   function wbAlinearTodas(){
     try{
-      document.querySelectorAll('#view-dashboard table, #view-planilla table').forEach(alinearTabla);
+      document.querySelectorAll('#view-dashboard table:not(#warren-table), #view-planilla table').forEach(alinearTabla);
     }catch(e){}
   }
   window.wbAlinearTodas = wbAlinearTodas;
