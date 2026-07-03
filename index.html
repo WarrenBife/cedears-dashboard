@@ -4728,10 +4728,6 @@ if ('serviceWorker' in navigator) {
   #wb-search-dd{width:100%;box-sizing:border-box;}
 }
 
-/* ── Heatmap: padding-bottom para no quedar tapado por la nav ── */
-@media(max-width:600px){
-  #wb-hm-container{padding-bottom:75px;}
-}
 </style>
 
 <script id="wb-v5-js">
@@ -4868,9 +4864,10 @@ function _hmDraw(datos){
     drawH=isMobile ? Math.max(H, nSecs*110) : H;
   }
 
-  svg.setAttribute('viewBox','0 0 '+W+' '+drawH);
-  svg.setAttribute('width',W); svg.setAttribute('height',drawH);
-  svg.style.minHeight=drawH+'px';
+  var _svgH=isMobile?drawH+80:drawH;
+  svg.setAttribute('viewBox','0 0 '+W+' '+_svgH);
+  svg.setAttribute('width',W); svg.setAttribute('height',_svgH);
+  svg.style.minHeight=_svgH+'px';
 
   // Single-sector mode: flat treemap of tickers only
   if(_hmSectorFilter){
