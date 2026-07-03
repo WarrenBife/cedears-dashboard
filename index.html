@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="WB Indicator">
 <link rel="apple-touch-icon" href="https://i.imgur.com/GuVsAWY.jpeg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" type="image/jpeg" href="https://i.imgur.com/GuVsAWY.jpeg">
@@ -3521,6 +3523,7 @@ if ('serviceWorker' in navigator) {
         '<option value="all">Todos</option>'+
         '<option value="mes">RS subió vs mes ant.</option>'+
       '</select>'+
+      '<button id="wbRrgResetZoom" onclick="try{if(window._wbRrg)window._wbRrg.resetZoom()}catch(e){}" style="display:none;background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--muted);font-size:9px;padding:2px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;">↺ Reset zoom</button>'+
     '</div>'+
     '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>',
     'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. El tamaño de la burbuja representa el Market Cap del activo. Cuadrante azul (Mejorando): RS bajo pero acelerando, suelen ser los futuros líderes.');
@@ -3726,23 +3729,53 @@ if ('serviceWorker' in navigator) {
       if(p.vi>=100) return 2;
       return 1.5;
     });
-    var wbGlowPlugin = null;
+    /* plugin de labels progresivos: aparecen a medida que se hace zoom */
+    var wbLabelPlugin = { id:'wbLabels', afterDatasetsDraw:function(chart){
+      var xs=chart.scales.x, range=xs.max-xs.min;
+      if(range>65) return;
+      var opacity=Math.min(1,(65-range)/25);
+      var ctx=chart.ctx, meta=chart.getDatasetMeta(0);
+      ctx.save();
+      ctx.font='600 9px "DM Mono",monospace';
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      pts.forEach(function(pt,i){
+        var el=meta.data[i]; if(!el) return;
+        var r=el.options.radius||4;
+        ctx.shadowColor='rgba(0,0,0,0.85)'; ctx.shadowBlur=4;
+        ctx.fillStyle='rgba(255,255,255,'+opacity.toFixed(2)+')';
+        ctx.fillText(pt.t, el.x, el.y-r-2);
+      });
+      ctx.restore();
+      /* mostrar/ocultar botón reset */
+      var btn=$('wbRrgResetZoom');
+      if(btn) btn.style.display=(range<95)?'inline-block':'none';
+    }};
+
     if(window._wbRrg){ try{ window._wbRrg.destroy(); }catch(e){} }
     window._wbRrg = new Chart(cv, {
-      type:'bubble', plugins:[quadPlugin],
+      type:'bubble', plugins:[quadPlugin, wbLabelPlugin],
       data:{ datasets:[{ data:pts, backgroundColor:bgColors, borderColor:borderColors, borderWidth:borderWidths, hoverBorderWidth:2.5, hoverBorderColor:'rgba(255,255,255,0.7)' }] },
       options:{ responsive:true, maintainAspectRatio:false, animation:{duration:400},
-        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){
-          var p=c.raw;
-          var lines = [p.t+'  ·  RS '+p.x.toFixed(0)+'  ·  Δ sem '+(p.y>=0?'+':'')+p.y.toFixed(1), 'Market Cap $'+fmtCap(p.cap)];
-          if(p.brk)     lines.push('🚀 Despegue fresco');
-          if(p.vi>=100) lines.push('⚡ Vol inusual +'+p.vi.toFixed(0)+'%');
-          return lines;
-        } } } },
+        plugins:{
+          legend:{display:false},
+          tooltip:{ callbacks:{ label:function(c){
+            var p=c.raw;
+            var lines=[p.t+'  ·  RS '+p.x.toFixed(0)+'  ·  Δ sem '+(p.y>=0?'+':'')+p.y.toFixed(1),'Market Cap $'+fmtCap(p.cap)];
+            if(p.brk)     lines.push('🚀 Despegue fresco');
+            if(p.vi>=100) lines.push('⚡ Vol inusual +'+p.vi.toFixed(0)+'%');
+            return lines;
+          }}},
+          zoom:{
+            zoom:{ wheel:{enabled:true,speed:0.08}, pinch:{enabled:true}, mode:'xy' },
+            pan:{ enabled:true, mode:'xy' },
+            limits:{ x:{min:0,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} }
+          }
+        },
         scales:{
           x:{ min:0, max:100, title:{display:true,text:'RS Score',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} },
           y:{ min:-30, title:{display:true,text:'Δ RS vs semana ant.',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} }
-        } }
+        }
+      }
     });
   }
 
