@@ -12,6 +12,7 @@
     --bg:#06090e;--surface:#0d1117;--surface2:#111820;
     --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
     --text:#e8eaf0;--muted:#737d8f;--green:#22c98a;--amber:#f5a623;--blue:#4f8ef7;--red:#f0605a;
+    --violet:#a78bfa;--cyan:#22eee8;
   }
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.6;padding:0 16px 60px;}
   .container{max-width:900px;margin:0 auto;}
@@ -35,6 +36,7 @@
   .kpi-title.c-green{color:var(--green);}
   .kpi-title.c-blue{color:var(--blue);}
   .kpi-title.c-amber{color:var(--amber);}
+  .kpi-title.c-violet{color:var(--violet);}
   .kpi-desc{font-size:12px;color:var(--muted);line-height:1.5;}
 
   /* KPI MOCK BAR */
@@ -44,6 +46,7 @@
   .kpi-mock-val.c-blue{color:var(--blue);}
   .kpi-mock-val.c-green{color:var(--green);}
   .kpi-mock-val.c-amber{color:var(--amber);}
+  .kpi-mock-val.c-violet{color:var(--violet);}
   .kpi-mock-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:4px;}
   .kpi-mock-sub{font-size:9px;color:rgba(115,125,143,0.6);margin-top:2px;}
 
@@ -54,12 +57,16 @@
   .panel-icon{width:40px;height:40px;border-radius:9px;background:rgba(34,201,138,0.08);border:1px solid rgba(34,201,138,0.18);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
   .panel-icon.amber{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.2);}
   .panel-icon.blue{background:rgba(79,142,247,0.08);border-color:rgba(79,142,247,0.2);}
+  .panel-icon.violet{background:rgba(167,139,250,0.08);border-color:rgba(167,139,250,0.2);}
+  .panel-icon.red{background:rgba(240,96,90,0.08);border-color:rgba(240,96,90,0.2);}
   .panel-name{font-size:16px;font-weight:600;margin-bottom:3px;}
   .panel-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
   .panel-body{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   @media(max-width:580px){.panel-body{grid-template-columns:1fr;}}
   .block-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:5px;font-family:'DM Mono',monospace;}
   .block-label.amber{color:var(--amber);}
+  .block-label.blue{color:var(--blue);}
+  .block-label.violet{color:var(--violet);}
   .block-text{font-size:13px;color:rgba(232,234,240,0.8);line-height:1.55;}
 
   /* CHART WRAP */
@@ -67,17 +74,44 @@
   .chart-wrap-label{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
   .chart-canvas-box{position:relative;}
 
-  /* MOCK UI (scanner, semáforo) */
+  /* MOCK UI */
   .mock-table{width:100%;border-collapse:collapse;font-size:12px;font-family:'DM Mono',monospace;}
-  .mock-table th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border);}
-  .mock-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .mock-table th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:5px 8px;text-align:center;border-bottom:1px solid var(--border);}
+  .mock-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:center;}
   .mock-table tr:last-child td{border-bottom:none;}
   .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500;}
   .badge-green{background:rgba(34,201,138,0.12);color:var(--green);border:1px solid rgba(34,201,138,0.2);}
-  .badge-red{background:rgba(240,96,90,0.12);color:var(--red);border:1px solid rgba(240,96,90,0.2);}
+  .badge-red{background:rgba(240,96,90,0.12);color:var(--red);border:1px solid rgba(240,96,90,0.2);box-shadow:0 0 6px rgba(240,96,90,0.2);}
   .badge-amber{background:rgba(245,166,35,0.12);color:var(--amber);border:1px solid rgba(245,166,35,0.2);}
-  .score-bar-wrap{background:rgba(255,255,255,0.05);border-radius:3px;height:5px;width:80px;display:inline-block;vertical-align:middle;}
-  .score-bar{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--green),rgba(34,201,138,0.5));}
+  .badge-violet{background:rgba(167,139,250,0.12);color:var(--violet);border:1px solid rgba(167,139,250,0.35);box-shadow:0 0 6px rgba(167,139,250,0.2);}
+  .badge-cyan{background:rgba(34,238,232,0.08);color:var(--cyan);border:1px solid rgba(34,238,232,0.3);box-shadow:0 0 6px rgba(34,238,232,0.15);}
+
+  /* PILLAR TABLE */
+  .pillar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px;}
+  @media(max-width:480px){.pillar-grid{grid-template-columns:1fr;}}
+  .pillar-card{background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .pillar-letter{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);font-weight:600;margin-bottom:3px;}
+  .pillar-name{font-size:13px;font-weight:600;margin-bottom:4px;}
+  .pillar-desc{font-size:11px;color:var(--muted);line-height:1.45;}
+
+  /* RGM LAYERS */
+  .rgm-layers{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+  .rgm-layer-row{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:7px;font-size:12px;}
+  .rgm-layer-lbl{color:var(--text);}
+  .rgm-layer-pts{font-family:'DM Mono',monospace;font-size:11px;}
+  .rgm-layer-pts.green{color:var(--green);}
+  .rgm-layer-pts.amber{color:var(--amber);}
+  .rgm-layer-pts.muted{color:var(--muted);}
+
+  /* BRK MOCK */
+  .brk-grid-mock{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:6px;}
+  .brk-card-mock{border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .brk-card-mock.valid{border-color:rgba(34,201,138,0.45);box-shadow:0 0 14px -5px rgba(34,201,138,0.3);}
+  .brk-card-mock.fail{border-color:rgba(240,70,70,0.6);box-shadow:0 0 12px -3px rgba(240,70,70,0.4);}
+  .brk-head-mock{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .brk-ticker-mock{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;}
+  .brk-layer-mock{font-size:11px;color:var(--muted);padding:2px 0;}
+  .brk-layer-mock.ok{color:var(--text);}
 
   /* SECTOR GRID */
   .sector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
@@ -88,11 +122,22 @@
   .sector-ticker.vol-unusual{border-left:2px solid var(--amber);padding-left:6px;margin-left:-6px;}
   .sector-rs{font-size:10px;}
 
+  /* QUADRANT LEGEND */
+  .quad-legend{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+  .quad-item{border-radius:7px;padding:8px 10px;font-size:12px;}
+  .quad-leading{background:rgba(34,201,138,0.08);border:1px solid rgba(34,201,138,0.2);}
+  .quad-weakening{background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.2);}
+  .quad-lagging{background:rgba(240,96,90,0.08);border:1px solid rgba(240,96,90,0.2);}
+  .quad-recovering{background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);}
+  .quad-title{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;margin-bottom:2px;}
+
   /* TIP */
   .tip{background:rgba(34,201,138,0.05);border:1px solid rgba(34,201,138,0.15);border-radius:7px;padding:10px 13px;margin-top:14px;font-size:12px;color:rgba(232,234,240,0.7);line-height:1.5;}
   .tip strong{color:var(--green);}
   .tip.amber{background:rgba(245,166,35,0.05);border-color:rgba(245,166,35,0.15);}
   .tip.amber strong{color:var(--amber);}
+  .tip.blue{background:rgba(79,142,247,0.05);border-color:rgba(79,142,247,0.15);}
+  .tip.blue strong{color:var(--blue);}
 
   /* FOOTER */
   .footer{text-align:center;padding-top:40px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;}
@@ -118,7 +163,7 @@
   <div class="kpi-mock-item"><div class="kpi-mock-val c-green">38</div><div class="kpi-mock-label">RS Score &gt; 70</div><div class="kpi-mock-sub">fuerza relativa alta</div></div>
   <div class="kpi-mock-item"><div class="kpi-mock-val c-green">57</div><div class="kpi-mock-label">Sobre SMA50</div><div class="kpi-mock-sub">precio sobre SMA50</div></div>
   <div class="kpi-mock-item"><div class="kpi-mock-val c-amber">12</div><div class="kpi-mock-label">Vol inusual</div><div class="kpi-mock-sub">+50% sobre promedio</div></div>
-  <div class="kpi-mock-item"><div class="kpi-mock-val">21</div><div class="kpi-mock-label">Candidatos calidad</div><div class="kpi-mock-sub">RS&gt;60 + medias + vol baja</div></div>
+  <div class="kpi-mock-item"><div class="kpi-mock-val c-violet">18</div><div class="kpi-mock-label">Candidatos calidad</div><div class="kpi-mock-sub">4 pilares Warren Score</div></div>
 </div>
 
 <div class="kpi-grid">
@@ -127,7 +172,7 @@
   <div class="kpi-card"><div class="kpi-name">Stat 3</div><div class="kpi-title c-green">RS Score &gt; 70</div><div class="kpi-desc">Activos con fuerza relativa alta frente al SPY. Cuantos más, mejor el estado general del mercado.</div></div>
   <div class="kpi-card"><div class="kpi-name">Stat 4</div><div class="kpi-title c-green">Sobre SMA50</div><div class="kpi-desc">Activos cotizando por encima de su media de 50 ruedas — refleja la tendencia de corto/mediano plazo.</div></div>
   <div class="kpi-card"><div class="kpi-name">Stat 5</div><div class="kpi-title c-amber">Volumen inusual</div><div class="kpi-desc">Activos que operaron hoy más del 50% por encima de su promedio. Puede señalar movimientos institucionales.</div></div>
-  <div class="kpi-card"><div class="kpi-name">Stat 6</div><div class="kpi-title">Candidatos calidad</div><div class="kpi-desc">Activos que cumplen: RS &gt; 60, sobre medias y baja volatilidad. El filtro más exigente del dashboard.</div></div>
+  <div class="kpi-card"><div class="kpi-name">Stat 6</div><div class="kpi-title c-violet">Candidatos calidad</div><div class="kpi-desc">Activos que destacan en los cuatro pilares del Warren Score simultáneamente. El filtro más exigente del dashboard.</div></div>
 </div>
 <div class="tip">
   <strong>Tip:</strong> Todos los KPIs son clickeables y actúan como filtros rápidos que se aplican sobre todos los paneles al mismo tiempo. Así podés enfocarte en un subconjunto sin tocar los filtros manuales.
@@ -179,66 +224,177 @@
 <!-- ── PANELES PRINCIPALES ── -->
 <div class="section-label">Paneles principales</div>
 
-<!-- 1. Mapa de Re-surgimiento -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon">🗺️</div>
-    <div>
-      <div class="panel-name">Mapa de Re-surgimiento</div>
-      <div class="panel-sub">Scatter RS actual vs RS semana anterior</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Un gráfico de dispersión donde cada punto es un activo. El eje X es el RS Score de la semana pasada y el eje Y es el RS Score actual. La diagonal divide el gráfico en dos zonas.</div>
-    </div>
-    <div>
-      <div class="block-label">Cómo leerlo</div>
-      <div class="block-text">
-        <strong style="color:var(--green)">Arriba de la diagonal</strong> → el activo mejoró su fuerza relativa esta semana.<br><br>
-        <strong style="color:var(--red)">Abajo de la diagonal</strong> → perdió fuerza relativa frente al mercado.
-      </div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — RS semana anterior (eje X) vs RS actual (eje Y)</div>
-    <div class="chart-canvas-box"><canvas id="c-resurgimiento" height="260"></canvas></div>
-  </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Activos en la esquina superior derecha (RS alto y mejorando). Son los líderes del mercado con momentum positivo. Los de la esquina inferior izquierda están rezagados en ambas dimensiones.</div>
-</div>
-
-<!-- 2. Warren Score -->
+<!-- 1. Warren Score -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon">🏆</div>
     <div>
       <div class="panel-name">Warren Score</div>
-      <div class="panel-sub">Score compuesto 0–100 por criterios técnicos</div>
+      <div class="panel-sub">Score compuesto 0–100 · 4 pilares técnicos</div>
     </div>
   </div>
   <div class="panel-body">
     <div>
       <div class="block-label">Qué muestra</div>
-      <div class="block-text">Ranking de todos los activos ordenados por un score técnico compuesto que combina: fuerza relativa vs SPY, posición respecto a la EMA200 y SMA50, distancia al mínimo anual y nivel de volatilidad.</div>
+      <div class="block-text">Ranking de todos los activos ordenados por un score técnico compuesto que evalúa cuatro dimensiones independientes. Cada activo tiene su logo, ticker y el desglose por pilar. Cuanto mayor el score total, mejor alineado está el activo en todas las dimensiones simultáneamente.</div>
     </div>
     <div>
-      <div class="block-label">Qué tiene en cuenta</div>
+      <div class="block-label">Los cuatro pilares</div>
+      <div class="block-text">El score total (0–100) surge de la suma de cuatro pilares. Cada pilar mide una dimensión distinta del comportamiento técnico del activo. No se suman de forma arbitraria: cada uno tiene su propio peso según la importancia de esa dimensión en la selección de un buen setup.</div>
+    </div>
+  </div>
+
+  <div class="pillar-grid" style="margin-top:16px;">
+    <div class="pillar-card">
+      <div class="pillar-letter">A · Tendencia</div>
+      <div class="pillar-name">Tendencia de precio</div>
+      <div class="pillar-desc">Evalúa si el activo está en tendencia alcista de largo y corto plazo. Contempla la posición respecto a medias móviles clave.</div>
+    </div>
+    <div class="pillar-card">
+      <div class="pillar-letter">B · Fuerza RS</div>
+      <div class="pillar-name">Fuerza Relativa</div>
+      <div class="pillar-desc">Mide qué tan bien se comporta el activo comparado con el mercado americano en general (referencia SPY).</div>
+    </div>
+    <div class="pillar-card">
+      <div class="pillar-letter">C · Contracción</div>
+      <div class="pillar-name">Contracción de volatilidad</div>
+      <div class="pillar-desc">Evalúa si el activo presenta un comportamiento ordenado y comprimido, señal de posible acumulación previa a un movimiento.</div>
+    </div>
+    <div class="pillar-card">
+      <div class="pillar-letter">D · Setup</div>
+      <div class="pillar-name">Calidad del setup</div>
+      <div class="pillar-desc">Analiza si el activo presenta condiciones técnicas favorables para un ingreso: estructura de precio, relación riesgo/recompensa y contexto reciente.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — Top activos por Warren Score</div>
+    <table class="mock-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">Ticker</th>
+          <th>Tendencia</th>
+          <th>Fuerza RS</th>
+          <th>Contracción</th>
+          <th>Setup</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align:left"><strong>NVDA</strong></td>
+          <td style="color:var(--green)">23</td>
+          <td style="color:var(--green)">22</td>
+          <td style="color:var(--green)">21</td>
+          <td style="color:var(--green)">14</td>
+          <td><span class="badge badge-green">80</span></td>
+        </tr>
+        <tr>
+          <td style="text-align:left"><strong>GGAL</strong></td>
+          <td style="color:var(--green)">21</td>
+          <td style="color:var(--green)">20</td>
+          <td style="color:var(--green)">18</td>
+          <td style="color:var(--amber)">11</td>
+          <td><span class="badge badge-green">70</span></td>
+        </tr>
+        <tr>
+          <td style="text-align:left"><strong>META</strong></td>
+          <td style="color:var(--green)">19</td>
+          <td style="color:var(--green)">18</td>
+          <td style="color:var(--amber)">15</td>
+          <td style="color:var(--amber)">10</td>
+          <td><span class="badge badge-amber">62</span></td>
+        </tr>
+        <tr>
+          <td style="text-align:left"><strong>TSLA</strong></td>
+          <td style="color:var(--muted)">12</td>
+          <td style="color:var(--muted)">10</td>
+          <td style="color:var(--muted)">8</td>
+          <td style="color:var(--muted)">6</td>
+          <td><span class="badge badge-red">36</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tip"><strong>Candidatos de calidad:</strong> El filtro "Candidatos calidad" del KPI superior muestra únicamente los activos que alcanzan un mínimo exigente en los cuatro pilares simultáneamente. Es el grupo más selecto del universo en ese momento.</div>
+</div>
+
+<!-- 2. Cuadrantes de Rotación -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon violet">🔄</div>
+    <div>
+      <div class="panel-name">Cuadrantes de Rotación</div>
+      <div class="panel-sub">RS Score vs variación semanal de RS · burbujas = market cap</div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div>
+      <div class="block-label violet">Qué muestra</div>
+      <div class="block-text">Gráfico de burbujas donde cada activo se ubica según su RS Score actual (eje X) y cuánto subió o bajó ese RS Score respecto a la semana anterior (eje Y). El tamaño de la burbuja refleja el market cap del activo.</div>
+    </div>
+    <div>
+      <div class="block-label violet">Cómo leerlo</div>
       <div class="block-text">
-        El score pondera cuatro dimensiones técnicas:<br><br>
-        · Fuerza relativa vs el mercado americano<br>
-        · Posición respecto a las medias de largo y corto plazo<br>
-        · Distancia al mínimo anual<br>
-        · Nivel de volatilidad relativa<br><br>
-        Cuanto mayor el score, mejor alineado está el activo en todas estas dimensiones simultáneamente.
+        La combinación X/Y define en qué cuadrante está el activo. La posición cambia semana a semana, mostrando la <em>rotación</em> de dinero entre activos y sectores. Un activo que se desplaza hacia la derecha y arriba está ganando momentum.
       </div>
     </div>
   </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — Top 8 por Warren Score</div>
-    <div class="chart-canvas-box"><canvas id="c-warren" height="220"></canvas></div>
+
+  <div class="quad-legend">
+    <div class="quad-item quad-leading">
+      <div class="quad-title" style="color:var(--green)">↗ Liderando</div>
+      <div style="font-size:11px;color:var(--muted)">RS alto y mejorando. Los más fuertes del universo.</div>
+    </div>
+    <div class="quad-item quad-weakening">
+      <div class="quad-title" style="color:var(--amber)">↘ Debilitando</div>
+      <div style="font-size:11px;color:var(--muted)">RS alto pero perdiendo momentum. Ojo con posiciones abiertas.</div>
+    </div>
+    <div class="quad-item quad-recovering">
+      <div class="quad-title" style="color:var(--blue)">↗ Recuperando</div>
+      <div style="font-size:11px;color:var(--muted)">RS bajo pero mejorando. Posibles candidatos emergentes.</div>
+    </div>
+    <div class="quad-item quad-lagging">
+      <div class="quad-title" style="color:var(--red)">↙ Rezagando</div>
+      <div style="font-size:11px;color:var(--muted)">RS bajo y empeorando. Evitar o mantener fuera del radar.</div>
+    </div>
   </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Scores sobre 60–70 indican activos en buena forma técnica. Un score alto no garantiza suba, pero muestra alineación técnica en múltiples dimensiones simultáneamente.</div>
+
+  <div class="chart-wrap" style="margin-top:16px;">
+    <div class="chart-wrap-label">Colores especiales de burbuja</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(167,139,250,0.25);border:2px solid rgba(167,139,250,0.97);box-shadow:0 0 8px rgba(167,139,250,0.5);flex-shrink:0;"></div>
+        <div>
+          <span class="badge badge-violet" style="margin-right:8px;">Despegue Fresco</span>
+          <span style="font-size:12px;color:var(--muted)">El activo rompió un nivel clave recientemente. Borde violeta neon.</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,238,232,0.12);border:2px solid rgba(34,238,232,0.9);box-shadow:0 0 8px rgba(34,238,232,0.4);flex-shrink:0;"></div>
+        <div>
+          <span class="badge badge-cyan" style="margin-right:8px;">Vol. Inusual ≥100%</span>
+          <span style="font-size:12px;color:var(--muted)">El activo tiene volumen muy elevado hoy. Borde cyan neon.</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:18px;height:18px;border-radius:50%;background:rgba(34,201,138,0.28);border:2px solid rgba(34,201,138,0.92);flex-shrink:0;"></div>
+        <div style="font-size:12px;color:var(--muted)">Color del cuadrante al que pertenece el activo (verde / naranja / rojo / azul).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Filtros e interacción disponibles</div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:rgba(232,234,240,0.75);">
+      <div>🔍 <strong>Filtro RS vs mes anterior:</strong> mostrá solo activos que también mejoraron frente al mes pasado, no solo la semana.</div>
+      <div>🖱️ <strong>Scroll:</strong> zoom in/out con la rueda del mouse.</div>
+      <div>✋ <strong>Click y arrastre:</strong> sobre el gráfico = pan (mover la vista). Sobre el eje X o Y = zoom solo en esa dimensión.</div>
+      <div>🏷️ <strong>Labels de tickers:</strong> aparecen automáticamente a medida que hacés zoom in para no saturar la vista general.</div>
+      <div>↺ <strong>Reset zoom:</strong> botón en el panel para volver a la vista completa.</div>
+    </div>
+  </div>
+  <div class="tip" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.04)"><strong style="color:var(--violet)">Lo que buscás:</strong> Activos en el cuadrante Liderando (arriba a la derecha), especialmente con borde violeta (Despegue Fresco) o cyan (volumen inusual). Son los que combinan fuerza, momentum y actividad institucional simultáneamente.</div>
 </div>
 
 <!-- 3. Tendencia RS Score -->
@@ -319,77 +475,193 @@
   <div class="tip amber"><strong>Atención:</strong> Volumen inusual no es necesariamente alcista. Combinalo siempre con la dirección del precio ese día: subida con volumen alto = acumulación; caída con volumen alto = distribución.</div>
 </div>
 
-<!-- 6. Cartelera del día -->
+<!-- 6. Régimen de Mercado + Cartelera -->
 <div class="panel-card">
   <div class="panel-header">
-    <div class="panel-icon">📋</div>
+    <div class="panel-icon">⚡</div>
     <div>
-      <div class="panel-name">Cartelera del día</div>
-      <div class="panel-sub">Principales movimientos y extremos RSI</div>
+      <div class="panel-name">Régimen de Mercado &amp; Cartelera del día</div>
+      <div class="panel-sub">Estos dos paneles se muestran lado a lado en pantalla completa</div>
+    </div>
+  </div>
+
+  <div class="panel-body" style="margin-bottom:18px;">
+    <div>
+      <div class="block-label">⚡ Régimen de Mercado</div>
+      <div class="block-text">Score de 0 a 100 que resume el estado general de las condiciones del mercado. Se calcula sobre cuatro capas independientes que evalúan distintos aspectos del entorno: índices principales, amplitud del mercado, calidad de los breakouts recientes y sentimiento. Cada capa aporta puntos al total y tiene su propio peso.</div>
+    </div>
+    <div>
+      <div class="block-label">📋 Cartelera del día</div>
+      <div class="block-text">Resumen visual de los activos más destacados de la jornada: mayores subas del día, mayores bajas del día, y activos en zona de sobrecompra (RSI &gt; 70) o sobreventa (RSI &lt; 30). Permite tener un panorama rápido del día sin revisar cada activo individualmente.</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-wrap-label">Ejemplo — capas del Régimen de Mercado</div>
+    <div class="rgm-layers">
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">📊 Índices SPY / QQQ</span>
+        <span class="rgm-layer-pts green">30 / 40 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🌊 Amplitud del mercado</span>
+        <span class="rgm-layer-pts green">18 / 25 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🚀 Feedback de breakouts</span>
+        <span class="rgm-layer-pts amber">12 / 20 pts</span>
+      </div>
+      <div class="rgm-layer-row">
+        <span class="rgm-layer-lbl">🧠 Sentimiento (VIX / P-C)</span>
+        <span class="rgm-layer-pts amber">9 / 15 pts</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--text);">Score total</span>
+      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:600;color:var(--green);">69 / 100</span>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">Exposición sugerida según score: alta &gt;70 · media 50–70 · reducida &lt;50</div>
+  </div>
+
+  <div class="tip"><strong>Cómo usarlo:</strong> El Régimen de Mercado no es una señal de compra individual, sino el contexto en que operás. Con score alto podés buscar setups con más convicción; con score bajo, reducí tamaño de posición o esperá mejores condiciones.</div>
+  <div class="tip amber" style="margin-top:8px;"><strong>RSI extremos (Cartelera):</strong> RSI &gt; 70 = posible sobrecompra (precaución para nuevas entradas). RSI &lt; 30 = posible sobreventa (potencial rebote, pero solo si el contexto acompaña).</div>
+</div>
+
+<!-- 7. Despegue Fresco -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div class="panel-icon violet">🚀</div>
+    <div>
+      <div class="panel-name">Despegue Fresco</div>
+      <div class="panel-sub">Breakouts recientes · 3 capas de validación</div>
     </div>
   </div>
   <div class="panel-body">
     <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Resumen visual de los activos más destacados de la jornada: mayores subas del día, mayores bajas del día, y activos en zona de sobrecompra (RSI &gt; 70) o sobreventa (RSI &lt; 30).</div>
+      <div class="block-label violet">Qué muestra</div>
+      <div class="block-text">Activos que cruzaron recientemente un nivel de resistencia clave (pivot). Cada card muestra el ticker, cuándo fue el breakout y si las tres condiciones de validación se cumplen.</div>
     </div>
     <div>
-      <div class="block-label">Para qué sirve</div>
-      <div class="block-text">Permite tener un panorama rápido del día sin revisar cada activo individualmente. Ideal para detectar movimientos extremos, activos agotados técnicamente y posibles oportunidades en zonas de sobreventa.</div>
+      <div class="block-label violet">Las tres capas</div>
+      <div class="block-text">
+        ✅ <strong>Precio:</strong> superó el nivel pivot.<br><br>
+        ✅ <strong>Volumen:</strong> el breakout ocurrió con volumen significativamente mayor al promedio (≥1.5x).<br><br>
+        ✅ <strong>Extensión:</strong> el precio sigue dentro de la zona de compra (no muy extendido ni debajo del SMA50).
+      </div>
     </div>
   </div>
+
   <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — variación % del día (verde = sube, rojo = baja)</div>
-    <div class="chart-canvas-box"><canvas id="c-cartelera" height="210"></canvas></div>
+    <div class="chart-wrap-label">Ejemplo — cards de Despegue Fresco</div>
+    <div class="brk-grid-mock">
+      <div class="brk-card-mock valid">
+        <div class="brk-head-mock">
+          <span class="brk-ticker-mock">NVDA</span>
+          <span class="badge badge-green" style="font-size:9px;">VÁLIDO</span>
+        </div>
+        <div class="brk-layer-mock ok">✅ Precio: cruzó pivot ayer</div>
+        <div class="brk-layer-mock ok">✅ Volumen: 2.1x avg50 ≥1.5x ✓</div>
+        <div class="brk-layer-mock ok">✅ Extensión: SMA50 +3.2% (buy zone)</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">RS 85 · Tecnología</div>
+      </div>
+      <div class="brk-card-mock">
+        <div class="brk-head-mock">
+          <span class="brk-ticker-mock">GGAL</span>
+          <span style="font-size:10px;color:var(--muted);">hace 2 días</span>
+        </div>
+        <div class="brk-layer-mock ok">✅ Precio: cruzó pivot hace 2 días</div>
+        <div class="brk-layer-mock ok">✅ Volumen: 1.8x avg50 ≥1.5x ✓</div>
+        <div class="brk-layer-mock">❌ Extensión: SMA50 +12.4% (extendido)</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">RS 72 · Finanzas</div>
+      </div>
+      <div class="brk-card-mock fail">
+        <div class="brk-head-mock">
+          <span class="brk-ticker-mock">GLW</span>
+          <span class="badge badge-red" style="font-size:9px;">FAIL BREAK OUT</span>
+        </div>
+        <div class="brk-layer-mock ok">✅ Precio: cruzó pivot ayer</div>
+        <div class="brk-layer-mock ok">✅ Volumen: 2.4x avg50 ≥1.5x ✓</div>
+        <div class="brk-layer-mock">❌ Extensión: SMA50 -4.1% (bajo SMA50)</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">RS 61 · Tecnología</div>
+      </div>
+    </div>
   </div>
-  <div class="tip"><strong>RSI extremos:</strong> RSI &gt; 70 = posible sobrecompra (precaución para nuevas entradas). RSI &lt; 30 = posible sobreventa (potencial rebote, pero solo si el contexto acompaña).</div>
+
+  <div class="chart-wrap" style="margin-top:12px;">
+    <div class="chart-wrap-label">Qué significa FAIL BREAK OUT</div>
+    <div style="font-size:13px;color:rgba(232,234,240,0.8);line-height:1.6;">
+      Un activo marcado con <span class="badge badge-red">FAIL BREAK OUT</span> rompió el nivel de resistencia pero luego <strong>devolvió la suba con volumen alto</strong> en la jornada siguiente o en las dos siguientes. Esto sugiere que el breakout no tuvo seguimiento comprador y el precio volvió a caer por debajo del nivel clave.<br><br>
+      La card se resalta con <span style="color:var(--red)">borde rojo neon</span> para que puedas identificarla visualmente de inmediato. Un Fail Breakout no significa que el activo no vuelva a intentarlo, pero es una señal de precaución y conviene esperar una nueva consolidación antes de considerar un ingreso.
+    </div>
+  </div>
+
+  <div class="tip" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.04)"><strong style="color:var(--violet)">Filtros disponibles:</strong> Podés filtrar por "Solo válidos" (las 3 capas ok), "Parciales" (2 de 3) o "Todos". También filtrás por RS Score mínimo para quedarte solo con los breakouts de activos con mayor fuerza relativa.</div>
 </div>
 
-<!-- 7. Scanner de calidad -->
+<!-- 8. Scanner de calidad -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon">🔍</div>
     <div>
       <div class="panel-name">Scanner de calidad</div>
-      <div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div>
+      <div class="panel-sub">Los 4 pilares del Warren Score en niveles mínimos exigentes</div>
     </div>
   </div>
   <div class="panel-body">
     <div>
       <div class="block-label">Qué muestra</div>
-      <div class="block-text">Activos que cumplen simultáneamente los criterios más exigentes: cotizan sobre la EMA200 y la SMA50, tienen RS Score elevado y presentan baja volatilidad relativa respecto al mercado.</div>
+      <div class="block-text">Activos que alcanzan simultáneamente un mínimo en cada uno de los cuatro pilares del Warren Score: Tendencia (A &gt; 20), Fuerza RS (B &gt; 20), Contracción (C &gt; 20) y Setup (D &gt; 10). Es el grupo más reducido y selecto del universo en cualquier momento dado.</div>
     </div>
     <div>
       <div class="block-label">Para qué sirve</div>
-      <div class="block-text">Es el filtro de mayor calidad del dashboard. Los activos que aparecen acá son los que presentan la mejor combinación de tendencia, fuerza relativa y comportamiento ordenado. Ideal como punto de partida para buscar setups.</div>
+      <div class="block-text">A diferencia de filtrar solo por score total, este criterio garantiza que ningún pilar está débil. Un activo puede tener score total alto compensando una dimensión con otra. Los Candidatos de calidad no tienen eso: deben cumplir el mínimo en cada dimensión por separado.</div>
     </div>
   </div>
   <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — candidatos que pasan todos los filtros de calidad</div>
+    <div class="chart-wrap-label">Ejemplo — candidatos que pasan todos los mínimos por pilar</div>
     <table class="mock-table">
       <thead>
         <tr>
-          <th>Ticker</th>
-          <th>RS Score</th>
-          <th>EMA200</th>
-          <th>SMA50</th>
-          <th>Vol relativa</th>
-          <th>Warren Score</th>
+          <th style="text-align:left">Ticker</th>
+          <th>Tend. (A)</th>
+          <th>Fuerza RS (B)</th>
+          <th>Contrac. (C)</th>
+          <th>Setup (D)</th>
+          <th>Score</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td><strong>NVDA</strong></td><td style="color:var(--green)">85</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.62</td><td><span class="badge badge-green">88</span></td></tr>
-        <tr><td><strong>GGAL</strong></td><td style="color:var(--green)">72</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.71</td><td><span class="badge badge-green">74</span></td></tr>
-        <tr><td><strong>MSFT</strong></td><td style="color:var(--green)">71</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.69</td><td><span class="badge badge-green">71</span></td></tr>
-        <tr><td><strong>META</strong></td><td style="color:var(--green)">68</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.74</td><td><span class="badge badge-green">67</span></td></tr>
-        <tr><td><strong>BMA</strong></td><td style="color:var(--green)">65</td><td><span class="badge badge-green">✓ Sobre</span></td><td><span class="badge badge-green">✓ Sobre</span></td><td style="color:var(--green)">0.77</td><td><span class="badge badge-green">63</span></td></tr>
+        <tr>
+          <td style="text-align:left"><strong>NVDA</strong></td>
+          <td style="color:var(--green)">23 ✓</td>
+          <td style="color:var(--green)">22 ✓</td>
+          <td style="color:var(--green)">21 ✓</td>
+          <td style="color:var(--green)">14 ✓</td>
+          <td><span class="badge badge-green">80</span></td>
+        </tr>
+        <tr>
+          <td style="text-align:left"><strong>GGAL</strong></td>
+          <td style="color:var(--green)">21 ✓</td>
+          <td style="color:var(--green)">22 ✓</td>
+          <td style="color:var(--green)">20 ✓</td>
+          <td style="color:var(--green)">11 ✓</td>
+          <td><span class="badge badge-green">74</span></td>
+        </tr>
+        <tr>
+          <td style="text-align:left" style="opacity:.5"><strong>META</strong></td>
+          <td style="color:var(--amber)">19 ✗</td>
+          <td style="color:var(--green)">21 ✓</td>
+          <td style="color:var(--green)">20 ✓</td>
+          <td style="color:var(--green)">12 ✓</td>
+          <td><span class="badge badge-amber">72 — no pasa</span></td>
+        </tr>
       </tbody>
     </table>
   </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Un activo en el Scanner con Warren Score alto y tendencia RS ascendente (ver panel anterior) es el candidato técnico más completo del universo en ese momento.</div>
+  <div class="tip"><strong>Lo que buscás:</strong> Este grupo es el punto de partida ideal para buscar setups. Combinalo con el Régimen de Mercado: si las condiciones generales son favorables (score &gt;60) y un activo está en Candidatos de calidad, el contexto y el activo están alineados.</div>
 </div>
 
-<!-- 8. Semáforo por sector -->
+<!-- 9. Semáforo por sector -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon">🏭</div>
@@ -444,7 +716,7 @@
   <div class="tip"><strong>Estrategia:</strong> Identificá el sector más fuerte del día y buscá dentro de él los activos mejor posicionados. Operar en línea con el sector líder mejora la probabilidad del trade.</div>
 </div>
 
-<!-- 9. Comparador -->
+<!-- 10. Comparador -->
 <div class="panel-card">
   <div class="panel-header">
     <div class="panel-icon blue">⚖️</div>
@@ -483,7 +755,7 @@ Chart.defaults.color = '#737d8f';
 Chart.defaults.font.family = "'DM Mono', monospace";
 Chart.defaults.font.size = 10;
 
-const G = { // colores
+const G = {
   green:'#22c98a', greenA:'rgba(34,201,138,0.15)',
   blue:'#4f8ef7',  blueA:'rgba(79,142,247,0.15)',
   amber:'#f5a623', amberA:'rgba(245,166,35,0.15)',
@@ -492,120 +764,12 @@ const G = { // colores
   muted:'#737d8f',
 };
 
-const baseScales = (xLabel='', yLabel='') => ({
-  x:{
-    grid:{color:G.grid},
-    ticks:{color:G.muted},
-    title: xLabel ? {display:true,text:xLabel,color:G.muted,font:{size:9}} : undefined,
-  },
-  y:{
-    grid:{color:G.grid},
-    ticks:{color:G.muted},
-    title: yLabel ? {display:true,text:yLabel,color:G.muted,font:{size:9}} : undefined,
-  }
+const baseScales = () => ({
+  x:{ grid:{color:G.grid}, ticks:{color:G.muted} },
+  y:{ grid:{color:G.grid}, ticks:{color:G.muted} }
 });
 
-// ── 1. MAPA DE RE-SURGIMIENTO (scatter) ──────────────────────
-const scatterData = [
-  {x:75,y:85,t:'NVDA'},{x:60,y:72,t:'GGAL'},{x:82,y:78,t:'MELI'},
-  {x:70,y:68,t:'META'},{x:55,y:65,t:'BMA'},{x:62,y:58,t:'AAPL'},
-  {x:40,y:52,t:'GLOB'},{x:55,y:48,t:'AMZN'},{x:42,y:35,t:'YPF'},
-  {x:65,y:71,t:'MSFT'},{x:50,y:44,t:'XOM'},{x:30,y:28,t:'TSLA'},
-  {x:68,y:74,t:'JPM'},{x:58,y:50,t:'CVX'},{x:45,y:55,t:'GLD'},
-];
-
-const scatterLabelPlugin = {
-  id:'scatterLabels',
-  afterDatasetsDraw(chart) {
-    const ctx = chart.ctx;
-    const ds = chart.data.datasets[1];
-    const meta = chart.getDatasetMeta(1);
-    ctx.save();
-    ctx.font = "9px 'DM Mono', monospace";
-    ctx.fillStyle = 'rgba(232,234,240,0.55)';
-    meta.data.forEach((pt,i) => {
-      const d = ds.data[i];
-      const up = d.y >= d.x;
-      ctx.fillStyle = up ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.6)';
-      ctx.fillText(d.t, pt.x + 6, pt.y - 4);
-    });
-    ctx.restore();
-  }
-};
-
-new Chart(document.getElementById('c-resurgimiento'),{
-  type:'scatter',
-  plugins:[scatterLabelPlugin],
-  data:{
-    datasets:[
-      { // diagonal
-        type:'line',
-        data:[{x:20,y:20},{x:92,y:92}],
-        borderColor:'rgba(255,255,255,0.1)',
-        borderDash:[5,5],
-        pointRadius:0,
-        tension:0,
-        order:0,
-      },
-      { // puntos
-        type:'scatter',
-        data: scatterData,
-        backgroundColor: scatterData.map(d => d.y >= d.x ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.6)'),
-        pointRadius:5,
-        pointHoverRadius:7,
-        order:1,
-      }
-    ]
-  },
-  options:{
-    responsive:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{
-        callbacks:{
-          label: ctx => {
-            const d = ctx.raw;
-            return ` ${d.t}: sem.ant.=${d.x} → hoy=${d.y}`;
-          }
-        }
-      }
-    },
-    scales:{
-      x:{...baseScales().x, min:15, max:95, title:{display:true,text:'RS Score semana anterior',color:G.muted,font:{size:9}}},
-      y:{...baseScales().y, min:15, max:95, title:{display:true,text:'RS Score actual',color:G.muted,font:{size:9}}},
-    }
-  }
-});
-
-// ── 2. WARREN SCORE (bar horizontal) ──────────────────────────
-new Chart(document.getElementById('c-warren'),{
-  type:'bar',
-  data:{
-    labels:['NVDA','MELI','GGAL','MSFT','META','BMA','AAPL','GLOB'],
-    datasets:[{
-      data:[88,76,71,68,65,62,54,47],
-      backgroundColor:['rgba(34,201,138,0.75)','rgba(34,201,138,0.68)','rgba(34,201,138,0.62)',
-        'rgba(34,201,138,0.56)','rgba(34,201,138,0.50)','rgba(34,201,138,0.44)',
-        'rgba(79,142,247,0.5)','rgba(79,142,247,0.4)'],
-      borderRadius:4,
-      barThickness:18,
-    }]
-  },
-  options:{
-    indexAxis:'y',
-    responsive:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{callbacks:{label: c => ` Score: ${c.raw}/100`}},
-    },
-    scales:{
-      x:{...baseScales().x, min:0, max:100, ticks:{stepSize:20}},
-      y:{...baseScales().y, grid:{display:false}},
-    }
-  }
-});
-
-// ── 3. TENDENCIA RS SCORE (multi-line) ────────────────────────
+// ── TENDENCIA RS SCORE ─────────────────────────────────────────
 const semanas = ['-3 sem','-2 sem','-1 sem','Hoy'];
 new Chart(document.getElementById('c-tendencia'),{
   type:'line',
@@ -624,14 +788,11 @@ new Chart(document.getElementById('c-tendencia'),{
       legend:{display:true, position:'bottom', labels:{boxWidth:10, padding:14, color:'#737d8f'}},
       tooltip:{mode:'index',intersect:false},
     },
-    scales:{
-      x:{...baseScales().x},
-      y:{...baseScales().y, min:25, max:95, ticks:{stepSize:10}},
-    }
+    scales:{ x:{...baseScales().x}, y:{...baseScales().y, min:25, max:95, ticks:{stepSize:10}} }
   }
 });
 
-// ── 4. SESIONES & VOLUMEN (bar horizontal) ────────────────────
+// ── SESIONES & VOLUMEN ─────────────────────────────────────────
 new Chart(document.getElementById('c-sesiones'),{
   type:'bar',
   data:{
@@ -640,84 +801,35 @@ new Chart(document.getElementById('c-sesiones'),{
       label:'Score sesiones × vol',
       data:[8.2,7.8,7.1,6.5,5.9,5.2,4.8,3.1],
       backgroundColor:'rgba(79,142,247,0.6)',
-      borderRadius:4,
-      barThickness:18,
+      borderRadius:4, barThickness:18,
     }]
   },
   options:{
-    indexAxis:'y',
-    responsive:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{callbacks:{label: c => ` Score: ${c.raw}`}},
-    },
-    scales:{
-      x:{...baseScales().x, min:0},
-      y:{...baseScales().y, grid:{display:false}},
-    }
+    indexAxis:'y', responsive:true,
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label: c => ` Score: ${c.raw}`}} },
+    scales:{ x:{...baseScales().x, min:0}, y:{...baseScales().y, grid:{display:false}} }
   }
 });
 
-// ── 5. VOLUMEN INUSUAL (bar horizontal) ───────────────────────
+// ── VOLUMEN INUSUAL ────────────────────────────────────────────
 new Chart(document.getElementById('c-volinusual'),{
   type:'bar',
   data:{
     labels:['BMA','YPF','GLOB','GGAL','NVDA'],
     datasets:[{
       data:[185,142,98,76,54],
-      backgroundColor:[
-        'rgba(245,166,35,0.8)','rgba(245,166,35,0.7)','rgba(245,166,35,0.6)',
-        'rgba(245,166,35,0.5)','rgba(245,166,35,0.4)'
-      ],
-      borderRadius:4,
-      barThickness:18,
+      backgroundColor:['rgba(245,166,35,0.8)','rgba(245,166,35,0.7)','rgba(245,166,35,0.6)','rgba(245,166,35,0.5)','rgba(245,166,35,0.4)'],
+      borderRadius:4, barThickness:18,
     }]
   },
   options:{
-    indexAxis:'y',
-    responsive:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{callbacks:{label: c => ` +${c.raw}% sobre promedio`}},
-    },
-    scales:{
-      x:{...baseScales().x, min:0, ticks:{callback: v => `+${v}%`}},
-      y:{...baseScales().y, grid:{display:false}},
-    }
+    indexAxis:'y', responsive:true,
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label: c => ` +${c.raw}% sobre promedio`}} },
+    scales:{ x:{...baseScales().x, min:0, ticks:{callback: v => `+${v}%`}}, y:{...baseScales().y, grid:{display:false}} }
   }
 });
 
-// ── 6. CARTELERA DEL DÍA (bar combinado) ─────────────────────
-const carteleraLabels = ['BMA','GGAL','NVDA','GLD','MSFT','CVX','GLOB','AMZN','YPF'];
-const carteleraData   = [4.2, 3.8, 2.9, 1.4, 0.8, -0.6, -1.8, -2.4, -3.1];
-new Chart(document.getElementById('c-cartelera'),{
-  type:'bar',
-  data:{
-    labels: carteleraLabels,
-    datasets:[{
-      data: carteleraData,
-      backgroundColor: carteleraData.map(v => v >= 0 ? 'rgba(34,201,138,0.7)' : 'rgba(240,96,90,0.7)'),
-      borderRadius:4,
-      barThickness:20,
-    }]
-  },
-  options:{
-    responsive:true,
-    plugins:{
-      legend:{display:false},
-      tooltip:{callbacks:{label: c => ` ${c.raw > 0 ? '+' : ''}${c.raw}%`}},
-    },
-    scales:{
-      x:{...baseScales().x, grid:{display:false}},
-      y:{
-        ...baseScales().y,
-        ticks:{callback: v => `${v > 0 ? '+' : ''}${v}%`},
-      }
-    }
-  }
-});
-
-// ── 9. COMPARADOR (multi-line) ────────────────────────────────
+// ── COMPARADOR ────────────────────────────────────────────────
 new Chart(document.getElementById('c-comparador'),{
   type:'line',
   data:{
@@ -735,7 +847,7 @@ new Chart(document.getElementById('c-comparador'),{
     },
     scales:{
       x:{...baseScales().x, title:{display:true,text:'semanas atrás',color:G.muted,font:{size:9}}},
-      y:{...baseScales().y, min:30, max:95, ticks:{stepSize:10}},
+      y:{...baseScales().y, min:30, max:95, ticks:{stepSize:10}}
     }
   }
 });
