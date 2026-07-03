@@ -4989,9 +4989,9 @@ try{
    BUSCADOR
 ──────────────────────────────────────────────── */
 try{
-  var tr=document.querySelector('.topbar-right');
+  var tl=document.querySelector('.topbar-left');
   var sw=document.getElementById('wb-search-wrap');
-  if(tr&&sw){ tr.insertBefore(sw,tr.firstChild); sw.style.display='flex'; }
+  if(tl&&sw){ tl.appendChild(sw); sw.style.display='flex'; }
 }catch(e){}
 
 var _srchOpen=false, _srchFocus=-1;
@@ -5205,10 +5205,6 @@ function _buildFicha(d){
   });
   h+='</div>';
 
-  // 9. Acción
-  h+='<div class="wb-fsec" style="border-bottom:none">';
-  h+='<button onclick="wbIrARiesgo(\''+_esc(d['Ticker']||'')+'\')" style="width:100%;background:rgba(34,201,138,0.1);border:1px solid rgba(34,201,138,0.3);border-radius:9px;color:#22c98a;font-family:DM Mono,monospace;font-size:13px;padding:11px;cursor:pointer;transition:all .2s;">Calcular posición →</button>';
-  h+='</div>';
 
   return h;
 }
