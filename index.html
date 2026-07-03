@@ -4597,12 +4597,15 @@ if ('serviceWorker' in navigator) {
         <button class="wb-hm-pill" data-metric="rs">RS Score</button>
         <button class="wb-hm-pill" data-metric="ema">Dist EMA200</button>
       </div>
+      <select id="wb-hm-sector-sel" class="wb-hm-sel" onchange="_hmSectorChange()">
+        <option value="">Todos los sectores</option>
+      </select>
       <button class="wb-hm-back" onclick="showView('home')">← Inicio</button>
       <button class="wb-hm-cta" onclick="irAlDashboard()">Análisis completo →</button>
     </div>
   </div>
   <div style="flex:1;display:flex;flex-direction:column;padding:10px 14px 10px;gap:8px;min-height:0;">
-    <div id="wb-hm-container" style="flex:1;min-height:70vh;border-radius:10px;overflow:hidden;background:var(--bg2);border:1px solid var(--border);position:relative;">
+    <div id="wb-hm-container" style="flex:1;min-height:70vh;border-radius:10px;overflow:auto;background:var(--bg2);border:1px solid var(--border);position:relative;">
       <svg id="wb-hm-svg" style="display:block;width:100%;height:100%;cursor:crosshair;"></svg>
     </div>
     <div style="display:flex;align-items:center;gap:10px;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);">
@@ -4643,6 +4646,14 @@ if ('serviceWorker' in navigator) {
 .wb-hm-back:hover{color:var(--text);}
 .wb-hm-cta{background:rgba(34,201,138,0.12);border:1px solid rgba(34,201,138,0.3);color:var(--green);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:5px 13px;border-radius:7px;cursor:pointer;transition:all .2s;}
 .wb-hm-cta:hover{background:rgba(34,201,138,0.2);}
+.wb-hm-sel{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 24px 4px 9px;border-radius:7px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23737d8f'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;cursor:pointer;outline:none;max-width:140px;}
+.wb-hm-sel:focus{border-color:rgba(34,201,138,0.4);}
+@media(max-width:600px){.wb-hm-sel{max-width:110px;font-size:10px;}}
+
+/* ── Planilla mobile scroll ── */
+@media(max-width:700px){
+  .pl-card{overflow-x:auto;}
+}
 
 /* ── Ficha drawer ── */
 .wb-ficha-drawer{position:fixed;right:0;top:0;height:100vh;width:min(440px,100vw);z-index:901;background:var(--bg2);border-left:1px solid var(--border2);box-shadow:-8px 0 40px rgba(0,0,0,0.5);transform:translateX(110%);transition:transform 0.28s var(--ease);display:flex;flex-direction:column;}
@@ -4788,7 +4799,13 @@ function _fmtVal(v,m){ if(v==null)return'—'; return m==='rs'?v.toFixed(1):(v>0
 /* ────────────────────────────────────────────────
    HEATMAP — RENDER
 ──────────────────────────────────────────────── */
-var _metric='var', _hmRetries=0;
+var _metric='var', _hmRetries=0, _hmSectorFilter='';
+
+window._hmSectorChange=function(){
+  var sel=document.getElementById('wb-hm-sector-sel');
+  _hmSectorFilter=sel?sel.value:'';
+  if(DATOS&&DATOS.length) _hmDraw(DATOS);
+};
 
 window.wbHeatmapRender=function(){
   var datos=DATOS;
@@ -4799,6 +4816,13 @@ window.wbHeatmapRender=function(){
     return;
   }
   _hmRetries=0;
+  // Populate sector select on first load
+  var sel=document.getElementById('wb-hm-sector-sel');
+  if(sel&&sel.options.length<=1){
+    var _secs=[]; var _seen={};
+    datos.forEach(function(d){ var s=d['Sector']||'Otros'; if(!_seen[s]){_seen[s]=1;_secs.push(s);} });
+    _secs.sort().forEach(function(s){ var o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+  }
   _hmDraw(datos);
 };
 
@@ -4807,12 +4831,58 @@ function _hmDraw(datos){
   var cont=document.getElementById('wb-hm-container');
   if(!svg||!cont) return;
   var W=cont.clientWidth||800, H=cont.clientHeight||520;
-  svg.setAttribute('viewBox','0 0 '+W+' '+H);
-  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  var isMobile=W<650;
 
-  // Group by sector
+  // Apply sector filter
+  var filtered=_hmSectorFilter
+    ? datos.filter(function(d){ return (d['Sector']||'Otros')===_hmSectorFilter; })
+    : datos;
+  if(!filtered.length) return;
+
+  // Compute draw height for scroll support
+  var drawH;
+  if(_hmSectorFilter){
+    // Single sector: flat layout, taller on mobile so cells are readable
+    drawH=isMobile ? Math.max(H, Math.ceil(filtered.length/3)*72) : H;
+  } else {
+    var nSecs=0; var _tmp={}; filtered.forEach(function(d){ _tmp[d['Sector']||'Otros']=1; }); for(var _k in _tmp) nSecs++;
+    drawH=isMobile ? Math.max(H, nSecs*110) : H;
+  }
+
+  svg.setAttribute('viewBox','0 0 '+W+' '+drawH);
+  svg.setAttribute('width',W); svg.setAttribute('height',drawH);
+  svg.style.minHeight=drawH+'px';
+
+  // Single-sector mode: flat treemap of tickers only
+  if(_hmSectorFilter){
+    var caps2=filtered.map(function(d){return _n(d['Market Cap USD']);}).filter(function(v){return v&&v>0;}).sort(function(a,b){return a-b;});
+    var gMed2=caps2.length?caps2[Math.floor(caps2.length/2)]:1e9;
+    var tkFlat=filtered.map(function(d){return{value:_n(d['Market Cap USD'])||gMed2,data:d};});
+    var PAD2=2; var html2='';
+    squarify(tkFlat,PAD2,PAD2,W-PAD2*2,drawH-PAD2*2).forEach(function(tr){
+      var d=tr.data, tw=tr.w-1, th=tr.h-1;
+      if(tw<2||th<2) return;
+      var col=_getCol(d,_metric), ticker=d['Ticker']||'';
+      var val=_getVal(d,_metric), vs=_fmtVal(val,_metric);
+      html2+='<rect x="'+tr.x+'" y="'+tr.y+'" width="'+tw+'" height="'+th+'" fill="'+col+'" rx="2" class="wbht" data-t="'+_esc(ticker)+'"/>';
+      if(tw>=28&&th>=16){
+        var fs=tw>=44&&th>=28?11:9; var midY=tr.y+th/2; var showVal=tw>=44&&th>=28;
+        html2+='<text x="'+(tr.x+tw/2)+'" y="'+(midY+(showVal?-6:0))+'" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono,monospace" font-size="'+fs+'" font-weight="600" fill="rgba(255,255,255,0.9)" style="pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.8)">'+_esc(ticker)+'</text>';
+        if(showVal) html2+='<text x="'+(tr.x+tw/2)+'" y="'+(midY+8)+'" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono,monospace" font-size="9" fill="rgba(255,255,255,0.55)" style="pointer-events:none">'+_esc(vs)+'</text>';
+      } else if(tw>=16&&th>=10){
+        html2+='<text x="'+(tr.x+tw/2)+'" y="'+(tr.y+th/2)+'" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono,monospace" font-size="8" font-weight="600" fill="rgba(255,255,255,0.75)" style="pointer-events:none">'+_esc(ticker.slice(0,3))+'</text>';
+      }
+    });
+    html2+='<rect x="'+(W-94)+'" y="'+(drawH-21)+'" width="90" height="17" rx="3" fill="rgba(0,0,0,0.28)"/>';
+    html2+='<text x="'+(W-49)+'" y="'+(drawH-9)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="11" fill="rgba(255,255,255,0.28)" letter-spacing=".08em" style="pointer-events:none">@WarrenBife</text>';
+    svg.innerHTML=html2;
+    _hmBindEvents(filtered);
+    return;
+  }
+
+  // Group by sector (multi-sector mode)
   var secs={};
-  datos.forEach(function(d){ var s=d['Sector']||'Otros'; if(!secs[s])secs[s]=[]; secs[s].push(d); });
+  filtered.forEach(function(d){ var s=d['Sector']||'Otros'; if(!secs[s])secs[s]=[]; secs[s].push(d); });
 
   // Global median cap for fallback
   var caps=datos.map(function(d){return _n(d['Market Cap USD']);}).filter(function(v){return v&&v>0;}).sort(function(a,b){return a-b;});
@@ -4826,7 +4896,7 @@ function _hmDraw(datos){
     return {name:name,value:total||1,tickers:tks,sMed:sMed};
   });
 
-  var secRects=squarify(secItems,0,0,W,H);
+  var secRects=squarify(secItems,0,0,W,drawH);
   var HDR=18, PAD=2;
   var html='';
 
@@ -4869,16 +4939,19 @@ function _hmDraw(datos){
   });
 
   // Watermark
-  html+='<rect x="'+(W-94)+'" y="'+(H-21)+'" width="90" height="17" rx="3" fill="rgba(0,0,0,0.28)"/>';
-  html+='<text x="'+(W-49)+'" y="'+(H-9)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="11" fill="rgba(255,255,255,0.28)" letter-spacing=".08em" style="pointer-events:none">@WarrenBife</text>';
+  html+='<rect x="'+(W-94)+'" y="'+(drawH-21)+'" width="90" height="17" rx="3" fill="rgba(0,0,0,0.28)"/>';
+  html+='<text x="'+(W-49)+'" y="'+(drawH-9)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="11" fill="rgba(255,255,255,0.28)" letter-spacing=".08em" style="pointer-events:none">@WarrenBife</text>';
 
   svg.innerHTML=html;
+  _hmBindEvents(filtered);
+}
 
+function _hmBindEvents(filteredDatos){
+  var svg=document.getElementById('wb-hm-svg');
+  if(!svg) return;
   var fechaEl=document.getElementById('wb-hm-fecha');
   if(fechaEl){ var now=new Date(); fechaEl.textContent='Datos al cierre del '+now.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-
-  // Events (delegation)
-  var byT={}; datos.forEach(function(d){byT[d['Ticker']]=d;});
+  var byT={}; filteredDatos.forEach(function(d){byT[d['Ticker']]=d;});
   var tip=document.getElementById('wb-hm-tooltip');
   svg.onmousemove=function(e){
     var el=e.target; if(!el.classList||!el.classList.contains('wbht')){if(tip)tip.style.display='none';return;}
@@ -4897,6 +4970,7 @@ function _hmDraw(datos){
     tip.style.left=px+'px'; tip.style.top=py+'px'; tip.style.display='block';
   };
   svg.onmouseleave=function(){if(tip)tip.style.display='none';};
+  svg.ontouchend=function(){if(tip)tip.style.display='none';};
   svg.onclick=function(e){
     var el=e.target; if(!el.classList||!el.classList.contains('wbht')) return;
     var ticker=el.getAttribute('data-t'); if(!ticker) return;
@@ -4989,9 +5063,14 @@ try{
    BUSCADOR
 ──────────────────────────────────────────────── */
 try{
-  var tr=document.querySelector('.topbar-right');
+  var gf=document.querySelector('.global-filters');
   var sw=document.getElementById('wb-search-wrap');
-  if(tr&&sw){ tr.appendChild(sw); sw.style.display='flex'; }
+  if(gf&&sw){
+    var _sp=document.createElement('div'); _sp.className='gf-sep';
+    gf.appendChild(_sp);
+    gf.appendChild(sw);
+    sw.style.display='flex';
+  }
 }catch(e){}
 
 var _srchOpen=false, _srchFocus=-1;
