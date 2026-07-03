@@ -1710,7 +1710,7 @@ function renderBreakout() {
       <div class="brk-head">
         <span class="brk-ticker">${d['Ticker']}</span>
         <span style="display:flex;gap:5px;align-items:center;">
-          ${ok ? '<span class="brk-badge-valid">VÁLIDO</span>' : `<span class="brk-days">${ago !== null ? daysLabel(ago) : ''}</span>`}
+          ${fail ? '' : ok ? '<span class="brk-badge-valid">VÁLIDO</span>' : `<span class="brk-days">${ago !== null ? daysLabel(ago) : ''}</span>`}
           ${fail ? '<span class="brk-badge-fail">FAIL BREAK OUT</span>' : ''}
         </span>
       </div>
