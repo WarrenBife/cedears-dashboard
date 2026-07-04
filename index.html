@@ -347,17 +347,17 @@
   .earnings-title{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--amber);letter-spacing:0.08em;text-transform:uppercase;}
   .earnings-week{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.18);padding:1px 8px;border-radius:999px;}
   .earnings-note{font-size:9px;color:rgba(115,125,143,0.5);margin-left:auto;font-style:italic;}
-  .earnings-cards{display:flex;gap:10px;padding:6px 22px 12px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(245,166,35,0.2) transparent;justify-content:center;flex-wrap:wrap;}
+  .earnings-cards{display:flex;gap:8px;padding:6px 22px 12px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin;scrollbar-color:rgba(245,166,35,0.2) transparent;}
   .earnings-cards::-webkit-scrollbar{height:3px;}
   .earnings-cards::-webkit-scrollbar-thumb{background:rgba(245,166,35,0.25);border-radius:2px;}
-  .earn-card{flex:1;min-width:240px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:7px 12px;display:flex;align-items:center;gap:8px;transition:border-color .2s var(--ease),transform .2s var(--ease);}
+  .earn-card{flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:7px 12px;display:flex;align-items:center;gap:8px;transition:border-color .2s var(--ease),transform .2s var(--ease);}
   .earn-card:hover{border-color:rgba(245,166,35,0.4);transform:translateY(-1px);}
   .earn-logo-wrap{flex-shrink:0;}
   .earn-logo{width:26px;height:26px;border-radius:6px;object-fit:contain;background:#fff;padding:2px;display:block;}
   .earn-logo-fb{width:26px;height:26px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:8px;font-weight:500;color:var(--muted);}
   .earn-vbar{width:1px;height:14px;background:var(--border2);flex-shrink:0;}
   .earn-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--text);letter-spacing:0.02em;flex-shrink:0;min-width:38px;}
-  .earn-name{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+  .earn-name{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
   .earn-date{font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace;flex-shrink:0;white-space:nowrap;}
   .earn-row{display:flex;align-items:center;gap:5px;flex-shrink:0;}
   .earn-bmo{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(79,142,247,0.25);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
@@ -2020,6 +2020,24 @@ const TICKER_DOMAINS = {
   YPF:'ypf.com',MELI:'mercadolibre.com',NU:'nu.com.br',
   PLTR:'palantir.com',ANET:'arista.com',SNDK:'sandisk.com',
   NBIS:'nebius.com',ONDS:'ondas.com',
+  PEP:'pepsico.com',KO:'coca-cola.com',PM:'pmi.com',MDLZ:'mondelezinternational.com',
+  WBA:'walgreens.com',CVS:'cvs.com',VZ:'verizon.com',TMUS:'t-mobile.com',
+  T:'att.com',DG:'dollargeneral.com',DLTR:'dollartree.com',EA:'ea.com',
+  TTWO:'take2games.com',ATVI:'activision.com',ZM:'zoom.us',PANW:'paloaltonetworks.com',
+  CRWD:'crowdstrike.com',S:'sentinelone.com',NET:'cloudflare.com',DDOG:'datadoghq.com',
+  MDB:'mongodb.com',ESTC:'elastic.co',PATH:'uipath.com',AI:'c3.ai',
+  ARM:'arm.com',SMCI:'supermicro.com',DELL:'dell.com',HPQ:'hp.com',HPE:'hpe.com',
+  WDC:'westerndigital.com',STX:'seagate.com',LRCX:'lamresearch.com',KLAC:'kla.com',
+  MRVL:'marvell.com',SWKS:'skyworks.com',QRVO:'qorvo.com',TER:'teradyne.com',
+  AMT:'americantower.com',CCI:'crowncastle.com',SBAC:'sbasite.com',
+  PLD:'prologis.com',EQIX:'equinix.com',DLR:'digitalrealty.com',
+  SPG:'simon.com',PSA:'publicstorage.com',EXR:'extraspace.com',
+  MCO:'moodys.com',ICE:'theice.com',CME:'cmegroup.com',MSCI:'msci.com',
+  AFL:'aflac.com',MET:'metlife.com',PRU:'prudential.com',TRV:'travelers.com',
+  AON:'aon.com',MMC:'marshmclennan.com',CB:'chubb.com',ALL:'allstate.com',
+  EMR:'emerson.com',ETN:'eaton.com',ROK:'rockwellautomation.com',IR:'irco.com',
+  PH:'parker.com',ITW:'itw.com',SHW:'sherwin-williams.com',ECL:'ecolab.com',
+  APD:'airproducts.com',LIN:'linde.com',PPG:'ppg.com',NUE:'nucor.com',
 };
 
 function getLogoUrl(ticker) {
