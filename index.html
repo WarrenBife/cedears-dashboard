@@ -350,14 +350,16 @@
   .earnings-cards{display:flex;gap:10px;padding:6px 22px 12px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(245,166,35,0.2) transparent;justify-content:center;flex-wrap:wrap;}
   .earnings-cards::-webkit-scrollbar{height:3px;}
   .earnings-cards::-webkit-scrollbar-thumb{background:rgba(245,166,35,0.25);border-radius:2px;}
-  .earn-card{flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;min-width:160px;max-width:175px;transition:border-color .2s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease);}
-  .earn-card:hover{border-color:rgba(245,166,35,0.4);transform:translateY(-2px);box-shadow:0 8px 20px -10px rgba(245,166,35,0.2);}
-  .earn-logo{width:38px;height:38px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;margin-bottom:9px;display:block;}
-  .earn-logo-fb{width:38px;height:38px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--muted);margin-bottom:9px;}
+  .earn-card{flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:8px 11px;display:flex;align-items:center;gap:9px;min-width:195px;max-width:230px;transition:border-color .2s var(--ease),transform .2s var(--ease);}
+  .earn-card:hover{border-color:rgba(245,166,35,0.4);transform:translateY(-1px);}
+  .earn-logo-wrap{flex-shrink:0;}
+  .earn-logo{width:30px;height:30px;border-radius:50%;object-fit:contain;background:#fff;padding:2px;display:block;}
+  .earn-logo-fb{width:30px;height:30px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;color:var(--muted);}
+  .earn-info{flex:1;min-width:0;}
   .earn-ticker{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);letter-spacing:0.02em;}
-  .earn-name{font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .earn-date{font-size:11px;color:var(--text);font-family:'DM Mono',monospace;}
-  .earn-row{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;}
+  .earn-name{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .earn-date{font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-top:2px;}
+  .earn-row{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap;}
   .earn-bmo{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(79,142,247,0.25);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
   .earn-amc{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,0.25);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
   .earn-tbd{font-size:9px;font-family:'DM Mono',monospace;font-weight:500;background:var(--bg3);color:var(--muted);border:1px solid var(--border2);padding:1px 7px;border-radius:4px;letter-spacing:0.03em;}
@@ -2022,7 +2024,7 @@ const TICKER_DOMAINS = {
 
 function getLogoUrl(ticker) {
   const domain = TICKER_DOMAINS[ticker] || `${ticker.toLowerCase()}.com`;
-  return `https://cdn.tickerlogos.com/${domain}`;
+  return `https://logo.clearbit.com/${domain}`;
 }
 
 function nextWeekRange() {
@@ -2063,17 +2065,21 @@ function buildEarningsCards(list) {
     const uid     = e.ticker.replace(/[^A-Z0-9]/g,'');
     const eps     = e.epsEst != null ? `<div class="earn-days" style="margin-top:3px">EPS est: <span style="color:var(--text)">${e.epsEst > 0 ? '+' : ''}${Number(e.epsEst).toFixed(2)}</span></div>` : '';
     return `<div class="earn-card">
-      <img class="earn-logo" src="${logo}" alt="${e.ticker}"
-           onerror="this.style.display='none';document.getElementById('ef-${uid}').style.display='flex'">
-      <div class="earn-logo-fb" id="ef-${uid}" style="display:none">${e.ticker.slice(0,2)}</div>
-      <div class="earn-ticker">${e.ticker}</div>
-      <div class="earn-name" title="${e.name}">${e.name || '—'}</div>
-      <div class="earn-date">📅 ${dateStr}</div>
-      <div class="earn-row">
-        <span class="${whenCls}">${whenLbl}</span>
-        <span class="earn-days">${daysStr}</span>
+      <div class="earn-logo-wrap">
+        <img class="earn-logo" src="${logo}" alt="${e.ticker}"
+             onerror="this.style.display='none';document.getElementById('ef-${uid}').style.display='flex'">
+        <div class="earn-logo-fb" id="ef-${uid}" style="display:none">${e.ticker.slice(0,2)}</div>
       </div>
-      ${eps}
+      <div class="earn-info">
+        <div class="earn-ticker">${e.ticker}</div>
+        <div class="earn-name" title="${e.name}">${e.name || '—'}</div>
+        <div class="earn-date">📅 ${dateStr}</div>
+        <div class="earn-row">
+          <span class="${whenCls}">${whenLbl}</span>
+          <span class="earn-days">${daysStr}</span>
+        </div>
+        ${eps}
+      </div>
     </div>`;
   }).join('');
 }
@@ -2160,7 +2166,7 @@ function renderTickerStrip() {
     const icon = STRIP_ICONS[sym];
     const iconHtml = icon.type === 'flag'
       ? `<img src="${icon.url}" style="width:28px;border-radius:3px;vertical-align:middle;" alt="${sym}">`
-      : `<img src="https://cdn.tickerlogos.com/${icon.domain}" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display='none'">`;
+      : `<img src="https://logo.clearbit.com/${icon.domain}" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display='none'">`;
     return `<div class="ticker-item" style="background:${bgColor};border:1px solid ${borderColor};">
       ${iconHtml}
       <span class="ticker-sym">${sym}</span>
