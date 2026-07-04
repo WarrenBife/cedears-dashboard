@@ -62,7 +62,21 @@
   .btn:hover{background:rgba(34,201,138,0.2);box-shadow:0 0 16px rgba(34,201,138,0.2);transform:translateY(-1px);}
   .btn:active{transform:translateY(0);}
 
-  .global-filters{display:flex;align-items:center;gap:8px;padding:9px 24px;background:rgba(13,17,24,0.6);border-bottom:1px solid var(--border);flex-wrap:wrap;backdrop-filter:blur(8px);position:relative;z-index:50;}
+  .gf-bar{display:flex;align-items:center;gap:8px;padding:8px 24px;background:rgba(13,17,24,0.6);border-bottom:1px solid var(--border);flex-wrap:wrap;backdrop-filter:blur(8px);position:relative;z-index:100;}
+  .gf-toggle-btn{display:flex;align-items:center;gap:6px;background:rgba(34,201,138,0.07);border:1px solid rgba(34,201,138,0.28);color:var(--green);padding:5px 12px;border-radius:999px;cursor:pointer;font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;line-height:1.4;}
+  .gf-toggle-btn:hover{background:rgba(34,201,138,0.14);border-color:rgba(34,201,138,0.45);}
+  .gf-toggle-btn.panel-open{background:rgba(34,201,138,0.14);border-color:rgba(34,201,138,0.5);box-shadow:0 0 12px rgba(34,201,138,0.12);}
+  .gf-btn-badge{background:var(--green);color:#0d0f14;border-radius:999px;padding:0 5px;font-size:9px;font-weight:700;font-family:'DM Mono',monospace;line-height:1.7;min-width:16px;text-align:center;}
+  .gf-panel{background:rgba(13,15,22,0.97);border-bottom:1px solid rgba(34,201,138,0.18);backdrop-filter:blur(14px);display:none;}
+  .gf-panel.open{display:block;}
+  .gf-panel-inner{display:flex;align-items:center;padding:10px 24px;gap:6px;flex-wrap:wrap;}
+  .gf-group{display:flex;flex-direction:column;gap:4px;}
+  .gf-group-label{color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+  .gf-check-label{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-dim);font-size:11px;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+  .gf-check-label input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer;}
+  .gf-vdiv{width:1px;height:32px;background:linear-gradient(180deg,transparent,var(--border2),transparent);margin:0 6px;flex-shrink:0;}
+  .gf-clear-btn{background:none;border:1px solid rgba(240,96,90,0.28);color:rgba(240,96,90,0.75);padding:4px 10px;border-radius:999px;cursor:pointer;font-size:10px;font-family:'DM Sans',sans-serif;transition:all .2s;margin-left:4px;white-space:nowrap;}
+  .gf-clear-btn:hover{background:rgba(240,96,90,0.1);border-color:var(--red);color:var(--red);}
   .gf-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap;}
   .gf-sep{width:1px;height:18px;background:linear-gradient(180deg,transparent,var(--border2),transparent);margin:0 2px;}
   select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:5px 26px 5px 10px;border-radius:var(--r-sm);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23737d8f'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;transition:border-color .2s var(--ease);}
@@ -182,7 +196,7 @@
   .ticker-chg{font-family:'DM Mono',monospace;font-size:10px;font-variant-numeric:tabular-nums;}
 
   @media(max-width:1200px){.stats-row{grid-template-columns:repeat(3,1fr);}.grid-2{grid-template-columns:1fr;}}
-  @media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr);}.main{padding:14px;}.topbar,.global-filters{padding-left:14px;padding-right:14px;}}
+  @media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr);}.main{padding:14px;}.topbar,.gf-bar,.gf-panel-inner{padding-left:14px;padding-right:14px;}}
   @media(max-width:600px){#home-idx-spy,#home-idx-qqq{display:none!important;}}
 
   /* ── VISTAS / NAVEGACIÓN ────────────────────────────────────── */
@@ -506,41 +520,55 @@
   </div>
 </div>
 
-<div class="global-filters">
-  <span class="gf-label">Filtros</span>
-  <div class="gf-sep"></div>
-  <span class="gf-label">Tipo</span>
-  <select id="gf-tipo" onchange="renderTodo()"><option value="todos">Todos</option><option value="Acción">Acciones</option><option value="ETF">ETFs</option></select>
-  <div class="gf-sep"></div>
-  <span class="gf-label">Market Cap</span>
-  <select id="gf-mcap" onchange="renderTodo()">
-    <option value="todos">Todos</option>
-    <option value="Mega Cap">Mega Cap</option>
-    <option value="Large Cap">Large Cap</option>
-    <option value="Mid Cap">Mid Cap</option>
-    <option value="Small Cap">Small Cap</option>
-  </select>
-  <div class="gf-sep"></div>
-  <span class="gf-label">Sector</span>
-  <select id="gf-sector" onchange="renderTodo()"><option value="todos">Todos</option></select>
-  <div class="gf-sep"></div>
-  <span class="gf-label">Vol inusual</span>
-  <select id="gf-vol" onchange="renderTodo()">
-    <option value="todos">Todos</option>
-    <option value="50">+50%</option>
-    <option value="100">+100%</option>
-    <option value="200">+200%</option>
-  </select>
-  <div class="gf-sep"></div>
-  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-    <input type="checkbox" id="gf-no-max52" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
-    <span class="gf-label">Sin máx 52W reciente</span>
-  </label>
-  <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-    <input type="checkbox" id="gf-ema200-asc" onchange="renderTodo()" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
-    <span class="gf-label">EMA200 en ascenso</span>
-  </label>
+<div class="gf-bar">
+  <button id="gf-toggle" class="gf-toggle-btn" onclick="toggleFilterPanel()">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
+    Filtros
+    <span id="gf-badge" class="gf-btn-badge" style="display:none">0</span>
+  </button>
   <div id="active-filters"></div>
+</div>
+
+<div id="gf-panel" class="gf-panel">
+  <div class="gf-panel-inner">
+    <div class="gf-group">
+      <span class="gf-group-label">Tipo</span>
+      <select id="gf-tipo" onchange="renderTodo()"><option value="todos">Todos</option><option value="Acción">Acciones</option><option value="ETF">ETFs</option></select>
+    </div>
+    <div class="gf-vdiv"></div>
+    <div class="gf-group">
+      <span class="gf-group-label">Market Cap</span>
+      <select id="gf-mcap" onchange="renderTodo()">
+        <option value="todos">Todos</option>
+        <option value="Mega Cap">Mega Cap</option>
+        <option value="Large Cap">Large Cap</option>
+        <option value="Mid Cap">Mid Cap</option>
+        <option value="Small Cap">Small Cap</option>
+      </select>
+    </div>
+    <div class="gf-vdiv"></div>
+    <div class="gf-group">
+      <span class="gf-group-label">Sector</span>
+      <select id="gf-sector" onchange="renderTodo()"><option value="todos">Todos</option></select>
+    </div>
+    <div class="gf-vdiv"></div>
+    <div class="gf-group">
+      <span class="gf-group-label">Vol inusual</span>
+      <select id="gf-vol" onchange="renderTodo()">
+        <option value="todos">Todos</option>
+        <option value="50">+50%</option>
+        <option value="100">+100%</option>
+        <option value="200">+200%</option>
+      </select>
+    </div>
+    <div class="gf-vdiv"></div>
+    <div class="gf-group" style="gap:6px">
+      <label class="gf-check-label"><input type="checkbox" id="gf-no-max52" onchange="renderTodo()">Sin máx 52W reciente</label>
+      <label class="gf-check-label"><input type="checkbox" id="gf-ema200-asc" onchange="renderTodo()">EMA200 en ascenso</label>
+    </div>
+    <div class="gf-vdiv"></div>
+    <button class="gf-clear-btn" onclick="clearAllFilters()">✕ Limpiar todo</button>
+  </div>
 </div>
 
 <div class="ticker-strip-outer">
@@ -935,9 +963,28 @@ function actualizarBadges() {
   const vals = [['gf-tipo','todos'],['gf-mcap','todos'],['gf-sector','todos'],['gf-vol','todos']];
   const labels = vals.map(([id]) => document.getElementById(id))
     .map((el, i) => el.value !== vals[i][1] ? el.options[el.selectedIndex].text : null).filter(Boolean);
+  if (document.getElementById('gf-no-max52').checked) labels.push('Sin máx 52W');
+  if (document.getElementById('gf-ema200-asc').checked) labels.push('EMA200 asc.');
   document.getElementById('active-filters').innerHTML = labels.map(l =>
     `<span style="background:var(--blue-bg);border:1px solid rgba(79,142,247,0.3);color:var(--blue);padding:2px 7px;border-radius:4px;font-size:10px">${l}</span>`
   ).join('');
+  const badge = document.getElementById('gf-badge');
+  if (badge) { badge.textContent = labels.length; badge.style.display = labels.length > 0 ? '' : 'none'; }
+}
+
+function toggleFilterPanel() {
+  const panel = document.getElementById('gf-panel');
+  const btn = document.getElementById('gf-toggle');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('panel-open', !isOpen);
+}
+
+function clearAllFilters() {
+  ['gf-tipo','gf-mcap','gf-sector','gf-vol'].forEach(id => { document.getElementById(id).value = 'todos'; });
+  document.getElementById('gf-no-max52').checked = false;
+  document.getElementById('gf-ema200-asc').checked = false;
+  renderTodo();
 }
 
 const NOMBRES = {
@@ -4623,7 +4670,7 @@ if ('serviceWorker' in navigator) {
   <div id="wb-ficha-inner" class="wb-ficha-inner"></div>
 </div>
 
-<!-- Search wrap (inyectado al final de global-filters vía JS) -->
+<!-- Search wrap (inyectado al final de gf-bar vía JS) -->
 <div id="wb-search-wrap" style="display:none;position:relative;align-items:center;margin-left:auto;">
   <button id="wb-search-btn" class="wb-search-btn" onclick="wbToggleSearch()" title="Buscar ticker (/)">
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
@@ -5083,7 +5130,7 @@ try{
    BUSCADOR
 ──────────────────────────────────────────────── */
 try{
-  var gf=document.querySelector('.global-filters');
+  var gf=document.querySelector('.gf-bar');
   var sw=document.getElementById('wb-search-wrap');
   if(gf&&sw){
     gf.appendChild(sw);
@@ -5144,7 +5191,14 @@ function _renderDd(q){
 
 function _pickTicker(t){ _closeDd(); if(_srchOpen) wbToggleSearch(); wbAbrirFicha(t); }
 
-document.addEventListener('click',function(e){ if(!e.target.closest||!e.target.closest('#wb-search-wrap')) _closeDd(); });
+document.addEventListener('click',function(e){
+  if(!e.target.closest||!e.target.closest('#wb-search-wrap')) _closeDd();
+  if(e.target.closest&&!e.target.closest('#gf-panel')&&!e.target.closest('#gf-toggle')){
+    var p=document.getElementById('gf-panel');
+    var b=document.getElementById('gf-toggle');
+    if(p){p.classList.remove('open');} if(b){b.classList.remove('panel-open');}
+  }
+});
 document.addEventListener('keydown',function(e){
   if(e.key==='/'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='SELECT'&&document.activeElement.tagName!=='TEXTAREA'){
     e.preventDefault(); if(!_srchOpen) wbToggleSearch(); else{ var i=document.getElementById('wb-search-input'); if(i)i.focus(); }
