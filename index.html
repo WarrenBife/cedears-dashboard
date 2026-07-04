@@ -62,7 +62,7 @@
   .btn:hover{background:rgba(34,201,138,0.2);box-shadow:0 0 16px rgba(34,201,138,0.2);transform:translateY(-1px);}
   .btn:active{transform:translateY(0);}
 
-  .global-filters{display:flex;align-items:center;gap:8px;padding:9px 24px;background:rgba(13,17,24,0.6);border-bottom:1px solid var(--border);flex-wrap:wrap;backdrop-filter:blur(8px);}
+  .global-filters{display:flex;align-items:center;gap:8px;padding:9px 24px;background:rgba(13,17,24,0.6);border-bottom:1px solid var(--border);flex-wrap:wrap;backdrop-filter:blur(8px);position:relative;z-index:50;}
   .gf-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap;}
   .gf-sep{width:1px;height:18px;background:linear-gradient(180deg,transparent,var(--border2),transparent);margin:0 2px;}
   select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:5px 26px 5px 10px;border-radius:var(--r-sm);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23737d8f'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;transition:border-color .2s var(--ease);}
@@ -4623,8 +4623,8 @@ if ('serviceWorker' in navigator) {
   <div id="wb-ficha-inner" class="wb-ficha-inner"></div>
 </div>
 
-<!-- Search wrap (inyectado en topbar vía JS) -->
-<div id="wb-search-wrap" style="display:none;position:relative;align-items:center;">
+<!-- Search wrap (inyectado al final de global-filters vía JS) -->
+<div id="wb-search-wrap" style="display:none;position:relative;align-items:center;margin-left:auto;">
   <button id="wb-search-btn" class="wb-search-btn" onclick="wbToggleSearch()" title="Buscar ticker (/)">
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
   </button>
@@ -5086,7 +5086,7 @@ try{
   var gf=document.querySelector('.global-filters');
   var sw=document.getElementById('wb-search-wrap');
   if(gf&&sw){
-    gf.insertBefore(sw,gf.firstChild);
+    gf.appendChild(sw);
     sw.style.display='flex';
   }
 }catch(e){}
