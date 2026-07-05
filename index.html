@@ -6251,6 +6251,7 @@ document.addEventListener('click',function(e){
   });
   selSector=(selSector===hit)?null:hit;
   draw();
+  _syncLectActiva();
 });
 
 /* ── Tooltip ejes ── */
@@ -6421,7 +6422,11 @@ function calcLectura(){
   }
 
   /* Generar líneas */
-  const nom=t=>`<strong>${ETF_TO_SECTOR[t]||t}</strong>`;
+  const nom=t=>{
+    const sec=ETF_TO_SECTOR[t]||t;
+    const tick=ETF_TO_SECTOR[t]?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-left:4px">(${t})</span>`:'';
+    return `<strong>${sec}</strong>${tick}`;
+  };
   const N=n=>`<span style="font-family:'DM Mono',monospace">${n}</span>`;
 
   const linea=ev=>{
@@ -6455,9 +6460,27 @@ function calcLectura(){
 
   el.innerHTML=
     `<div class="lect-titulo">📡 LECTURA DE ROTACIÓN${dateStr?' — semana del '+dateStr:''}</div>`+
-    top.map(ev=>`<div class="lect-ev">${linea(ev)}</div>`).join('')+
+    top.map(ev=>`<div class="lect-ev" data-sec="${ev.sec}" onclick="wbRrgLectClick('${ev.sec}')" style="cursor:pointer;border-radius:6px;padding:2px 5px;margin:0 -5px 2px;transition:background .15s">${linea(ev)}</div>`).join('')+
     warrenLine;
+
+  /* marcar línea activa si hay selección */
+  _syncLectActiva();
 }
+
+/* ── Click en línea de lectura → aislar estela ── */
+function _syncLectActiva(){
+  document.querySelectorAll('#rrg-lectura .lect-ev').forEach(div=>{
+    const active = div.dataset.sec === selSector;
+    div.style.background = active ? 'rgba(34,201,138,0.08)' : '';
+    div.style.boxShadow  = active ? 'inset 3px 0 0 var(--green)' : '';
+  });
+}
+
+window.wbRrgLectClick = function(sec){
+  selSector = (selSector === sec) ? null : sec;
+  draw();
+  _syncLectActiva();
+};
 
 /* ── Hook en renderTodo ── */
 try{
