@@ -5777,6 +5777,7 @@ let series = null;
 let rrgCx = 100, rrgCy = 100, rrgSource = 'none';
 let built = false;
 let roTimer = null;
+let refChartH = 0; /* altura del canvas Acciones capturada antes de ocultarlo */
 
 const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                   'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA'];
@@ -5847,6 +5848,10 @@ function buildV7(){
     if(modo==='etfs'){ clearTimeout(roTimer); roTimer=setTimeout(draw,150); }
   });
   ro.observe(panel);
+
+  /* capturar altura del canvas Acciones mientras aún es visible */
+  const _cvA = document.getElementById('wbRrgChart');
+  if(_cvA && _cvA.offsetHeight > 80) refChartH = _cvA.offsetHeight;
 
   built = true;
 }
@@ -5996,9 +6001,7 @@ function draw(){
   }
 
   const W=cv.offsetWidth||500;
-  /* usar la misma altura que el canvas de Acciones; fallback a proporcional */
-  const cvA=document.getElementById('wbRrgChart');
-  const H=(cvA&&cvA.offsetHeight>100)?cvA.offsetHeight:Math.max(380,W*0.72);
+  const H=refChartH>80 ? refChartH : Math.max(320,Math.min(460,W*0.62));
   const dpr=window.devicePixelRatio||1;
   cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px';
   const ctx=cv.getContext('2d');
