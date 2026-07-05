@@ -6082,25 +6082,22 @@ function draw(){
         const ep=(i===n-1&&wi<pts.length-1)?cur:tPts[i];
         ctx.lineTo(tx(ep.x),ty(ep.y)); ctx.stroke();
       }
-      /* punto de inicio de la estela (extremo viejo) */
-      if(n>=2){
-        const ox=tx(tPts[0].x), oy=ty(tPts[0].y);
-        ctx.save();
-        ctx.globalAlpha=0.55*alpha;
-        ctx.fillStyle='rgba(255,255,255,0.9)';
-        ctx.beginPath(); ctx.arc(ox,oy,2.5,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-      }
     }
 
-    /* burbuja */
+    /* burbuja — relleno blanco con anillo del color del cuadrante */
     const bx=tx(cur.x), by=ty(cur.y);
     ctx.save();
     ctx.globalAlpha=alpha;
-    ctx.shadowColor=`rgba(${rgb},0.7)`; ctx.shadowBlur=10;
-    ctx.fillStyle=`rgba(${rgb},0.9)`;
-    ctx.beginPath(); ctx.arc(bx,by,6.5,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur=0; ctx.restore();
+    ctx.shadowColor=`rgba(${rgb},0.8)`; ctx.shadowBlur=12;
+    /* relleno blanco */
+    ctx.fillStyle='rgba(255,255,255,0.95)';
+    ctx.beginPath(); ctx.arc(bx,by,6,0,Math.PI*2); ctx.fill();
+    /* anillo del color del cuadrante */
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=`rgba(${rgb},1)`;
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.restore();
 
     /* etiqueta — blanco con sombra oscura para contrastar con estelas */
     if(alpha>0.25){
