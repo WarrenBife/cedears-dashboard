@@ -6399,7 +6399,7 @@ function calcLectura(){
 
   /* Evento 6 — Mayor recorrido (p40), solo si no cubierto por p80+ */
   if(bestTrailSec && !coveredSevere.has(bestTrailSec) && !evts.some(e=>e.sec===bestTrailSec))
-    evts.push({type:'rec',prio:40,sec:s?bestTrailSec:bestTrailSec});
+    evts.push({type:'rec',prio:40,sec:bestTrailSec});
 
   evts.sort((a,b)=>b.prio-a.prio);
   const top=evts.slice(0,4);
