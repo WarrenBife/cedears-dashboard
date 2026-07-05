@@ -3682,7 +3682,7 @@ if ('serviceWorker' in navigator) {
     u.forEach(function(d){
       if(num(d['Dist EMA200 %'])>0) sobreE++;
       if(num(d['Dist SMA50 %'])>0) sobre50++;
-      if(b_(d['Breakout Fresh'])) frescos++;
+      if(isValidBreakout(d)) frescos++;
       if(b_(d['VCP Detected'])) vcp++;
     });
     var pE = sobreE/n*100, p50 = sobre50/n*100;
@@ -3795,7 +3795,7 @@ if ('serviceWorker' in navigator) {
       var dy=rs-prev;
       if(dy < -30) return null;                              /* excluir por debajo del eje */
       if(soloMes && (mes==null || rs<=mes)) return null;     /* filtro RS vs mes anterior */
-      var isBrk = b_(d['Breakout Fresh']);
+      var isBrk = isValidBreakout(d);
       var vi    = num(d['Vol Inusual %'])||0;
       var r     = capToR(cap);
       if(isBrk)    r = Math.min(22, r+2);
@@ -4186,7 +4186,7 @@ if ('serviceWorker' in navigator) {
     var log=brkLoad(), hoy=hoyISO(), ya={};
     log.forEach(function(e){ if(e.f===hoy) ya[e.t]=true; });
     DATOS.forEach(function(d){
-      if(b_(d['Breakout Fresh'])&&!ya[d['Ticker']]){
+      if(isValidBreakout(d)&&!ya[d['Ticker']]){
         var p=num(d['Precio']); if(p) log.push({f:hoy,t:d['Ticker'],p:p});
       }
     });
