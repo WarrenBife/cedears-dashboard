@@ -5761,6 +5761,7 @@ window.wbIrARiesgo=function(ticker){
 #rrg-slider{flex:1;min-width:80px;accent-color:var(--green);cursor:pointer;}
 .rrg-caption{display:none;gap:12px;flex-wrap:wrap;padding:4px 18px 10px;font-family:'DM Mono',monospace;font-size:10px;align-items:center;}
 #wbRrgSectores{display:none;width:100%;cursor:crosshair;}
+#rrg-axis-tip{display:none;position:fixed;z-index:9999;background:rgba(13,17,23,0.96);border:1px solid rgba(255,255,255,0.1);color:rgba(180,190,210,0.9);font-family:'DM Sans',sans-serif;font-size:11px;line-height:1.45;padding:7px 11px;border-radius:7px;max-width:230px;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,0.55);}
 </style>
 
 <script id="wb-v7-js">
@@ -6215,6 +6216,36 @@ document.addEventListener('click',function(e){
   selSector=(selSector===hit)?null:hit;
   draw();
 });
+
+/* ── Tooltip ejes ── */
+(function(){
+  const TIP={
+    x:'Distancia al promedio histórico (12 semanas) de fuerza relativa vs SPY. 0 = promedio. + = outperforming, − = underperforming.',
+    y:'Aceleración de la fuerza relativa en las últimas 4 semanas. + = el RS está mejorando, − = se está deteriorando.'
+  };
+  let tip=document.getElementById('rrg-axis-tip');
+  if(!tip){tip=document.createElement('div');tip.id='rrg-axis-tip';document.body.appendChild(tip);}
+  document.addEventListener('mousemove',function(e){
+    const cv=document.getElementById('wbRrgSectores');
+    if(!cv||cv.style.display==='none'){tip.style.display='none';return;}
+    const rect=cv.getBoundingClientRect();
+    if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){tip.style.display='none';return;}
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    const W=cv.offsetWidth, H=cv.offsetHeight;
+    const P={l:44,r:16,t:18,b:34};
+    const PH=H-P.t-P.b;
+    let text=null;
+    if(my>H-P.b&&mx>P.l&&mx<W-P.r) text=TIP.x;
+    else if(mx<P.l&&my>P.t+PH*0.25&&my<P.t+PH*0.75) text=TIP.y;
+    if(text){
+      tip.textContent=text;
+      const tx=Math.min(e.clientX+14, window.innerWidth-250);
+      tip.style.cssText+=`;display:block;left:${tx}px;top:${e.clientY-8}px`;
+    } else {
+      tip.style.display='none';
+    }
+  });
+})();
 
 /* ── Hook en renderTodo ── */
 try{
