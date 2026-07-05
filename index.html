@@ -3781,7 +3781,7 @@ if ('serviceWorker' in navigator) {
   }};
   function wbRenderRRG(){
     var cv=$('wbRrgChart'); if(!cv || !datosOK() || typeof Chart==='undefined') return;
-    var soloMes = (function(){ var s=$('wbRrgMesFilter'); return s && s.value==='mes'; })();
+    var soloMes = (function(){ var s=document.getElementById('wbRrgMesFilter'); return s && s.value==='mes'; })();
     var pts = filtrados().map(function(d){
       var rs=num(d['RS Score']), prev=num(d['RS Semana ant.']), cap=num(d['Market Cap USD']);
       var mes=num(d['RS Mes ant.']);
@@ -3932,6 +3932,8 @@ if ('serviceWorker' in navigator) {
       return function(){ cv.removeEventListener('mousedown',onDown); window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
     })(window._wbRrg);
   }
+
+  window.wbRenderRRG = wbRenderRRG; /* exponer globalmente para onchange inline */
 
   /* ═══ 5. Episodic Pivots ═══ */
   function wbRenderEP(){
