@@ -5880,36 +5880,51 @@ window.wbRrgModo = function(m){
 };
 
 /* ── Play / Seek ── */
+/* 10 unidades de frame = 1 semana; velocidad = 10 unidades/segundo = 1 semana/segundo */
+const FRAMES_PER_SEC = 10;
+let lastTs = null;
+
 window.wbRrgPlay = function(){
+  /* si no hay datos intentar construirlos primero */
+  if(!series){ series = buildSeries(); }
   if(!series||!series.length) return;
   if(playing){ stopPlay(); return; }
-  if(frame>=maxFrame()) frame=0;
-  playing=true;
-  document.getElementById('rrg-play-btn').textContent='⏸ Pausa';
-  (function tick(){
+  if(frame >= maxFrame()) frame = 0;
+  playing = true;
+  lastTs = null;
+  const btn = document.getElementById('rrg-play-btn');
+  if(btn) btn.textContent = '⏸ Pausa';
+  (function tick(now){
     if(!playing) return;
-    frame = Math.min(frame+0.5, maxFrame());
+    if(lastTs !== null){
+      const dt = Math.min(now - lastTs, 100); /* cap 100ms para evitar saltos si tab inactivo */
+      frame = Math.min(frame + dt * FRAMES_PER_SEC / 1000, maxFrame());
+    }
+    lastTs = now;
     draw(); syncSlider();
-    if(frame>=maxFrame()){
-      playing=false;
-      document.getElementById('rrg-play-btn').textContent='▶ Replay';
+    if(frame >= maxFrame()){
+      playing = false;
+      const b = document.getElementById('rrg-play-btn');
+      if(b) b.textContent = '▶ Replay';
       return;
     }
     animId = requestAnimationFrame(tick);
-  })();
+  })(performance.now());
 };
 
 window.wbRrgSeek = function(val){
   stopPlay();
-  frame = (val/100)*maxFrame();
+  if(!series){ series = buildSeries(); }
+  frame = (val/100) * maxFrame();
   draw();
 };
 
 function stopPlay(){
-  playing=false;
-  if(animId){ cancelAnimationFrame(animId); animId=null; }
-  const b=document.getElementById('rrg-play-btn');
-  if(b) b.textContent='▶ Play';
+  playing = false;
+  lastTs = null;
+  if(animId){ cancelAnimationFrame(animId); animId = null; }
+  const b = document.getElementById('rrg-play-btn');
+  if(b) b.textContent = '▶ Play';
 }
 
 function maxFrame(){ return series&&series.length ? (Math.max(...series.map(s=>s.pts.length))-1)*10 : 0; }
