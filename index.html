@@ -5879,44 +5879,51 @@ window.wbRrgModo = function(m){
   }
 };
 
-/* ── Play / Seek — 1 semana por segundo ── */
+/* ── Play / Seek — 1 semana por segundo, RAF con interpolación ── */
 const MS_PER_WEEK = 1000;
-let playInterval = null;
+let lastTs = null;
+let rafId = null;
 
 window.wbRrgPlay = function(){
   if(!series){ series = buildSeries(); }
   if(!series || !series.length) return;
-  /* toggle pausa */
   if(playing){ stopPlay(); return; }
-  /* si estaba al final, reiniciar desde el principio */
   if(frame >= maxFrame()) frame = 0;
   playing = true;
+  lastTs = null;
   const btn = document.getElementById('rrg-play-btn');
   if(btn) btn.textContent = '⏸ Pausa';
-  playInterval = setInterval(function(){
-    frame = Math.min(frame + 10, maxFrame());
+  function tick(now){
+    if(!playing) return;
+    if(lastTs !== null){
+      const dt = Math.min(now - lastTs, 150);
+      frame = Math.min(frame + (dt / MS_PER_WEEK) * 10, maxFrame());
+    }
+    lastTs = now;
     draw();
     syncSlider();
     if(frame >= maxFrame()){
-      playing = false;
-      clearInterval(playInterval); playInterval = null;
+      playing = false; rafId = null;
       const b = document.getElementById('rrg-play-btn');
       if(b) b.textContent = '▶ Replay';
+      return;
     }
-  }, MS_PER_WEEK);
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
 };
 
 window.wbRrgSeek = function(val){
   stopPlay();
   if(!series){ series = buildSeries(); }
-  frame = Math.round((val/100) * maxFrame() / 10) * 10; /* snap a semana entera */
+  frame = (val/100) * maxFrame();
   draw();
 };
 
 function stopPlay(){
   playing = false;
-  if(playInterval){ clearInterval(playInterval); playInterval = null; }
-  if(animId){ cancelAnimationFrame(animId); animId = null; }
+  lastTs = null;
+  if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
   const b = document.getElementById('rrg-play-btn');
   if(b) b.textContent = '▶ Play';
 }
