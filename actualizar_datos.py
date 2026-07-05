@@ -81,7 +81,8 @@ TICKERS = {
         "XLC", "XLY", "XLP", "XLRE", "XLU",
         "SMH", "IBB", "ITA", "COPX", "URA",
         "ARKK", "SPXL", "TQQQ", "SH", "PSQ",
-        "ESGU", "IVW", "IVE", "SPGI"
+        "ESGU", "IVW", "IVE", "SPGI",
+        "CIBR", "CLOU", "BOTZ", "KRE", "XOP", "ICLN"
     ],
     "CEDEARs ETFs Commodities & Bonos": [
         "GLD", "SLV", "IAU", "GDX", "USO",
