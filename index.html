@@ -6049,6 +6049,29 @@ function draw(){
   ctx.save(); ctx.translate(11,P.t+PH/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('MOMENTUM →',0,0); ctx.restore();
 
+  /* ticks numéricos eje X */
+  (()=>{
+    const range=X1-X0;
+    const rough=range/5;
+    const mag=Math.pow(10,Math.floor(Math.log10(Math.max(rough,0.001))));
+    const norm=rough/mag;
+    const step=(norm<1.5?1:norm<3?2:norm<7?5:10)*mag;
+    const start=Math.ceil(X0/step)*step;
+    ctx.font='7.5px "DM Mono",monospace';
+    ctx.textAlign='center';
+    for(let xv=start; xv<=X1+step*0.01; xv+=step){
+      const xvR=Math.round(xv*100)/100;
+      const px=tx(xvR);
+      if(px<P.l-2||px>W-P.r+2) continue;
+      const isCtr=Math.abs(xvR-rrgCx)<step*0.4;
+      ctx.fillStyle=isCtr?'rgba(190,200,220,0.6)':'rgba(115,125,143,0.25)';
+      ctx.fillRect(px-0.5,H-P.b,1,4);
+      ctx.fillStyle=isCtr?'rgba(190,200,220,0.75)':'rgba(115,125,143,0.55)';
+      const lbl=Number.isInteger(xvR)?xvR.toString():xvR.toFixed(1);
+      ctx.fillText(lbl,px,H-P.b+12);
+    }
+  })();
+
   /* series */
   const mf=maxFrame();
   const hasSel=selSector!==null;
@@ -6072,9 +6095,9 @@ function draw(){
     const [r,g,b]=QCOLORS[q];
     const rgb=`${r},${g},${b}`;
 
-    /* estela — ventana de 5 semanas con fade */
+    /* estela — 3 semanas por defecto, 16 cuando está seleccionado */
     if(rrgSource==='real' && pts.length>=2){
-      const TRAIL = 3;
+      const TRAIL = (hasSel && isSel) ? 16 : 3;
       const visPts=pts.slice(0,Math.min(Math.floor(wf)+2,pts.length));
       const tPts=visPts.slice(Math.max(0,visPts.length-TRAIL-1));
       const n=tPts.length;
