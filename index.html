@@ -3795,7 +3795,7 @@ if ('serviceWorker' in navigator) {
       if(isBrk)    r = Math.min(22, r+2);
       else if(vi>=100) r = Math.min(20, r+1);
       return {x:rs, y:dy, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
-    }).filter(Boolean).slice(0,200);
+    }).filter(Boolean);
     /* mismo estilo que el Mapa de Resurgimiento: fill ~30% + border ~92% */
     function quadFill(p){
       if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.28)';
