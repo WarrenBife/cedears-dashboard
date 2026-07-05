@@ -1167,9 +1167,15 @@ function renderResurgimiento() {
 }
 
 function isValidBreakout(d) {
-  return d['Breakout Fresh'] === true &&
-         d['Breakout Vol OK'] === true &&
-         d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10;
+  if (!(d['Breakout Fresh'] === true &&
+        d['Breakout Vol OK'] === true &&
+        d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10)) return false;
+  const varDia = d['Var Día %'], volRel = d['Vol Relativa'], volInus = d['Vol Inusual %'], sma50 = d['Dist SMA50 %'];
+  const bigDown  = varDia !== null && varDia <= -3;
+  const highVol  = (volRel !== null && volRel >= 1.3) || (volInus !== null && volInus >= 50);
+  const belowSma = sma50 !== null && sma50 < -2;
+  if ((bigDown && highVol) || (belowSma && highVol)) return false;
+  return true;
 }
 
 // ── WARREN SCORE v2 — Ranking pre-breakout ──────────────────────────────────
