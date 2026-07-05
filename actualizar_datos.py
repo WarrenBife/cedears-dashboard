@@ -783,7 +783,8 @@ else:
     print("⚠️  regimen.json no exportado (datos insuficientes)")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
-SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC']
+SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
+                   'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA']
 RS_HISTORIA_SEMANAS = 16
 RS_LOOKBACK = 12
 

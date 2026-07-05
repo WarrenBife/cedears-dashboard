@@ -5778,7 +5778,8 @@ let rrgCx = 100, rrgCy = 100, rrgSource = 'none';
 let built = false;
 let roTimer = null;
 
-const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC'];
+const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
+                  'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA'];
 
 const QCOLORS = {
   leading:  [34,201,138],
@@ -6049,15 +6050,21 @@ function draw(){
     const [r,g,b]=QCOLORS[q];
     const rgb=`${r},${g},${b}`;
 
-    /* estela */
+    /* estela — ventana de 5 semanas con fade */
     if(rrgSource==='real' && pts.length>=2){
+      const TRAIL = 5;
       const visPts=pts.slice(0,Math.min(Math.floor(wf)+2,pts.length));
-      for(let i=1;i<visPts.length;i++){
-        const a=(i/visPts.length)*0.6*alpha;
+      /* solo los últimos TRAIL+1 puntos (= TRAIL segmentos) */
+      const tPts=visPts.slice(Math.max(0,visPts.length-TRAIL-1));
+      const n=tPts.length;
+      for(let i=1;i<n;i++){
+        const t_ratio=i/(n-1);          /* 0=extremo viejo → 1=punta actual */
+        const a=t_ratio*0.72*alpha;
         ctx.strokeStyle=`rgba(${rgb},${a})`;
-        ctx.lineWidth=2; ctx.lineCap='round';
-        ctx.beginPath(); ctx.moveTo(tx(visPts[i-1].x),ty(visPts[i-1].y));
-        const ep=(i===visPts.length-1&&wi<pts.length-1)?cur:visPts[i];
+        ctx.lineWidth=0.8+t_ratio*2.2;  /* más fino viejo, más grueso nuevo */
+        ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(tx(tPts[i-1].x),ty(tPts[i-1].y));
+        const ep=(i===n-1&&wi<pts.length-1)?cur:tPts[i];
         ctx.lineTo(tx(ep.x),ty(ep.y)); ctx.stroke();
       }
     }
