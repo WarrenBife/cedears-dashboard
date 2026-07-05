@@ -5775,6 +5775,12 @@ window.wbIrARiesgo=function(ticker){
 #rrg-slider{flex:1;min-width:80px;accent-color:var(--green);cursor:pointer;}
 .rrg-caption{display:none;gap:12px;flex-wrap:wrap;padding:4px 18px 10px;font-family:'DM Mono',monospace;font-size:10px;align-items:center;}
 #wbRrgSectores{display:none;width:100%;cursor:crosshair;}
+#rrg-lectura{display:none;padding:10px 18px 16px;border-top:1px solid rgba(255,255,255,0.05);}
+#rrg-lectura .lect-titulo{font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:9px;}
+#rrg-lectura .lect-ev{font-size:11.5px;line-height:1.65;color:var(--muted);margin-bottom:2px;}
+#rrg-lectura .lect-ev strong{color:var(--text);}
+#rrg-lectura .lect-warren{margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.05);font-size:11px;line-height:1.6;color:var(--muted);}
+#rrg-lectura .lect-warren .lk{color:var(--green);font-family:'DM Mono',monospace;font-weight:600;}
 #rrg-axis-tip{display:none;position:fixed;z-index:9999;background:rgba(13,17,23,0.96);border:1px solid rgba(255,255,255,0.1);color:rgba(180,190,210,0.9);font-family:'DM Sans',sans-serif;font-size:11px;line-height:1.45;padding:7px 11px;border-radius:7px;max-width:230px;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,0.55);}
 </style>
 
@@ -5793,6 +5799,16 @@ let rrgCx = 100, rrgCy = 100, rrgSource = 'none';
 let built = false;
 let roTimer = null;
 let refChartH = 0; /* altura del canvas Acciones capturada antes de ocultarlo */
+let axisRange = null; /* {X0,X1,Y0,Y1} capturado en draw() para calcLectura */
+
+const ETF_TO_SECTOR = {
+  XLK:'Tecnología', XLE:'Energía', XLF:'Financiero', XLV:'Salud',
+  XLI:'Industriales', XLY:'Consumo Disc.', XLP:'Consumo Básico',
+  XLU:'Utilities', XLB:'Materiales', XLRE:'Real Estate', XLC:'Comunicaciones',
+  SMH:'Semiconductores', CIBR:'Ciberseguridad', CLOU:'Nube', BOTZ:'IA y Robótica',
+  IBB:'Biotecnología', ITA:'Defensa', KRE:'Bancos Regionales',
+  XOP:'Petróleo y Gas', ICLN:'Energías Limpias', URA:'Uranio'
+};
 
 const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                   'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA',
@@ -5855,7 +5871,8 @@ function buildV7(){
                oninput="wbRrgSeek(this.value)">
         <span class="rrg-frame-lbl" id="rrg-frame-lbl">—</span>
       </div>
-      <div class="rrg-caption" id="rrg-caption"></div>`
+      <div class="rrg-caption" id="rrg-caption"></div>
+      <div id="rrg-lectura"></div>`
     );
   }
 
@@ -5880,6 +5897,7 @@ window.wbRrgModo = function(m){
   const cvS = document.getElementById('wbRrgSectores');
   const ctrl = document.getElementById('rrg-sec-controls');
   const cap  = document.getElementById('rrg-caption');
+  const lect = document.getElementById('rrg-lectura');
   const pA   = document.getElementById('rrg-pill-acc');
   const pE   = document.getElementById('rrg-pill-etf');
 
@@ -5888,6 +5906,7 @@ window.wbRrgModo = function(m){
     if(cvS)  cvS.style.display='block';
     if(ctrl) ctrl.style.display='flex';
     if(cap)  cap.style.display='flex';
+    if(lect) lect.style.display='block';
     pA?.classList.remove('active'); pE?.classList.add('active');
     series = null; frame = maxFrame(); draw();
   } else {
@@ -5895,6 +5914,7 @@ window.wbRrgModo = function(m){
     if(cvA)  cvA.style.display='block';
     if(ctrl) ctrl.style.display='none';
     if(cap)  cap.style.display='none';
+    if(lect) lect.style.display='none';
     pE?.classList.remove('active'); pA?.classList.add('active');
     stopPlay();
   }
@@ -6033,6 +6053,7 @@ function draw(){
   const yMin=Math.min(...allY),yMax=Math.max(...allY);
   const xPd=(xMax-xMin)*0.12||2, yPd=(yMax-yMin)*0.12||2;
   const X0=xMin-xPd,X1=xMax+xPd,Y0=yMin-yPd,Y1=yMax+yPd;
+  axisRange = {X0, X1, Y0, Y1};
   const tx=v=>P.l+(v-X0)/(X1-X0)*PW;
   const ty=v=>P.t+(1-(v-Y0)/(Y1-Y0))*PH;
   const cx=tx(rrgCx), cy=ty(rrgCy);
@@ -6167,6 +6188,7 @@ function draw(){
   const mxW=Math.max(...series.map(s=>s.pts.length));
   const lbl=document.getElementById('rrg-frame-lbl');
   if(lbl) lbl.textContent=`S${Math.min(Math.round(frame/10)+1,mxW)}/${mxW}`;
+  if(!playing) calcLectura();
 }
 
 function drawEmpty(cv){
@@ -6260,6 +6282,182 @@ document.addEventListener('click',function(e){
     }
   });
 })();
+
+/* ── Lectura de rotación ── */
+function calcLectura(){
+  const el=document.getElementById('rrg-lectura');
+  if(!el||!series||!series.length||!axisRange){if(el)el.innerHTML='';return;}
+
+  const {X0,X1,Y0,Y1}=axisRange;
+  const mX=Math.max(0.5,0.06*(X1-X0));
+  const mY=Math.max(0.5,0.06*(Y1-Y0));
+  const cx=rrgCx, cy=rrgCy;
+
+  const qOf=p=>{
+    const r=p.x>cx?'r':'l', u=p.y>cy?'u':'d';
+    return r+u; /* ru=leading,lu=improving,rd=weakening,ld=lagging */
+  };
+
+  const evts=[], consevts=[];
+  let bestTrailSec=null, bestTrailLen=-1;
+  const coveredSevere=new Set();
+
+  series.forEach(s=>{
+    const pts=s.pts;
+    if(pts.length<2) return;
+    const n=pts.length;
+    const last=pts[n-1];
+    let ev=null;
+
+    /* Evento 1 — Sobrepaso alcista (p100) */
+    if(!ev && last.x>cx+mX && last.y>cy){
+      for(let k=Math.max(1,n-3);k<n&&!ev;k++){
+        if(pts[k].x>cx+mX && pts[k-1].x<cx-mX){
+          /* anti-ruido: punto posterior al cruce no revierte */
+          if(k+1>=n || pts[k+1].x>cx-mX){
+            let N=0; for(let j=k-1;j>=0&&pts[j].x<cx;j--) N++;
+            ev={type:'alc',prio:100,sec:s.n,N:Math.max(1,N)};
+          }
+        }
+      }
+    }
+
+    /* Evento 1b — Sobrepaso bajista (p95) */
+    if(!ev && last.x<cx-mX){
+      for(let k=Math.max(1,n-3);k<n&&!ev;k++){
+        if(pts[k].x<cx-mX && pts[k-1].x>cx+mX){
+          if(k+1>=n || pts[k+1].x<cx+mX){
+            let N=0; for(let j=k-1;j>=0&&pts[j].x>cx;j--) N++;
+            ev={type:'baj',prio:95,sec:s.n,N:Math.max(1,N)};
+          }
+        }
+      }
+    }
+
+    /* Evento 2 — Giro en Rezagados (p90) */
+    if(!ev && last.x<cx && last.y>cy+mY){
+      for(let k=Math.max(1,n-2);k<n&&!ev;k++){
+        if(pts[k].y>cy+mY && pts[k-1].y<cy-mY && pts[k-1].x<cx){
+          if(k+1>=n || pts[k+1].y>cy-mY){
+            let N=0; for(let j=k;j<n&&pts[j].y>cy;j++) N++;
+            ev={type:'giro',prio:90,sec:s.n,N:Math.max(1,N)};
+          }
+        }
+      }
+    }
+
+    /* Evento 3 — Gancho del líder (p85) */
+    if(!ev && last.x>cx+mX){
+      const wb=Math.min(3,n-1);
+      const win=pts.slice(n-1-wb,n);
+      if(win.length>=3){
+        let mono=true;
+        for(let i=1;i<win.length;i++) if(win[i].y>=win[i-1].y){mono=false;break;}
+        const fall=win[0].y-win[win.length-1].y;
+        if(mono && fall>1.5*mY)
+          ev={type:'gancho',prio:85,sec:s.n,N:win.length-1};
+      }
+    }
+
+    /* Evento 4 — Caída de cuadrante (p80) */
+    if(!ev && n>=2){
+      const qN={ru:'Líderes',lu:'Mejorando',rd:'Debilitándose',ld:'Rezagados'};
+      const bad=[['ru','rd'],['rd','ld']];
+      const qPrev=qOf(pts[n-2]), qLast=qOf(last);
+      for(const[a,b] of bad){
+        if(qPrev===a&&qLast===b){
+          ev={type:'caida',prio:80,sec:s.n,dest:qN[b]};
+          break;
+        }
+      }
+    }
+
+    /* Evento 5 — Consistencia (p50, colectar aparte) */
+    if(!ev){
+      let cons=0;
+      for(let j=n-1;j>=0&&pts[j].x>cx&&pts[j].y>cy;j--) cons++;
+      if(cons>=4) consevts.push({type:'cons',prio:50,sec:s.n,N:cons,x:last.x});
+    }
+
+    /* Longitud de estela para evento 6 */
+    let tlen=0;
+    for(let i=1;i<pts.length;i++)
+      tlen+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+    if(tlen>bestTrailLen){bestTrailLen=tlen;bestTrailSec=s.n;}
+
+    if(ev){
+      evts.push(ev);
+      if(ev.prio>=80) coveredSevere.add(s.n);
+    }
+  });
+
+  /* Agregar mejor evento de consistencia (único, mayor x) */
+  if(consevts.length){
+    consevts.sort((a,b)=>b.x-a.x);
+    evts.push(consevts[0]);
+  }
+
+  /* Evento 6 — Mayor recorrido (p40), solo si no cubierto por p80+ */
+  if(bestTrailSec && !coveredSevere.has(bestTrailSec) && !evts.some(e=>e.sec===bestTrailSec))
+    evts.push({type:'rec',prio:40,sec:s?bestTrailSec:bestTrailSec});
+
+  evts.sort((a,b)=>b.prio-a.prio);
+  const top=evts.slice(0,4);
+
+  /* Fecha del último dato */
+  let dateStr='';
+  try{
+    if(window.RS_HISTORIA&&RS_HISTORIA.length){
+      const d=RS_HISTORIA.map(r=>r.fecha).sort().pop();
+      if(d){ const[y,m,day]=d.split('-'); dateStr=`${day}/${m}/${y}`; }
+    }
+  }catch(e){}
+
+  /* Sin eventos relevantes */
+  if(!top.length || top[0].prio<80){
+    el.innerHTML=`<div class="lect-titulo">📡 LECTURA DE ROTACIÓN${dateStr?' — semana del '+dateStr:''}</div>`+
+      `<div class="lect-ev" style="font-style:italic">Semana sin cruces relevantes — el mapa de rotación se mantiene.</div>`;
+    return;
+  }
+
+  /* Generar líneas */
+  const nom=t=>`<strong>${ETF_TO_SECTOR[t]||t}</strong>`;
+  const N=n=>`<span style="font-family:'DM Mono',monospace">${n}</span>`;
+
+  const linea=ev=>{
+    switch(ev.type){
+      case 'alc':    return `🔄 ${nom(ev.sec)} cruzó a Líderes: le ganó al SPY por primera vez en ${N(ev.N)} semanas y con momentum acelerando.`;
+      case 'baj':    return `🔄 ${nom(ev.sec)} perdió el liderazgo: volvió a quedar detrás del SPY tras ${N(ev.N)} semanas adelante.`;
+      case 'giro':   return `↗️ ${nom(ev.sec)} giró en Rezagados: todavía pierde contra el SPY pero acorta la brecha hace ${N(ev.N)} semanas. Candidato a vigilar.`;
+      case 'gancho': return `⚠️ ${nom(ev.sec)} frenando en la cima: sigue por encima del mercado pero su momentum cae hace ${N(ev.N)} semanas — fase de cuidar ganancia, no de entrar.`;
+      case 'caida':  return `📉 ${nom(ev.sec)} pasó a ${ev.dest}: el flujo lo está dejando.`;
+      case 'cons':   return `💪 ${nom(ev.sec)} sostiene el liderazgo: ${N(ev.N)} semanas seguidas en Líderes.`;
+      case 'rec':    return `🏃 ${nom(ev.sec)} es el que más se movió en esta ventana — atención a su próxima dirección.`;
+      default: return '';
+    }
+  };
+
+  /* Cruce Warren Score (solo para evento alcista top) */
+  let warrenLine='';
+  const topEv=top[0];
+  if(topEv.type==='alc'||topEv.type==='giro'){
+    try{
+      if(typeof calcWarrenDetalle==='function'&&window.DATOS&&DATOS.length){
+        const sName=ETF_TO_SECTOR[topEv.sec]||topEv.sec;
+        const t10=DATOS.map(d=>({d,sc:calcWarrenDetalle(d).score}))
+          .sort((a,b)=>b.sc-a.sc).slice(0,10);
+        const K=t10.filter(({d})=>d['Sector']===sName).length;
+        if(K>0)
+          warrenLine=`<div class="lect-warren">💡 Cruce con el ranking: <span class="lk">${K}</span> de los 10 mejores Warren Scores de hoy pertenecen a <strong>${sName}</strong>.</div>`;
+      }
+    }catch(e){}
+  }
+
+  el.innerHTML=
+    `<div class="lect-titulo">📡 LECTURA DE ROTACIÓN${dateStr?' — semana del '+dateStr:''}</div>`+
+    top.map(ev=>`<div class="lect-ev">${linea(ev)}</div>`).join('')+
+    warrenLine;
+}
 
 /* ── Hook en renderTodo ── */
 try{
