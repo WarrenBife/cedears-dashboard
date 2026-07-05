@@ -782,6 +782,68 @@ if regimen_data:
 else:
     print("⚠️  regimen.json no exportado (datos insuficientes)")
 
+# ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
+SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC']
+RS_HISTORIA_SEMANAS = 16
+RS_LOOKBACK = 12
+
+def calcular_rs_historia():
+    try:
+        import yfinance as yf
+        import numpy as np
+        raw = yf.download(SECTOR_ETFS_RRG + ['SPY'], period='2y', interval='1d',
+                          auto_adjust=True, progress=False)
+        datos_yf = raw['Close'] if isinstance(raw.columns, pd.MultiIndex) else raw
+        weekly = datos_yf.resample('W-FRI').last().dropna(how='all')
+        spy = weekly['SPY'].dropna()
+        filas = []
+        for t in SECTOR_ETFS_RRG:
+            if t not in weekly.columns:
+                continue
+            serie = weekly[t].dropna()
+            idx = serie.index.intersection(spy.index)
+            if len(idx) < RS_LOOKBACK + 4:
+                continue
+            ratio = 100 * serie[idx] / spy[idx]
+            media = ratio.rolling(RS_LOOKBACK).mean()
+            std   = ratio.rolling(RS_LOOKBACK).std().replace(0, np.nan)
+            z     = ((ratio - media) / std).clip(-4, 4)
+            rs_ratio = (100 + z).round(2)
+            rs_mom   = (100 + (rs_ratio - rs_ratio.rolling(4).mean()) * 2).clip(96, 104).round(2)
+            df_t = pd.DataFrame({'rs_ratio': rs_ratio, 'rs_mom': rs_mom}).dropna()
+            for fecha, row_rs in df_t.tail(RS_HISTORIA_SEMANAS).iterrows():
+                filas.append({
+                    'fecha':    fecha.strftime('%Y-%m-%d'),
+                    'ticker':   t,
+                    'rs_ratio': float(row_rs['rs_ratio']),
+                    'rs_mom':   float(row_rs['rs_mom'])
+                })
+        return filas
+    except Exception as e:
+        print(f'[RS_HISTORIA] Error: {e}')
+        return []
+
+try:
+    rs_historia = calcular_rs_historia()
+    if rs_historia:
+        rs_str = json.dumps(rs_historia, ensure_ascii=False)
+        rs_b64 = base64.b64encode(rs_str.encode()).decode()
+        url_rs = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/rs_historia.json"
+        resp_rs = requests.get(url_rs, headers=headers)
+        sha_rs  = resp_rs.json().get("sha") if resp_rs.status_code == 200 else None
+        payload_rs = {"message": f"Auto-update RS historia {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": rs_b64}
+        if sha_rs:
+            payload_rs["sha"] = sha_rs
+        resp_rs = requests.put(url_rs, headers=headers, json=payload_rs)
+        if resp_rs.status_code in [200, 201]:
+            print(f"✅ rs_historia.json actualizado: {len(rs_historia)} filas")
+        else:
+            print(f"⚠️  Error subiendo rs_historia.json: {resp_rs.status_code} — {resp_rs.json().get('message')}")
+    else:
+        print("⚠️  rs_historia.json vacío, no exportado")
+except Exception as e:
+    print(f"⚠️  rs_historia.json: {e}")
+
 # ── FIN — el resto de las celdas son solo para Colab ──────────
 import sys; sys.exit(0)
 

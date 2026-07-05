@@ -5745,5 +5745,436 @@ window.wbIrARiesgo=function(ticker){
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V6 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V7 — RRG Toggle Acciones ⇄ ETFs con estelas
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V7"
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="wb-v7-css">
+.rrg-toggle-wrap{display:flex;gap:3px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.rrg-pill{background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:3px 11px;border-radius:5px;cursor:pointer;transition:all .18s;letter-spacing:0.04em;}
+.rrg-pill:hover:not(.active){color:var(--text);}
+.rrg-pill.active{background:var(--green-bg);color:var(--green);box-shadow:inset 0 0 0 1px rgba(34,201,138,0.25);}
+.rrg-sec-controls{display:none;align-items:center;gap:10px;padding:8px 18px 6px;flex-wrap:wrap;}
+.rrg-play-btn{background:rgba(34,201,138,0.08);border:1px solid rgba(34,201,138,0.3);color:var(--green);font-family:'DM Mono',monospace;font-size:11px;padding:4px 13px;border-radius:999px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.rrg-play-btn:hover{background:rgba(34,201,138,0.18);}
+.rrg-frame-lbl{color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;white-space:nowrap;min-width:38px;text-align:right;}
+#rrg-slider{flex:1;min-width:80px;accent-color:var(--green);cursor:pointer;}
+.rrg-caption{display:none;gap:12px;flex-wrap:wrap;padding:4px 18px 10px;font-family:'DM Mono',monospace;font-size:10px;align-items:center;}
+#wbRrgSectores{display:none;width:100%;cursor:crosshair;}
+</style>
+
+<script id="wb-v7-js">
+(function(){
+'use strict';
+
+/* ── Estado ── */
+let modo = 'acciones';
+let frame = 0;
+let playing = false;
+let selSector = null;
+let animId = null;
+let series = null;
+let rrgCx = 100, rrgCy = 100, rrgSource = 'none';
+let built = false;
+let roTimer = null;
+
+const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC'];
+
+const QCOLORS = {
+  leading:  [34,201,138],
+  improving:[79,142,247],
+  weakening:[245,166,35],
+  lagging:  [240,96,90]
+};
+
+function quadrant(x,y,cx,cy){
+  if(x>=cx&&y>=cy) return 'leading';
+  if(x< cx&&y>=cy) return 'improving';
+  if(x>=cx&&y< cy) return 'weakening';
+  return 'lagging';
+}
+
+/* ── Fetch rs_historia.json ── */
+const RS_URL = 'https://warrenbife.github.io/cedears-dashboard/rs_historia.json';
+(function fetchHist(){
+  fetch(RS_URL+'?t='+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{ if(d&&d.length) window.RS_HISTORIA=d; })
+    .catch(()=>{});
+})();
+
+/* ── Build: inyectar toggle + canvas + controles (solo una vez) ── */
+function buildV7(){
+  if(built) return;
+  const panel = document.getElementById('wb-rrg-panel');
+  if(!panel) return;
+
+  /* Toggle pills en panel-head */
+  const head = panel.querySelector('.panel-head');
+  if(head && !head.querySelector('.rrg-toggle-wrap')){
+    head.insertAdjacentHTML('beforeend',
+      `<div class="rrg-toggle-wrap">
+        <button class="rrg-pill active" id="rrg-pill-acc" onclick="wbRrgModo('acciones')">Acciones</button>
+        <button class="rrg-pill"        id="rrg-pill-etf" onclick="wbRrgModo('etfs')">ETFs</button>
+      </div>`
+    );
+  }
+
+  /* Canvas sectores (hermano de wbRrgChart dentro del chart-wrap) */
+  const cw = panel.querySelector('.chart-wrap');
+  if(cw && !document.getElementById('wbRrgSectores')){
+    const cv = document.createElement('canvas');
+    cv.id = 'wbRrgSectores';
+    cw.appendChild(cv);
+  }
+
+  /* Controles play + slider */
+  if(!document.getElementById('rrg-sec-controls')){
+    panel.insertAdjacentHTML('beforeend',
+      `<div class="rrg-sec-controls" id="rrg-sec-controls">
+        <button class="rrg-play-btn" id="rrg-play-btn" onclick="wbRrgPlay()">▶ Play</button>
+        <input type="range" id="rrg-slider" min="0" max="100" value="100"
+               oninput="wbRrgSeek(this.value)">
+        <span class="rrg-frame-lbl" id="rrg-frame-lbl">—</span>
+      </div>
+      <div class="rrg-caption" id="rrg-caption"></div>`
+    );
+  }
+
+  /* ResizeObserver */
+  const ro = new ResizeObserver(()=>{
+    if(modo==='etfs'){ clearTimeout(roTimer); roTimer=setTimeout(draw,150); }
+  });
+  ro.observe(panel);
+
+  built = true;
+}
+
+/* ── Toggle público ── */
+window.wbRrgModo = function(m){
+  if(m===modo) return;
+  modo = m;
+  const cvA = document.getElementById('wbRrgChart');
+  const cvS = document.getElementById('wbRrgSectores');
+  const ctrl = document.getElementById('rrg-sec-controls');
+  const cap  = document.getElementById('rrg-caption');
+  const pA   = document.getElementById('rrg-pill-acc');
+  const pE   = document.getElementById('rrg-pill-etf');
+
+  if(m==='etfs'){
+    if(cvA)  cvA.style.display='none';
+    if(cvS)  cvS.style.display='block';
+    if(ctrl) ctrl.style.display='flex';
+    if(cap)  cap.style.display='flex';
+    pA?.classList.remove('active'); pE?.classList.add('active');
+    series = null; frame = maxFrame(); draw();
+  } else {
+    if(cvS)  cvS.style.display='none';
+    if(cvA)  cvA.style.display='block';
+    if(ctrl) ctrl.style.display='none';
+    if(cap)  cap.style.display='none';
+    pE?.classList.remove('active'); pA?.classList.add('active');
+    stopPlay();
+  }
+};
+
+/* ── Play / Seek ── */
+window.wbRrgPlay = function(){
+  if(!series||!series.length) return;
+  if(playing){ stopPlay(); return; }
+  if(frame>=maxFrame()) frame=0;
+  playing=true;
+  document.getElementById('rrg-play-btn').textContent='⏸ Pausa';
+  (function tick(){
+    if(!playing) return;
+    frame = Math.min(frame+0.5, maxFrame());
+    draw(); syncSlider();
+    if(frame>=maxFrame()){
+      playing=false;
+      document.getElementById('rrg-play-btn').textContent='▶ Replay';
+      return;
+    }
+    animId = requestAnimationFrame(tick);
+  })();
+};
+
+window.wbRrgSeek = function(val){
+  stopPlay();
+  frame = (val/100)*maxFrame();
+  draw();
+};
+
+function stopPlay(){
+  playing=false;
+  if(animId){ cancelAnimationFrame(animId); animId=null; }
+  const b=document.getElementById('rrg-play-btn');
+  if(b) b.textContent='▶ Play';
+}
+
+function maxFrame(){ return series&&series.length ? (Math.max(...series.map(s=>s.pts.length))-1)*10 : 0; }
+
+function syncSlider(){
+  const mf=maxFrame();
+  const sl=document.getElementById('rrg-slider');
+  if(sl) sl.value = mf>0?(frame/mf)*100:100;
+}
+
+/* ── Datos ── */
+function buildSeries(){
+  /* 1. Fuente preferida: RS_HISTORIA */
+  if(window.RS_HISTORIA&&RS_HISTORIA.length){
+    const byT={};
+    RS_HISTORIA.forEach(r=>{
+      if(!byT[r.ticker]) byT[r.ticker]=[];
+      byT[r.ticker].push({f:r.fecha, x:+r.rs_ratio, y:+r.rs_mom});
+    });
+    const out=[];
+    ETFS_RRG.forEach(t=>{
+      const pts=(byT[t]||[]).sort((a,b)=>a.f<b.f?-1:1).slice(-16).map(p=>({x:p.x,y:p.y}));
+      if(pts.length>=2) out.push({n:t, pts});
+    });
+    if(out.length>=3){ rrgCx=100; rrgCy=100; rrgSource='real'; return out; }
+  }
+
+  /* 2. Fallback 4 puntos desde DATOS */
+  try{
+    if(!window.DATOS||!DATOS.length) return null;
+    const SNAPS=['RS Mes ant.','RS Semana ant.','RS Ayer','RS Score'];
+    const bySec={};
+    DATOS.forEach(d=>{
+      const s=d['Sector'];
+      if(!s||s==='ETF') return;
+      if(!bySec[s]){bySec[s]={tickers:[],snaps:SNAPS.map(()=>[])};}
+      bySec[s].tickers.push(d['Ticker']);
+      SNAPS.forEach((k,i)=>{const v=d[k];if(v!=null&&!isNaN(v))bySec[s].snaps[i].push(+v);});
+    });
+    const out=[];
+    for(const[sec,data] of Object.entries(bySec)){
+      if(data.tickers.length<3) continue;
+      const avgs=data.snaps.map(arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null);
+      if(avgs.some(v=>v===null)) continue;
+      const n=avgs.length;
+      const pts=avgs.map((x,i)=>{
+        const dy=i===0?avgs[1]-avgs[0]:i===n-1?avgs[n-1]-avgs[n-2]:(avgs[i+1]-avgs[i-1])/2;
+        return {x, y:dy};
+      });
+      out.push({n:sec, pts});
+    }
+    if(!out.length) return null;
+    rrgCx=50; rrgCy=0; rrgSource='fallback';
+    return out;
+  }catch(e){ return null; }
+}
+
+/* ── Dibujo ── */
+function draw(){
+  const cv=document.getElementById('wbRrgSectores');
+  if(!cv||cv.style.display==='none') return;
+
+  if(!series){ series=buildSeries(); if(!series){ drawEmpty(cv); return; }
+    const mf=maxFrame();
+    const sl=document.getElementById('rrg-slider');
+    if(sl){sl.max=100;sl.value=100;}
+    frame=mf;
+  }
+
+  const W=cv.offsetWidth||500;
+  const H=Math.max(340,Math.min(430,W*0.62));
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const P={l:44,r:16,t:18,b:34};
+  const PW=W-P.l-P.r, PH=H-P.t-P.b;
+
+  /* escala */
+  const allX=[], allY=[];
+  series.forEach(s=>s.pts.forEach(p=>{allX.push(p.x);allY.push(p.y);}));
+  const xMin=Math.min(...allX),xMax=Math.max(...allX);
+  const yMin=Math.min(...allY),yMax=Math.max(...allY);
+  const xPd=(xMax-xMin)*0.12||2, yPd=(yMax-yMin)*0.12||2;
+  const X0=xMin-xPd,X1=xMax+xPd,Y0=yMin-yPd,Y1=yMax+yPd;
+  const tx=v=>P.l+(v-X0)/(X1-X0)*PW;
+  const ty=v=>P.t+(1-(v-Y0)/(Y1-Y0))*PH;
+  const cx=tx(rrgCx), cy=ty(rrgCy);
+
+  ctx.clearRect(0,0,W,H);
+
+  /* cuadrantes */
+  const qDef=[
+    {x:cx,y:P.t, w:W-cx-P.r, h:cy-P.t,  c:'34,201,138',lbl:'LÍDERES',    la:'right', lx:W-P.r-5,ly:P.t+13},
+    {x:P.l,y:P.t, w:cx-P.l,  h:cy-P.t,  c:'79,142,247', lbl:'MEJORANDO',  la:'left',  lx:P.l+5,  ly:P.t+13},
+    {x:P.l,y:cy,  w:cx-P.l,  h:H-cy-P.b,c:'240,96,90',  lbl:'REZAGADOS',  la:'left',  lx:P.l+5,  ly:H-P.b-6},
+    {x:cx, y:cy,  w:W-cx-P.r,h:H-cy-P.b,c:'245,166,35', lbl:'DEBILITÁNDOSE',la:'right',lx:W-P.r-5,ly:H-P.b-6},
+  ];
+  qDef.forEach(q=>{
+    ctx.fillStyle=`rgba(${q.c},0.045)`; ctx.fillRect(q.x,q.y,q.w,q.h);
+    ctx.fillStyle=`rgba(148,163,184,0.4)`; ctx.font='9px "DM Mono",monospace';
+    ctx.textAlign=q.la; ctx.fillText(q.lbl,q.lx,q.ly);
+  });
+
+  /* líneas centrales */
+  ctx.setLineDash([3,4]); ctx.strokeStyle='rgba(148,163,184,0.18)'; ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,P.t);ctx.lineTo(cx,H-P.b);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(P.l,cy);ctx.lineTo(W-P.r,cy);ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* ejes */
+  ctx.fillStyle='rgba(115,125,143,0.55)'; ctx.font='8px "DM Mono",monospace';
+  ctx.textAlign='center'; ctx.fillText('FUERZA RELATIVA →',P.l+PW/2,H-4);
+  ctx.save(); ctx.translate(11,P.t+PH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('MOMENTUM →',0,0); ctx.restore();
+
+  /* series */
+  const mf=maxFrame();
+  const hasSel=selSector!==null;
+
+  series.forEach(s=>{
+    const pts=s.pts;
+    if(!pts.length) return;
+    const isSel=s.n===selSector;
+    const alpha=hasSel?(isSel?1:0.1):1;
+
+    /* posición interpolada */
+    const fi=Math.min(frame,mf);
+    const wf=fi/10;
+    const wi=Math.min(Math.floor(wf),pts.length-1);
+    const wt=wf-Math.floor(wf);
+    const cur=wi<pts.length-1
+      ?{x:pts[wi].x+(pts[wi+1].x-pts[wi].x)*wt, y:pts[wi].y+(pts[wi+1].y-pts[wi].y)*wt}
+      :pts[pts.length-1];
+
+    const q=quadrant(cur.x,cur.y,rrgCx,rrgCy);
+    const [r,g,b]=QCOLORS[q];
+    const rgb=`${r},${g},${b}`;
+
+    /* estela */
+    if(rrgSource==='real' && pts.length>=2){
+      const visPts=pts.slice(0,Math.min(Math.floor(wf)+2,pts.length));
+      for(let i=1;i<visPts.length;i++){
+        const a=(i/visPts.length)*0.6*alpha;
+        ctx.strokeStyle=`rgba(${rgb},${a})`;
+        ctx.lineWidth=2; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(tx(visPts[i-1].x),ty(visPts[i-1].y));
+        const ep=(i===visPts.length-1&&wi<pts.length-1)?cur:visPts[i];
+        ctx.lineTo(tx(ep.x),ty(ep.y)); ctx.stroke();
+      }
+    }
+
+    /* burbuja */
+    const bx=tx(cur.x), by=ty(cur.y);
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.shadowColor=`rgba(${rgb},0.7)`; ctx.shadowBlur=10;
+    ctx.fillStyle=`rgba(${rgb},0.9)`;
+    ctx.beginPath(); ctx.arc(bx,by,6.5,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.restore();
+
+    /* etiqueta */
+    if(alpha>0.25){
+      ctx.globalAlpha=alpha*0.92;
+      ctx.fillStyle=`rgb(${rgb})`;
+      ctx.font=`${W<480?8:9.5}px "DM Mono",monospace`;
+      ctx.textAlign=bx>W*0.72?'right':'left';
+      ctx.fillText(s.n, bx+(bx>W*0.72?-10:10), by+3);
+      ctx.globalAlpha=1;
+    }
+  });
+
+  /* caption + slider */
+  updateCaption();
+  syncSlider();
+  const mxW=Math.max(...series.map(s=>s.pts.length));
+  const lbl=document.getElementById('rrg-frame-lbl');
+  if(lbl) lbl.textContent=`S${Math.min(Math.round(frame/10)+1,mxW)}/${mxW}`;
+}
+
+function drawEmpty(cv){
+  const ctx=cv.getContext('2d');
+  const W=cv.offsetWidth||400, H=200;
+  cv.width=W; cv.height=H;
+  ctx.fillStyle='rgba(115,125,143,0.4)'; ctx.font='12px DM Sans,sans-serif';
+  ctx.textAlign='center'; ctx.fillText('Sin datos disponibles',W/2,H/2);
+}
+
+function updateCaption(){
+  const el=document.getElementById('rrg-caption');
+  if(!el||!series) return;
+  if(rrgSource==='fallback'){
+    el.innerHTML=`<span style="color:var(--muted);font-size:9px">★ Datos estimados — las estelas históricas aparecen con el pipeline activo</span>`;
+    return;
+  }
+  const scores=series.map(s=>{
+    const n=s.pts.length;
+    if(n<2) return {n:s.n,delta:0,q:'lagging'};
+    const lb=Math.min(3,n-1);
+    const f=s.pts[n-1-lb],l=s.pts[n-1];
+    return {n:s.n,delta:(l.x-f.x)+(l.y-f.y),q:quadrant(l.x,l.y,rrgCx,rrgCy)};
+  }).sort((a,b)=>b.delta-a.delta);
+  const qlbl={leading:'Líderes',improving:'Mejorando',weakening:'Debilitándose',lagging:'Rezagados'};
+  const best=scores[0],worst=scores[scores.length-1];
+  el.innerHTML=
+    `<span style="color:var(--muted)">S${Math.min(Math.round(frame/10)+1,getMaxWeeks())}/${getMaxWeeks()}</span>`+
+    `<span style="color:var(--green)">▲ ${best.n} · ${qlbl[best.q]}</span>`+
+    `<span style="color:var(--red)">▼ ${worst.n} · ${qlbl[worst.q]}</span>`;
+}
+
+function getMaxWeeks(){ return series&&series.length?Math.max(...series.map(s=>s.pts.length)):1; }
+
+/* ── Click para aislar burbuja ── */
+document.addEventListener('click',function(e){
+  const cv=document.getElementById('wbRrgSectores');
+  if(!cv||modo!=='etfs'||!series) return;
+  const r=cv.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const W=cv.offsetWidth,H=cv.offsetHeight;
+  const P={l:44,r:16,t:18,b:34};
+  const PW=W-P.l-P.r,PH=H-P.t-P.b;
+  const allX=[],allY=[];
+  series.forEach(s=>s.pts.forEach(p=>{allX.push(p.x);allY.push(p.y);}));
+  const xMin=Math.min(...allX),xMax=Math.max(...allX);
+  const yMin=Math.min(...allY),yMax=Math.max(...allY);
+  const xPd=(xMax-xMin)*0.12||2,yPd=(yMax-yMin)*0.12||2;
+  const X0=xMin-xPd,X1=xMax+xPd,Y0=yMin-yPd,Y1=yMax+yPd;
+  const tx=v=>P.l+(v-X0)/(X1-X0)*PW;
+  const ty=v=>P.t+(1-(v-Y0)/(Y1-Y0))*PH;
+  const mf=maxFrame();
+  let hit=null,minD=28;
+  series.forEach(s=>{
+    const fi=Math.min(frame,mf),wf=fi/10,wi=Math.min(Math.floor(wf),s.pts.length-1),wt=wf-Math.floor(wf);
+    const cur=wi<s.pts.length-1?{x:s.pts[wi].x+(s.pts[wi+1].x-s.pts[wi].x)*wt,y:s.pts[wi].y+(s.pts[wi+1].y-s.pts[wi].y)*wt}:s.pts[s.pts.length-1];
+    const d=Math.hypot(mx-tx(cur.x),my-ty(cur.y));
+    if(d<minD){minD=d;hit=s.n;}
+  });
+  selSector=(selSector===hit)?null:hit;
+  draw();
+});
+
+/* ── Hook en renderTodo ── */
+try{
+  const _rt=window.renderTodo;
+  window.renderTodo=function(){
+    _rt.apply(this,arguments);
+    buildV7();
+    if(modo==='etfs'){series=null;draw();}
+  };
+}catch(e){}
+
+/* ── prefers-reduced-motion ── */
+if(window.matchMedia('(prefers-reduced-motion:reduce)').matches){
+  window.wbRrgPlay=function(){frame=maxFrame();draw();};
+}
+
+/* ── Init ── */
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',buildV7);
+}else{ buildV7(); }
+
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V7 ═══════════════ -->
+
 </body>
 </html>
