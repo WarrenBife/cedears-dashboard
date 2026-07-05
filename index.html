@@ -6074,7 +6074,7 @@ function draw(){
 
     /* estela — ventana de 5 semanas con fade */
     if(rrgSource==='real' && pts.length>=2){
-      const TRAIL = 5;
+      const TRAIL = 3;
       const visPts=pts.slice(0,Math.min(Math.floor(wf)+2,pts.length));
       const tPts=visPts.slice(Math.max(0,visPts.length-TRAIL-1));
       const n=tPts.length;
