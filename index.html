@@ -5996,7 +5996,9 @@ function draw(){
   }
 
   const W=cv.offsetWidth||500;
-  const H=Math.max(340,Math.min(430,W*0.62));
+  /* usar la misma altura que el canvas de Acciones; fallback a proporcional */
+  const cvA=document.getElementById('wbRrgChart');
+  const H=(cvA&&cvA.offsetHeight>100)?cvA.offsetHeight:Math.max(380,W*0.72);
   const dpr=window.devicePixelRatio||1;
   cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px';
   const ctx=cv.getContext('2d');
