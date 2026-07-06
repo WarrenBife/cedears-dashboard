@@ -915,7 +915,7 @@ async function cargarDatos() {
     // Actualizar precios inmediatamente y luego cada 5 min
     actualizarPrecios();
     if (preciosTimer) clearInterval(preciosTimer);
-    preciosTimer = setInterval(actualizarPrecios, 60 * 1000);
+    preciosTimer = setInterval(actualizarPrecios, 5 * 60 * 1000);
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(cargarDatos, REFRESH_MS);
   } catch(e) {
