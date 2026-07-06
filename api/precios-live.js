@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 's-maxage=240, stale-while-revalidate=60');
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
 
   const symbols = (req.query.symbols || '').trim().toUpperCase().split(',').filter(Boolean);
   if (!symbols.length) return res.status(400).json({ error: 'Missing symbols' });
