@@ -74,7 +74,7 @@ TICKERS = {
         "ECL", "EMR", "JCI", "PKS", "CX", "ARCO"
     ],
     "CEDEARs ETFs Renta Variable": [
-        "SPY", "QQQ", "DIA", "IVV", "IWM", "VIG", "VEA",
+        "SPY", "QQQ", "DIA", "IWM", "VIG", "VEA",
         "EWZ", "EEM", "IEMG", "EFA", "EWJ", "FXI",
         "ILF", "ACWI", "IEUR", "IJH",
         "XLK", "XLF", "XLE", "XLV", "XLI", "XLB",
