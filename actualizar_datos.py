@@ -256,6 +256,76 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(float(mes["fr"]),    6),
     )
 
+def detectar_base(df):
+    """
+    Detecta la base estructural de un papel (para Warren Score v2 Pilar D).
+    Retorna dict con semanas, prof, pos, voltrend — o None en cada campo si no computable.
+    """
+    NULL = {'semanas': None, 'prof': None, 'pos': None, 'voltrend': None}
+    try:
+        if df is None or len(df) < 30:
+            return NULL
+        # Renombrar columnas a minúsculas para uniformidad
+        df = df.copy()
+        df.columns = [c.lower() for c in df.columns]
+        if 'close' not in df.columns or 'high' not in df.columns:
+            return NULL
+
+        VENTANA = 130  # ~26 semanas
+        reciente = df.tail(VENTANA)
+        pivote_alto = reciente['high'].max()
+        fecha_pivote = reciente['high'].idxmax()
+
+        # Si el máximo está en las últimas 5 ruedas, retroceder al máximo previo
+        if fecha_pivote >= df.index[-5]:
+            reciente2 = df.iloc[:-5].tail(VENTANA)
+            if len(reciente2) < 10:
+                return NULL
+            pivote_alto = reciente2['high'].max()
+            fecha_pivote = reciente2['high'].idxmax()
+
+        tramo = df.loc[fecha_pivote:]
+        if len(tramo) < 10:
+            return NULL
+
+        min_base = tramo['low'].min()
+        profundidad = (pivote_alto - min_base) / pivote_alto * 100
+
+        # Sin corrección ≥6% = papel vertical sin base (caso CVS)
+        if profundidad < 6:
+            return NULL
+
+        cierre = float(df['close'].iloc[-1])
+
+        # ¿Rompió hace más de ~3 semanas?
+        ruedas_sobre_pivote = int((tramo['close'] > pivote_alto).sum())
+        if ruedas_sobre_pivote > 15:
+            idx_bo = tramo[tramo['close'] > pivote_alto].index[0]
+            tramo = df.loc[fecha_pivote:idx_bo]
+
+        semanas = len(tramo) / 5.0
+        posicion = (cierre - min_base) / (pivote_alto - min_base) * 100
+        posicion = min(posicion, 130.0)  # clamp
+
+        # Volumen decreciente: último tercio vs primer tercio del tramo
+        tercio = max(5, len(tramo) // 3)
+        if 'volume' in df.columns:
+            vol_ini = float(tramo['volume'].iloc[:tercio].mean())
+            vol_fin = float(tramo['volume'].iloc[-tercio:].mean())
+            voltrend = round(vol_fin / vol_ini, 2) if vol_ini > 0 else None
+        else:
+            voltrend = None
+
+        return {
+            'semanas':  round(semanas, 1),
+            'prof':     round(profundidad, 1),
+            'pos':      round(posicion, 1),
+            'voltrend': voltrend,
+        }
+    except Exception as e:
+        return NULL
+
+
 def detectar_vcp(hist, pivot_order=3):
     try:
         h = hist['High'].values
@@ -499,6 +569,9 @@ def calcular_kpis(ticker_symbol, hist_spy):
         # VCP
         vcp = detectar_vcp(hist)
 
+        # Base estructural (Warren Score v2 Pilar D)
+        base = detectar_base(hist)
+
         # Breakout fresco
         brk = detectar_breakout(hist)
 
@@ -542,6 +615,10 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Breakout Days Ago":       brk['Breakout Days Ago'],
             "Breakout Vol OK":         brk['Breakout Vol OK'],
             "Breakout Vol Ratio":      brk['Breakout Vol Ratio'],
+            "Base Semanas":            base['semanas'],
+            "Base Profundidad %":      base['prof'],
+            "Base Posición %":         base['pos'],
+            "Base Vol Trend":          base['voltrend'],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
