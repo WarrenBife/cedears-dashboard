@@ -256,6 +256,40 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(float(mes["fr"]),    6),
     )
 
+def atr14_pct(df):
+    """ATR de 14 ruedas expresado como % del precio actual."""
+    if df is None or len(df) < 15:
+        return None
+    try:
+        high  = df['High']
+        low   = df['Low']
+        close = df['Close']
+        prev  = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev).abs(),
+            (low  - prev).abs()
+        ], axis=1).max(axis=1)
+        atr14  = tr.tail(14).mean()
+        precio = close.iloc[-1]
+        if precio <= 0:
+            return None
+        return round(float(atr14 / precio * 100), 4)
+    except:
+        return None
+
+def vol_anual_pct(df):
+    """Volatilidad histórica anualizada (252 ruedas) expresada como %."""
+    if df is None or len(df) < 20:
+        return None
+    try:
+        rets = df['Close'].pct_change().dropna()
+        if len(rets) < 20:
+            return None
+        return round(float(rets.std() * (252 ** 0.5) * 100), 4)
+    except:
+        return None
+
 def detectar_base(df):
     """
     Detecta la base estructural de un papel (para Warren Score v2 Pilar D).
@@ -572,6 +606,10 @@ def calcular_kpis(ticker_symbol, hist_spy):
         # Base estructural (Warren Score v2 Pilar D)
         base = detectar_base(hist)
 
+        # ATR14 % y Volatilidad Anual % (Warren Score v2.1)
+        atr14_p    = atr14_pct(hist)
+        vol_anual  = vol_anual_pct(hist)
+
         # Breakout fresco
         brk = detectar_breakout(hist)
 
@@ -619,6 +657,8 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Base Profundidad %":      base['prof'],
             "Base Posición %":         base['pos'],
             "Base Vol Trend":          base['voltrend'],
+            "ATR14 %":                 atr14_p,
+            "Volatilidad Anual %":     vol_anual,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")

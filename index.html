@@ -6530,7 +6530,13 @@ function _pilarAv2(d){
   const dMax = d['Dist Máx52W %'];
   pts += (dMax !== null && dMax > -5) ? 8 : _lineal(dMax, -25, -5, 0, 8);
   pts += _tri(d['Dist SMA50 %'],  -3, 0,  8, 25) * 6;
-  pts += _tri(d['Dist EMA200 %'],  0,10, 50, 70) * 3.5;
+  const atr14 = d['ATR14 %'];
+  if (atr14 !== null && atr14 !== undefined && atr14 > 0) {
+    const distATRs = d['Dist EMA200 %'] / atr14;
+    pts += _tri(distATRs, 0, 3, 10, 16) * 3.5;
+  } else {
+    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 3.5;
+  }
   pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 2.5);
   return Math.min(pts, 20);
 }
@@ -6600,8 +6606,14 @@ function _pilarDv2(d){
   const vtrend  = d['Base Vol Trend'];
   const distMin = d['Dist Mín52W %'];
 
-  /* Extensión del avance — usa columna existente, siempre disponible */
-  pts += _tri(distMin, 25, 35, 110, 220) * 5;
+  /* Extensión del avance — normalizada por volatilidad anual si disponible */
+  const volA = d['Volatilidad Anual %'];
+  if (distMin !== null && distMin !== undefined && volA !== null && volA !== undefined && volA > 0) {
+    const ext = distMin / volA;
+    pts += _tri(ext, 0.3, 0.5, 1.8, 3.2) * 5;
+  } else {
+    pts += _tri(distMin, 25, 35, 110, 220) * 5;
+  }
 
   /* Componentes que requieren pipeline */
   if (semanas !== null && semanas !== undefined) {
@@ -6626,7 +6638,11 @@ function _penalizacionesV2(d){
   let pen = 0; const flags = [];
   const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
   const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
-  if ((d50 !== null && d50 > 25) || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('SOBREEXT.'); }
+  const atrP = d['ATR14 %'];
+  const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
+    ? (d50 !== null && d50 / atrP > 7)
+    : (d50 !== null && d50 > 25);
+  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('SOBREEXT.'); }
   const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
   if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('DISTRIB.'); }
   const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
