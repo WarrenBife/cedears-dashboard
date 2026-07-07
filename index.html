@@ -649,10 +649,10 @@
               <th data-tooltip="Símbolo del activo">Ticker</th>
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2.">Score</th>
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
-              <th data-tooltip="Pilar A — Calidad de tendencia (máx 25 pts): posición vs máx 52W, SMA50, EMA200 y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
-              <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
+              <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs máx 52W, SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
+              <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
-              <th data-tooltip="Pilar D — Gatillo/setup (máx 15 pts): VCP detectado, distancia al pivot y breakout fresco con volumen."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
+              <th data-tooltip="Pilar D — Setup estructural (máx 25 pts): extensión del avance normalizada, madurez de la base, profundidad, posición y tendencia de volumen."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
@@ -957,7 +957,7 @@ function getDatosFiltrados() {
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
     if (quickFilter === 'vol'    && !(d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50)) return false;
-    if (quickFilter === 'quality') { const _wq = calcWarrenDetalle(d); if (!(_wq && _wq.pa > 20 && _wq.pb > 20 && _wq.pc > 20 && _wq.pd > 10)) return false; }
+    if (quickFilter === 'quality') { const _wq = calcWarrenDetalle(d); if (!(_wq && _wq.pa > 15 && _wq.pb > 16 && _wq.pc > 19 && _wq.pd > 16)) return false; }
     return true;
   });
 }
@@ -1041,7 +1041,7 @@ function renderStats() {
   document.getElementById('st-sma50').textContent   = data.filter(d => d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0).length;
   document.getElementById('st-vol').textContent     = data.filter(d => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50).length;
   document.getElementById('st-quality').textContent = data.filter(d => {
-    const _wq = calcWarrenDetalle(d); return _wq && _wq.pa > 20 && _wq.pb > 20 && _wq.pc > 20 && _wq.pd > 10;
+    const _wq = calcWarrenDetalle(d); return _wq && _wq.pa > 15 && _wq.pb > 16 && _wq.pc > 19 && _wq.pd > 16;
   }).length;
 }
 
@@ -1358,10 +1358,10 @@ function renderWarrenScore() {
           <td><div style="display:flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(d['Ticker'])}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</div></td>
           <td>${scoreBadge(score)}</td>
           <td style="text-align:center">${gatesHtml}</td>
-          <td style="text-align:center">${pilarBadge(pa, 25, 'ws-pa')}</td>
-          <td style="text-align:center">${pilarBadge(pb, 30, 'ws-pb')}</td>
+          <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
+          <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
           <td style="text-align:center">${pilarBadge(pc, 30, 'ws-pc')}</td>
-          <td style="text-align:center">${pilarBadge(pd, 15, 'ws-pd')}</td>
+          <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
         </tr>`;
       }).join('');
@@ -6696,7 +6696,10 @@ window.calcWarrenDetalleV2 = function(d){
   return { score, fallas, pa, pb, pc, pd, pen, flags };
 };
 
-/* ── Vista previa privada ── */
+/* v2 es el score público — reemplaza calcWarrenDetalle globalmente */
+window.calcWarrenDetalle = window.calcWarrenDetalleV2;
+
+/* ── Vista previa privada (ya no activa, pero se mantiene por compatibilidad) ── */
 const V2_PREVIEW = () => localStorage.getItem('wb_v2_preview') === '1';
 
 /* Inyectar columna "v2" en el header de Warren Score */
