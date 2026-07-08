@@ -647,8 +647,8 @@
           <table class="scanner-table" id="warren-table">
             <thead><tr>
               <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
-              <th data-tooltip="Símbolo del activo">Ticker</th>
-              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior.">Score</th>
+              <th data-tooltip="Símbolo del activo" style="text-align:center">Ticker</th>
+              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs máx 52W, SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
               <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
@@ -1402,8 +1402,8 @@ function renderWarrenScore() {
         const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
         return `<tr ${trStyle}>
           <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
-          <td><div style="display:flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
-          <td><div style="display:flex;align-items:center;gap:4px;">${scoreBadge(score)}${deltaHtml}</div></td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
           <td style="text-align:center">${gatesHtml}</td>
           <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
           <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
