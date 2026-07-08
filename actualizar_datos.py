@@ -360,6 +360,76 @@ def detectar_base(df):
         return NULL
 
 
+def div_rsi(hist):
+    """Divergencia bajista de RSI: precio hace máximos nuevos pero RSI no los confirma."""
+    try:
+        if hist is None or len(hist) < 20:
+            return False
+        close = hist['Close']
+        delta = close.diff()
+        gain  = delta.clip(lower=0).rolling(14, min_periods=14).mean()
+        loss  = (-delta.clip(upper=0)).rolling(14, min_periods=14).mean()
+        rsi   = (100 - 100 / (1 + gain / loss.replace(0, np.nan))).values
+        c     = close.values
+        n     = min(40, len(c))
+        cw, rw = c[-n:], rsi[-n:]
+        # Pivotes confirmados: máximo local con ≥4 ruedas de margen a cada lado
+        pivots = [i for i in range(4, n - 4)
+                  if all(cw[i] >= cw[i-j] for j in range(1, 5))
+                  and all(cw[i] >= cw[i+j] for j in range(1, 5))]
+        if len(pivots) < 2:
+            return False
+        p1, p2 = pivots[-2], pivots[-1]
+        if np.isnan(rw[p1]) or np.isnan(rw[p2]):
+            return False
+        return bool(cw[p2] > cw[p1] and rw[p2] < rw[p1] - 3)
+    except:
+        return False
+
+
+def div_obv(hist):
+    """Divergencia bajista de OBV: precio hace nuevo máximo en 10 ruedas pero OBV no."""
+    try:
+        if hist is None or len(hist) < 25:
+            return False
+        c   = hist['Close'].values
+        v   = hist['Volume'].values
+        obv = np.zeros(len(c))
+        for i in range(1, len(c)):
+            obv[i] = obv[i-1] + (v[i] if c[i] > c[i-1] else (-v[i] if c[i] < c[i-1] else 0))
+        precio_rec  = c[-10:].max();   precio_prev = c[-20:-10].max()
+        obv_rec     = obv[-10:].max(); obv_prev    = obv[-20:-10].max()
+        return bool(precio_rec > precio_prev and obv_rec <= obv_prev)
+    except:
+        return False
+
+
+def churn_maximos(hist):
+    """Churning en máximos: ≥3 días en las últimas 10 ruedas con cierre en mitad inferior y volumen alto."""
+    try:
+        if hist is None or len(hist) < 25:
+            return False
+        hi  = hist['High'].values
+        lo  = hist['Low'].values
+        c   = hist['Close'].values
+        v   = hist['Volume'].values
+        max_20 = hi[-20:].max()
+        if max_20 <= 0 or (max_20 - c[-1]) / max_20 * 100 > 4:
+            return False
+        vol_avg = v[-20:].mean()
+        if vol_avg <= 0:
+            return False
+        count = sum(
+            1 for i in range(-10, 0)
+            if (hi[i] - lo[i]) > 0
+            and (c[i] - lo[i]) / (hi[i] - lo[i]) < 0.5
+            and v[i] >= vol_avg
+        )
+        return count >= 3
+    except:
+        return False
+
+
 def detectar_vcp(hist, pivot_order=3):
     try:
         h = hist['High'].values
@@ -610,6 +680,11 @@ def calcular_kpis(ticker_symbol, hist_spy):
         atr14_p    = atr14_pct(hist)
         vol_anual  = vol_anual_pct(hist)
 
+        # Señales de agotamiento del avance (Warren Score v2.2)
+        div_rsi_v  = div_rsi(hist)
+        div_obv_v  = div_obv(hist)
+        churn_v    = churn_maximos(hist)
+
         # Breakout fresco
         brk = detectar_breakout(hist)
 
@@ -659,6 +734,9 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Base Vol Trend":          base['voltrend'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
+            "Div RSI":                 div_rsi_v,
+            "Div OBV":                 div_obv_v,
+            "Churn Máximos":           churn_v,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")

@@ -655,9 +655,22 @@
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
               <th data-tooltip="Pilar D — Setup estructural (máx 25 pts): extensión del avance normalizada, madurez de la base, profundidad, posición y tendencia de volumen."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
+              <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido" style="text-align:center">Adv.</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
+        </div>
+        <div style="padding:8px 14px 10px;border-top:1px solid var(--border2);">
+          <button onclick="var b=document.getElementById('ws-leg');b.style.display=b.style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;padding:0;font-family:inherit;letter-spacing:0.05em;text-transform:uppercase">¿Qué significan las advertencias? ▾</button>
+          <div id="ws-leg" style="display:none;margin-top:6px;color:var(--muted);font-size:10px;line-height:2;">
+            📉 <b>Divergencia RSI</b> — El precio hace máximos pero el impulso no los confirma<br>
+            🪫 <b>Divergencia OBV</b> — La suba viene con cada vez menos volumen — sin nafta<br>
+            🐘 <b>Churning en máximos</b> — Volumen alto sin avance: posible distribución institucional<br>
+            🎈 <b>Sobreextensión</b> — Muy lejos de su media para su volatilidad — riesgo de reversión<br>
+            🩸 <b>Distribución activa</b> — Mayoría de días negativos con volumen en las caídas<br>
+            💥 <b>Reversión con volumen</b> — Caída fuerte de hoy con volumen inusual<br>
+            ⛔ <b>Breakout fallido</b> — Rompió y volvió por debajo del pivot
+          </div>
         </div>
       </div>
     </div>
@@ -1378,7 +1391,7 @@ function renderWarrenScore() {
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
         const ticker   = d['Ticker'];
         const globalPos = _allRanks[ticker] || null;
@@ -1410,6 +1423,10 @@ function renderWarrenScore() {
           <td style="text-align:center">${pilarBadge(pc, 30, 'ws-pc')}</td>
           <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+          <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos'}[f]||f;
+            return `<span title="${tip}" style="font-size:13px;cursor:default">${f}</span>`;
+          }).join('') : ''}</td>
         </tr>`;
       }).join('');
 }
@@ -6691,24 +6708,43 @@ function _pilarDv2(d){
   return Math.min(pts, 25);
 }
 
-/* ── Penalizaciones v2 (sobreextensión −6 en vez de −10) ── */
+/* ── Penalizaciones v2 ── */
 function _penalizacionesV2(d){
   let pen = 0; const flags = [];
   const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
   const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
   const atrP = d['ATR14 %'];
+
+  /* Sobreextensión (−6) */
   const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
     ? (d50 !== null && d50 / atrP > 7)
     : (d50 !== null && d50 > 25);
-  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('SOBREEXT.'); }
+  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('🎈'); }
+
+  /* Distribución activa (−15) */
   const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
-  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('DISTRIB.'); }
+  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('🩸'); }
+
+  /* Reversión con volumen (−8) */
   const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
-  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('REV.VOL'); }
+  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('💥'); }
+
+  /* Breakout fallido (−10) */
   const boDays = d['Breakout Days Ago'];
   if (!_bool(d['Breakout Fresh']) && boDays !== null && boDays > 5 && boDays <= 15) {
-    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('BO FALLIDO'); }
+    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
   }
+
+  /* Agotamiento del avance v2.2 (−4 con 1 señal / −10 con 2+) */
+  const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
+  const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
+  if (nAgot >= 1) {
+    pen -= nAgot === 1 ? 4 : 10;
+    if (divRsi) flags.push('📉');
+    if (divObv) flags.push('🪫');
+    if (churn)  flags.push('🐘');
+  }
+
   return { pen, flags };
 }
 
