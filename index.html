@@ -1314,34 +1314,23 @@ function calcWarrenScore(d) {
   return calcWarrenDetalle(d).score;
 }
 
-let _wsGlobalRanks = {};
-let _wsPrevRanks   = {};
-
 function wsRankSnapSave() {
   if (!DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return;
   const hoy = new Date().toISOString().slice(0, 10);
-
-  _wsGlobalRanks = {};
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null'); } catch(e) {}
+  if (snap && snap.date === hoy) return;
+  const ranks = {};
   DATOS
     .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
     .filter(x => x.s > 0)
     .sort((a, b) => b.s - a.s)
-    .forEach((x, i) => { _wsGlobalRanks[x.t] = i + 1; });
-
-  let snap = null;
-  try { snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null'); } catch(e) {}
-
-  _wsPrevRanks = snap
-    ? (snap.date !== hoy ? (snap.ranks || {}) : (snap.prev || {}))
-    : {};
-
-  if (!snap || snap.date !== hoy) {
-    try {
-      localStorage.setItem('wb_ws_ranks', JSON.stringify({
-        date: hoy, ranks: _wsGlobalRanks, prev: snap?.ranks || {}
-      }));
-    } catch(e) {}
-  }
+    .forEach((x, i) => { ranks[x.t] = i + 1; });
+  try {
+    localStorage.setItem('wb_ws_ranks', JSON.stringify({
+      date: hoy, ranks, prev: snap?.ranks || {}
+    }));
+  } catch(e) {}
 }
 
 function renderWarrenScore() {
@@ -1372,13 +1361,28 @@ function renderWarrenScore() {
     return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
   };
 
+  // Ranking global (todos los tickers, sin filtro)
+  const _allRanks = {};
+  if (DATOS && DATOS.length) {
+    DATOS
+      .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .forEach((x, i) => { _allRanks[x.t] = i + 1; });
+  }
+  let _prevRanks = {};
+  try {
+    const _snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null');
+    if (_snap) _prevRanks = _snap.prev || {};
+  } catch(e) {}
+
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
     ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
         const ticker   = d['Ticker'];
-        const globalPos = _wsGlobalRanks[ticker] || null;
-        const prevPos   = _wsPrevRanks[ticker];
+        const globalPos = _allRanks[ticker] || null;
+        const prevPos   = _prevRanks[ticker];
         let deltaHtml = '';
         if (prevPos && globalPos) {
           const delta = prevPos - globalPos;
