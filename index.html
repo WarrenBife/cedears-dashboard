@@ -646,8 +646,9 @@
         <div style="max-height:500px;overflow-y:auto;">
           <table class="scanner-table" id="warren-table">
             <thead><tr>
+              <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
               <th data-tooltip="Símbolo del activo">Ticker</th>
-              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2.">Score</th>
+              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior.">Score</th>
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs máx 52W, SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
               <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
@@ -909,6 +910,7 @@ async function cargarDatos() {
     document.getElementById('gf-ema200-asc').checked = false;
     poblarFiltros();
     renderTodo();
+    wsRankSnapSave();
     renderEarnings();
     document.getElementById('loading').style.display = 'none';
     // Efecto visual según SPY
@@ -1312,6 +1314,36 @@ function calcWarrenScore(d) {
   return calcWarrenDetalle(d).score;
 }
 
+let _wsGlobalRanks = {};
+let _wsPrevRanks   = {};
+
+function wsRankSnapSave() {
+  if (!DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return;
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  _wsGlobalRanks = {};
+  DATOS
+    .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .forEach((x, i) => { _wsGlobalRanks[x.t] = i + 1; });
+
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null'); } catch(e) {}
+
+  _wsPrevRanks = snap
+    ? (snap.date !== hoy ? (snap.ranks || {}) : (snap.prev || {}))
+    : {};
+
+  if (!snap || snap.date !== hoy) {
+    try {
+      localStorage.setItem('wb_ws_ranks', JSON.stringify({
+        date: hoy, ranks: _wsGlobalRanks, prev: snap?.ranks || {}
+      }));
+    } catch(e) {}
+  }
+}
+
 function renderWarrenScore() {
   const filtro = document.getElementById('ws-min').value;
   const topN   = parseInt(document.getElementById('ws-n').value);
@@ -1342,8 +1374,18 @@ function renderWarrenScore() {
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    ? '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
     : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
+        const ticker   = d['Ticker'];
+        const globalPos = _wsGlobalRanks[ticker] || null;
+        const prevPos   = _wsPrevRanks[ticker];
+        let deltaHtml = '';
+        if (prevPos && globalPos) {
+          const delta = prevPos - globalPos;
+          if (delta > 0)      deltaHtml = `<span style="color:var(--green);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▲${delta}</span>`;
+          else if (delta < 0) deltaHtml = `<span style="color:var(--red);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▼${Math.abs(delta)}</span>`;
+          else                deltaHtml = `<span style="color:var(--muted);font-size:9px;line-height:1">—</span>`;
+        }
         const gatesOk  = fallas.length === 0;
         const gatesHtml = gatesOk
           ? `<span style="color:var(--green);font-size:12px">✓</span>`
@@ -1355,8 +1397,9 @@ function renderWarrenScore() {
         const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
         const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
         return `<tr ${trStyle}>
-          <td><div style="display:flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(d['Ticker'])}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span>${brkStar}</div></td>
-          <td>${scoreBadge(score)}</td>
+          <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
+          <td><div style="display:flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
+          <td><div style="display:flex;align-items:center;gap:4px;">${scoreBadge(score)}${deltaHtml}</div></td>
           <td style="text-align:center">${gatesHtml}</td>
           <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
           <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
