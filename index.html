@@ -86,7 +86,7 @@
 
   .main{padding:20px 24px;max-width:1800px;margin:0 auto;}
 
-  .stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
   .stat-card{background:linear-gradient(180deg,rgba(255,255,255,0.025),transparent 45%),var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;cursor:pointer;position:relative;overflow:hidden;transition:border-color .22s var(--ease),transform .22s var(--ease),box-shadow .22s var(--ease);box-shadow:var(--shadow-panel);}
   .stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent 80%);opacity:0;transition:opacity .25s var(--ease);}
   .stat-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 28px -12px rgba(0,0,0,0.7);}
@@ -595,7 +595,6 @@
     <div class="stat-card" id="sc-rs" onclick="setQuickFilter('rs')"><div class="stat-label">RS Score &gt; 70</div><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div><div class="stat-hint">click para filtrar</div></div>
     <div class="stat-card" id="sc-sma50" onclick="setQuickFilter('sma50')"><div class="stat-label">Sobre SMA50</div><div class="stat-value c-green" id="st-sma50">—</div><div class="stat-sub">precio sobre SMA50</div><div class="stat-hint">click para filtrar</div></div>
     <div class="stat-card" id="sc-vol" onclick="setQuickFilter('vol')"><div class="stat-label">Vol inusual hoy</div><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-quality" onclick="setQuickFilter('quality')"><div class="stat-label">Candidatos calidad</div><div class="stat-value c-text" id="st-quality">—</div><div class="stat-sub">A&gt;20 · B&gt;20 · C&gt;20 · D&gt;10</div><div class="stat-hint">click para filtrar</div></div>
   </div>
 
   <div class="grid-2">
@@ -650,9 +649,9 @@
               <th data-tooltip="Símbolo del activo" style="text-align:center">Ticker</th>
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
-              <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs máx 52W, SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
-              <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
-              <th data-tooltip="Pilar C — Contracción y acumulación (máx 30 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
+              <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
+              <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
+              <th data-tooltip="Pilar C — Contracción y acumulación (máx 25 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
               <th data-tooltip="Pilar D — Setup estructural (máx 25 pts): extensión del avance normalizada, madurez de la base, profundidad, posición y tendencia de volumen."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
               <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido" style="text-align:center">Adv.</th>
@@ -873,7 +872,7 @@ let _tickerPos = 0;
 
 function setQuickFilter(name) {
   quickFilter = quickFilter === name || name === 'total' ? null : name;
-  ['total','ema','rs','sma50','vol','quality'].forEach(k => {
+  ['total','ema','rs','sma50','vol'].forEach(k => {
     const el = document.getElementById('sc-' + k);
     if (el) el.classList.toggle('active', quickFilter === k);
   });
@@ -972,7 +971,6 @@ function getDatosFiltrados() {
     if (quickFilter === 'rs'     && !(d['RS Score'] !== null && d['RS Score'] > 70)) return false;
     if (quickFilter === 'sma50'  && !(d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0)) return false;
     if (quickFilter === 'vol'    && !(d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50)) return false;
-    if (quickFilter === 'quality') { const _wq = calcWarrenDetalle(d); if (!(_wq && _wq.pa > 15 && _wq.pb > 16 && _wq.pc > 19 && _wq.pd > 16)) return false; }
     return true;
   });
 }
@@ -1055,9 +1053,6 @@ function renderStats() {
   document.getElementById('st-rs').textContent      = data.filter(d => d['RS Score'] !== null && d['RS Score'] > 70).length;
   document.getElementById('st-sma50').textContent   = data.filter(d => d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0).length;
   document.getElementById('st-vol').textContent     = data.filter(d => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50).length;
-  document.getElementById('st-quality').textContent = data.filter(d => {
-    const _wq = calcWarrenDetalle(d); return _wq && _wq.pa > 15 && _wq.pb > 16 && _wq.pc > 19 && _wq.pd > 16;
-  }).length;
 }
 
 function renderResurgimiento() {
@@ -1419,8 +1414,8 @@ function renderWarrenScore() {
           <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
           <td style="text-align:center">${gatesHtml}</td>
           <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
-          <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
-          <td style="text-align:center">${pilarBadge(pc, 30, 'ws-pc')}</td>
+          <td style="text-align:center">${pilarBadge(pb, 30, 'ws-pb')}</td>
+          <td style="text-align:center">${pilarBadge(pc, 25, 'ws-pc')}</td>
           <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
           <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
@@ -2516,7 +2511,7 @@ function showView(name) {
 
   if (name === 'home') {
     quickFilter = null;
-    ['total','ema','rs','sma50','vol','quality'].forEach(k => {
+    ['total','ema','rs','sma50','vol'].forEach(k => {
       const el = document.getElementById('sc-' + k);
       if (el) el.classList.remove('active');
     });
@@ -3451,7 +3446,7 @@ if ('serviceWorker' in navigator) {
   }catch(e){}
 
   /* ── 4. Count-up + barras de proporción en stat cards ── */
-  var STAT_IDS = ['st-total','st-ema','st-rs','st-sma50','st-vol','st-quality'];
+  var STAT_IDS = ['st-total','st-ema','st-rs','st-sma50','st-vol'];
 
   function countUp(el, from, to){
     if(reduceMotion || from===to){ el.textContent = to; return; }
@@ -5360,7 +5355,7 @@ function _frow(lbl,val,cv){
 
 function _buildFicha(d){
   var wd=typeof calcWarrenDetalle==='function'?calcWarrenDetalle(d):null;
-  var sc=wd?wd.score:0, pa=wd?wd.pa:0, pb=wd?wd.pb:0, pc=wd?wd.pc:0, pd=wd?wd.pd:0, fallas=wd?wd.fallas:[];
+  var sc=wd?wd.score:0, pa=wd?wd.pa:0, pb=wd?wd.pb:0, pc=wd?wd.pc:0, pd=wd?wd.pd:0, fallas=wd?wd.fallas:[], flags=wd?wd.flags:[];
   var stg=_stage(d), stgLbl=['','Impulso','Tendencia alcista','Distribución','Bajista'][stg];
   var pr=_n(d['Precio']), vd=_n(d['Var Día %']);
   var vdS=vd!=null?(vd>0?'+':'')+vd.toFixed(2)+'%':'—', vdC=vd!=null?(vd>0?'#22c98a':vd<0?'#f0605a':'#737d8f'):'#737d8f';
@@ -5403,10 +5398,23 @@ function _buildFicha(d){
   h+='<div class="wb-fsec"><div class="wb-fsec-ttl">Warren Score</div>';
   h+='<div style="display:flex;gap:14px;align-items:center;">';
   h+='<div style="flex-shrink:0">'+_ring(sc,78)+'</div>';
-  h+='<div style="flex:1">'+_pbar('Tendencia',pa,25)+_pbar('Fuerza RS',pb,30)+_pbar('Contracción',pc,30)+_pbar('Setup',pd,15)+'</div></div>';
+  h+='<div style="flex:1">'+_pbar('Tendencia',pa,20)+_pbar('Fuerza RS',pb,25)+_pbar('Contracción',pc,30)+_pbar('Setup Estr.',pd,25)+'</div></div>';
   if(fallas.length) h+='<div style="margin-top:7px;font-size:10px;color:#f0605a;">⚠ '+fallas.join(' · ')+'</div>';
   else h+='<div style="margin-top:7px"><span style="font-size:10px;background:rgba(34,201,138,0.1);color:#22c98a;border:1px solid rgba(34,201,138,0.25);border-radius:4px;padding:2px 7px;font-family:DM Mono,monospace">GATES OK ✓</span></div>';
   h+='</div>';
+
+  // 2b. Advertencias activas
+  if(flags.length){
+    var _flagTips={'🎈':'Sobreextensión — Muy lejos de su media para su volatilidad — riesgo de reversión','🩸':'Distribución activa — Mayoría de días negativos con el volumen en las caídas','💥':'Reversión con volumen — Caída fuerte de hoy con volumen inusual','⛔':'Breakout fallido — Rompió y volvió por debajo del pivot','📉':'Divergencia RSI — El precio hace máximos pero el impulso no los confirma','🪫':'Divergencia OBV — La suba viene con cada vez menos volumen — sin nafta','🐘':'Churning en máximos — Volumen alto sin avance en zona de máximos: posible distribución institucional'};
+    h+='<div class="wb-fsec"><div class="wb-fsec-ttl" style="color:#f5a623">⚠ Advertencias activas</div>';
+    flags.forEach(function(f){
+      var txt=_flagTips[f]||f;
+      h+='<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11px;">';
+      h+='<span style="font-size:15px;flex-shrink:0;line-height:1.3">'+f+'</span>';
+      h+='<span style="color:var(--muted);line-height:1.4">'+_esc(txt)+'</span></div>';
+    });
+    h+='</div>';
+  }
 
   // 3. Rango 52W
   h+='<div class="wb-fsec"><div class="wb-fsec-ttl">Rango 52 semanas</div>';
@@ -5445,6 +5453,19 @@ function _buildFicha(d){
   h+=_frow('Vol inusual',d['Vol Inusual %']!=null?'+'+_n(d['Vol Inusual %']).toFixed(0)+'%':'—',_n(d['Vol Inusual %']));
   h+=_frow('Acumulación',acum!=null?acum.toFixed(2)+'x':'—',acum!=null?acum-1:null);
   h+='</div></div>';
+
+  // 6b. Datos estructurales (pipeline v2 — visibles cuando el Colab los exporta)
+  var _bsem=_n(d['Base Semanas']),_bprof=_n(d['Base Profundidad %']),_bpos=_n(d['Base Posición %']);
+  var _atr14=_n(d['ATR14 %']),_vola=_n(d['Volatilidad Anual %']);
+  if(_bsem!=null||_atr14!=null){
+    h+='<div class="wb-fsec"><div class="wb-fsec-ttl">Datos estructurales</div><div class="wb-fgrid2">';
+    if(_bsem!=null)  h+=_frow('Base semanas', _bsem.toFixed(0)+'s', _bsem>=4&&_bsem<=26?1:_bsem<4?-1:0);
+    if(_bprof!=null) h+=_frow('Profundidad base', _pct(_bprof), _bprof>=10&&_bprof<=25?1:_bprof>35?-1:0);
+    if(_bpos!=null)  h+=_frow('Posición en base', _pct(_bpos), _bpos>=75?1:_bpos<40?-1:0);
+    if(_atr14!=null) h+=_frow('ATR14 %', _atr14.toFixed(2)+'%', null);
+    if(_vola!=null)  h+=_frow('Volatilidad anual', _vola.toFixed(1)+'%', null);
+    h+='</div></div>';
+  }
 
   // 7. Setup
   h+='<div class="wb-fsec"><div class="wb-fsec-ttl">Setup</div>';
@@ -6602,63 +6623,61 @@ if(document.readyState==='loading'){
 /* ── Pilar A v2 — Tendencia (20 pts) ── */
 function _pilarAv2(d){
   let pts = 0;
-  const dMax = d['Dist Máx52W %'];
-  pts += (dMax !== null && dMax > -5) ? 8 : _lineal(dMax, -25, -5, 0, 8);
-  pts += _tri(d['Dist SMA50 %'],  -3, 0,  8, 25) * 6;
+  pts += _tri(d['Dist SMA50 %'],  -3, 0,  8, 25) * 10;
   const atr14 = d['ATR14 %'];
   if (atr14 !== null && atr14 !== undefined && atr14 > 0) {
     const distATRs = d['Dist EMA200 %'] / atr14;
-    pts += _tri(distATRs, 0, 3, 10, 16) * 3.5;
+    pts += _tri(distATRs, 0, 3, 10, 16) * 5.8333;
   } else {
-    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 3.5;
+    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 5.8333;
   }
-  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 2.5);
+  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 4.1667);
   return Math.min(pts, 20);
 }
 
-/* ── Pilar B v2 — Fuerza Relativa (25 pts) ── */
+/* ── Pilar B v2 — Fuerza Relativa (30 pts) ── */
 function _pilarBv2(d){
   let pts = 0;
   const rs = d['RS Score'];
-  pts += _lineal(rs, 0, 100, 0, 12.5);
+  pts += _lineal(rs, 0, 100, 0, 15);
   if (rs !== null) {
-    if (d['RS Ayer']        !== null && rs > d['RS Ayer'])        pts += 2;
-    if (d['RS Semana ant.'] !== null && rs > d['RS Semana ant.']) pts += 2;
-    if (d['RS Mes ant.']    !== null && rs > d['RS Mes ant.'])    pts += 2.5;
+    if (d['RS Ayer']        !== null && rs > d['RS Ayer'])        pts += 2.4;
+    if (d['RS Semana ant.'] !== null && rs > d['RS Semana ant.']) pts += 2.4;
+    if (d['RS Mes ant.']    !== null && rs > d['RS Mes ant.'])    pts += 3;
   }
-  pts += _bool(d['FR > SMA50']) ? 3.5 : 0;
-  pts += _lineal(d['Vs Sector %'], 0, 10, 0, 2.5);
-  return Math.min(pts, 25);
+  pts += _bool(d['FR > SMA50']) ? 4.2 : 0;
+  pts += _lineal(d['Vs Sector %'], 0, 10, 0, 3);
+  return Math.min(pts, 30);
 }
 
-/* ── Pilar C v2 — Setup Corto (30 pts) ── */
+/* ── Pilar C v2 — Setup Corto (25 pts) ── */
 function _pilarCv2(d){
   let pts = 0;
   /* Vol Relativa comprimida */
-  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 5.5);
+  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 4.5833);
   /* Volumen seco */
-  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 4.5;
+  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 3.75;
   /* Ratio acumulación (Vol+ / Vol- 10 ruedas) */
   const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
   if (vp !== null && vn !== null) {
     const ratio = vn <= 0 ? (vp > 0 ? 3 : null) : vp / vn;
     if (ratio !== null) {
-      if (ratio >= 1.5)      pts += 7;
-      else if (ratio >= 1.0) pts += _lineal(ratio, 1.0, 1.5, 3.5, 7);
-      else if (ratio >= 0.8) pts += _lineal(ratio, 0.8, 1.0, 0, 3.5);
+      if (ratio >= 1.5)      pts += 5.8333;
+      else if (ratio >= 1.0) pts += _lineal(ratio, 1.0, 1.5, 2.9167, 5.8333);
+      else if (ratio >= 0.8) pts += _lineal(ratio, 0.8, 1.0, 0, 2.9167);
     }
   }
   /* RSI en zona neutra */
-  pts += _tri(d['RSI 14'], 40, 55, 65, 78) * 3;
+  pts += _tri(d['RSI 14'], 40, 55, 65, 78) * 2.5;
   /* VCP */
   if (_bool(d['VCP Detected'])) {
-    let pv = _lineal(d['VCP Score'], 0, 100, 0, 4);
-    if (_bool(d['VCP Vol Decreasing'])) pv += 1;
-    pts += Math.min(pv, 5);
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 3.3333);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 0.8333;
+    pts += Math.min(pv, 4.1667);
     const dp = d['VCP Dist Pivot %'];
     if (dp !== null) {
       const dpA = Math.abs(dp);
-      pts += dpA <= 3 ? 3 : _lineal(dpA, 10, 3, 0, 3);
+      pts += dpA <= 3 ? 2.5 : _lineal(dpA, 10, 3, 0, 2.5);
     }
   }
   /* Breakout fresco */
@@ -6666,10 +6685,10 @@ function _pilarCv2(d){
     const days = d['Breakout Days Ago'] ?? 99;
     const volOk = _bool(d['Breakout Vol OK']);
     const vrat  = d['Breakout Vol Ratio'] ?? 0;
-    if (days <= 3 && (vrat >= 1.5 || volOk)) pts += 2;
-    else if (days <= 3) pts += 1;
+    if (days <= 3 && (vrat >= 1.5 || volOk)) pts += 1.6667;
+    else if (days <= 3) pts += 0.8333;
   }
-  return Math.min(pts, 30);
+  return Math.min(pts, 25);
 }
 
 /* ── Pilar D v2 — Setup Estructural (25 pts) ── */
@@ -6756,7 +6775,7 @@ window.calcWarrenDetalleV2 = function(d){
   /* Detectar columnas de base disponibles */
   const baseOk = d['Base Semanas'] !== null && d['Base Semanas'] !== undefined;
   /* Puntos máximos disponibles según fuente de datos */
-  const maxDisp = baseOk ? 100 : 80; /* 20+25+30+5 sin base */
+  const maxDisp = baseOk ? 100 : 80; /* 20+30+25+5 sin base */
 
   const pa = _ck('ws-pa') ? _pilarAv2(d) : 0;
   const pb = _ck('ws-pb') ? _pilarBv2(d) : 0;
@@ -6764,7 +6783,7 @@ window.calcWarrenDetalleV2 = function(d){
   const pd = _ck('ws-pd') ? _pilarDv2(d) : 0;
   const { pen, flags } = _ck('ws-pen') ? _penalizacionesV2(d) : { pen: 0, flags: [] };
 
-  const ptsDisp = (_ck('ws-pa')?20:0)+(_ck('ws-pb')?25:0)+(_ck('ws-pc')?30:0)+
+  const ptsDisp = (_ck('ws-pa')?20:0)+(_ck('ws-pb')?30:0)+(_ck('ws-pc')?25:0)+
                   (_ck('ws-pd')?(baseOk?25:5):0);
   const sumRaw = pa + pb + pc + pd + pen;
 
@@ -6776,6 +6795,26 @@ window.calcWarrenDetalleV2 = function(d){
     score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
   }
   if (fallas.length > 0) score = Math.min(score, 40);
+
+  /* Protección: null en datos 52W → score ciego a sus defensas estructurales → capar */
+  if (d['Dist Máx52W %'] === null || d['Dist Máx52W %'] === undefined ||
+      d['Dist Mín52W %'] === null || d['Dist Mín52W %'] === undefined) {
+    score = Math.min(score, 40);
+  }
+
+  /* Gate de compresión v2.3 — "tren que ya pasó"
+     FUERA_DEL_TOP si: estirado Y (sin_pausa O agotandose)
+     UMBRAL_ATR arranca en 6 — recalibrar con GE/MO/ANET si se dispone de ATR14 real */
+  const UMBRAL_ATR = 6;
+  const _atr14g = d['ATR14 %'], _d50g = d['Dist SMA50 %'];
+  if (_atr14g !== null && _atr14g !== undefined && _atr14g > 0 &&
+      _d50g  !== null && _d50g  !== undefined) {
+    const _estirado   = _d50g / _atr14g > UMBRAL_ATR;
+    const _sinPausa   = d['Base Semanas'] === null || d['Base Semanas'] === undefined || +d['Base Semanas'] < 2;
+    const _agotandose = _bool(d['Div RSI']) || _bool(d['Div OBV']) || _bool(d['Churn Máximos']);
+    if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
+  }
+
   return { score, fallas, pa, pb, pc, pd, pen, flags };
 };
 

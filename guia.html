@@ -200,7 +200,6 @@
   <div class="kpi-mock-item"><div class="kpi-mock-val c-green">38</div><div class="kpi-mock-label">RS Score &gt; 70</div><div class="kpi-mock-sub">fuerza relativa alta</div></div>
   <div class="kpi-mock-item"><div class="kpi-mock-val c-green">57</div><div class="kpi-mock-label">Sobre SMA50</div><div class="kpi-mock-sub">precio sobre SMA50</div></div>
   <div class="kpi-mock-item"><div class="kpi-mock-val c-amber">12</div><div class="kpi-mock-label">Vol inusual</div><div class="kpi-mock-sub">+50% sobre promedio</div></div>
-  <div class="kpi-mock-item"><div class="kpi-mock-val c-violet">18</div><div class="kpi-mock-label">Candidatos calidad</div><div class="kpi-mock-sub">4 pilares Warren Score</div></div>
 </div>
 
 <div class="kpi-grid">
@@ -209,7 +208,6 @@
   <div class="kpi-card"><div class="kpi-name">Stat 3</div><div class="kpi-title c-green">RS Score &gt; 70</div><div class="kpi-desc">Activos con fuerza relativa alta frente al SPY. Cuantos más, mejor el estado general del mercado.</div></div>
   <div class="kpi-card"><div class="kpi-name">Stat 4</div><div class="kpi-title c-green">Sobre SMA50</div><div class="kpi-desc">Activos cotizando por encima de su media de 50 ruedas — refleja la tendencia de corto/mediano plazo.</div></div>
   <div class="kpi-card"><div class="kpi-name">Stat 5</div><div class="kpi-title c-amber">Volumen inusual</div><div class="kpi-desc">Activos que operaron hoy más del 50% por encima de su promedio. Puede señalar movimientos institucionales.</div></div>
-  <div class="kpi-card"><div class="kpi-name">Stat 6</div><div class="kpi-title c-violet">Candidatos calidad</div><div class="kpi-desc">Activos que destacan en los cuatro pilares del Warren Score simultáneamente. El filtro más exigente del dashboard.</div></div>
 </div>
 <div class="tip">
   <strong>Tip:</strong> Todos los KPIs son clickeables y actúan como filtros rápidos que se aplican sobre todos los paneles al mismo tiempo. Así podés enfocarte en un subconjunto sin tocar los filtros manuales.
@@ -577,7 +575,6 @@
       </tbody>
     </table>
   </div>
-  <div class="tip"><strong>Candidatos de calidad:</strong> El filtro "Candidatos calidad" del KPI superior muestra únicamente los activos que alcanzan un mínimo exigente en los cuatro pilares simultáneamente. Es el grupo más selecto del universo en ese momento.</div>
 </div>
 
 <!-- Episodic Pivots + Despegue Fresco (lado a lado en el dashboard, aquí como dos paneles consecutivos) -->
@@ -817,69 +814,6 @@
     <div class="chart-canvas-box"><canvas id="c-volinusual" height="190"></canvas></div>
   </div>
   <div class="tip amber"><strong>Atención:</strong> Volumen inusual no es necesariamente alcista. Combinalo siempre con la dirección del precio ese día: subida con volumen alto = acumulación; caída con volumen alto = distribución.</div>
-</div>
-
-<!-- Scanner de calidad -->
-<div class="panel-card">
-  <div class="panel-header">
-    <div class="panel-icon">🔍</div>
-    <div>
-      <div class="panel-name">Scanner de calidad</div>
-      <div class="panel-sub">Los 4 pilares del Warren Score en niveles mínimos exigentes</div>
-    </div>
-  </div>
-  <div class="panel-body">
-    <div>
-      <div class="block-label">Qué muestra</div>
-      <div class="block-text">Activos que alcanzan simultáneamente un mínimo en cada uno de los cuatro pilares del Warren Score: Tendencia (A &gt; 20), Fuerza RS (B &gt; 20), Contracción (C &gt; 20) y Setup (D &gt; 10). Es el grupo más reducido y selecto del universo en cualquier momento dado.</div>
-    </div>
-    <div>
-      <div class="block-label">Para qué sirve</div>
-      <div class="block-text">A diferencia de filtrar solo por score total, este criterio garantiza que ningún pilar está débil. Un activo puede tener score total alto compensando una dimensión con otra. Los Candidatos de calidad no tienen eso: deben cumplir el mínimo en cada dimensión por separado.</div>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-wrap-label">Ejemplo — candidatos que pasan todos los mínimos por pilar</div>
-    <table class="mock-table">
-      <thead>
-        <tr>
-          <th style="text-align:left">Ticker</th>
-          <th>Tend. (A)</th>
-          <th>Fuerza RS (B)</th>
-          <th>Contrac. (C)</th>
-          <th>Setup (D)</th>
-          <th>Score</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="text-align:left"><strong>NVDA</strong></td>
-          <td style="color:var(--green)">23 ✓</td>
-          <td style="color:var(--green)">22 ✓</td>
-          <td style="color:var(--green)">21 ✓</td>
-          <td style="color:var(--green)">14 ✓</td>
-          <td><span class="badge badge-green">80</span></td>
-        </tr>
-        <tr>
-          <td style="text-align:left"><strong>GGAL</strong></td>
-          <td style="color:var(--green)">21 ✓</td>
-          <td style="color:var(--green)">22 ✓</td>
-          <td style="color:var(--green)">20 ✓</td>
-          <td style="color:var(--green)">11 ✓</td>
-          <td><span class="badge badge-green">74</span></td>
-        </tr>
-        <tr>
-          <td style="text-align:left"><strong>META</strong></td>
-          <td style="color:var(--amber)">19 ✗</td>
-          <td style="color:var(--green)">21 ✓</td>
-          <td style="color:var(--green)">20 ✓</td>
-          <td style="color:var(--green)">12 ✓</td>
-          <td><span class="badge badge-amber">72 — no pasa</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="tip"><strong>Lo que buscás:</strong> Este grupo es el punto de partida ideal para buscar setups. Combinalo con el Régimen de Mercado: si las condiciones generales son favorables (score &gt;60) y un activo está en Candidatos de calidad, el contexto y el activo están alineados.</div>
 </div>
 
 <!-- Comparador -->
