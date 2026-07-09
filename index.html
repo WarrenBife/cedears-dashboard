@@ -1210,7 +1210,10 @@ function _bool(v) {
   if (v === null || v === undefined) return false;
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v !== 0;
-  return ['true','si','sí','yes','1','ok','verdadero','✓'].includes(String(v).trim().toLowerCase());
+  const s = String(v).trim().toLowerCase();
+  if (s.includes('✅') || s.includes('✓')) return true;
+  if (s.includes('❌') || s.includes('✗')) return false;
+  return ['true','si','sí','yes','1','ok','verdadero'].includes(s);
 }
 
 function _evalGates(d) {
