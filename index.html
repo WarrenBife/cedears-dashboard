@@ -1216,11 +1216,10 @@ function _bool(v) {
 function _evalGates(d) {
   const fallas = [];
   const precio = d['Precio'], ema200 = d['EMA200'], slope = d['EMA200 Slope'];
-  const distMin = d['Dist Mín52W %'], distMax = d['Dist Máx52W %'], sma50 = d['SMA50'];
+  const distMin = d['Dist Mín52W %'], sma50 = d['SMA50'];
   if (precio === null || ema200 === null || precio <= ema200) fallas.push('Precio ≤ EMA200');
   if (slope === null || slope <= 0)                          fallas.push('EMA200 slope ≤ 0');
-  if (distMin === null || distMin < 30)                      fallas.push('<30% del mín 52W');
-  if (distMax === null || distMax < -25)                     fallas.push('>25% del máx 52W');
+  if (distMin === null || distMin < 20)                      fallas.push('<20% del mín 52W');
   if (sma50 !== null && precio !== null && precio < sma50 * 0.98) fallas.push('Precio < SMA50');
   return fallas;
 }
