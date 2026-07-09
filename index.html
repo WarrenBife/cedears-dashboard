@@ -6764,28 +6764,15 @@ window.calcWarrenDetalleV2 = function(d){
   const fallas = _evalGates(d);
   const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
 
-  /* Detectar columnas de base disponibles */
-  const baseOk = d['Base Semanas'] !== null && d['Base Semanas'] !== undefined;
-  /* Puntos máximos disponibles según fuente de datos */
-  const maxDisp = baseOk ? 100 : 80; /* 20+30+25+5 sin base */
-
+  /* Sin base detectada, Pilar D capa en 5/25 — el score se calcula sobre 100 igual */
   const pa = _ck('ws-pa') ? _pilarAv2(d) : 0;
   const pb = _ck('ws-pb') ? _pilarBv2(d) : 0;
   const pc = _ck('ws-pc') ? _pilarCv2(d) : 0;
   const pd = _ck('ws-pd') ? _pilarDv2(d) : 0;
   const { pen, flags } = _ck('ws-pen') ? _penalizacionesV2(d) : { pen: 0, flags: [] };
 
-  const ptsDisp = (_ck('ws-pa')?20:0)+(_ck('ws-pb')?30:0)+(_ck('ws-pc')?25:0)+
-                  (_ck('ws-pd')?(baseOk?25:5):0);
   const sumRaw = pa + pb + pc + pd + pen;
-
-  /* Reponderación cuando faltan columnas de base */
-  let score;
-  if (!baseOk && ptsDisp < 100 && ptsDisp > 0) {
-    score = Math.round(Math.max(0, Math.min(100, sumRaw / maxDisp * 100)) * 10) / 10;
-  } else {
-    score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
-  }
+  let score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
   if (fallas.length > 0) score = Math.min(score, 40);
 
   /* Protección: null en datos 52W → score ciego a sus defensas estructurales → capar */
