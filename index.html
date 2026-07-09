@@ -651,7 +651,7 @@
               <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
               <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
-              <th data-tooltip="Pilar C — Contracción y acumulación (máx 25 pts): rango H-L contraído, volumen secándose, ratio acumulación y RSI en zona neutra."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
+              <th data-tooltip="Pilar C — Contracción y acumulación (máx 25 pts): rango H-L contraído, volumen secándose y RSI en zona neutra (40–70)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
               <th data-tooltip="Pilar D — Setup estructural (máx 25 pts): extensión del avance normalizada, madurez de la base, profundidad, posición y tendencia de volumen."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen o breakout fallido."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
               <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido" style="text-align:center">Adv.</th>
@@ -6654,21 +6654,11 @@ function _pilarBv2(d){
 function _pilarCv2(d){
   let pts = 0;
   /* Vol Relativa comprimida */
-  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 4.5833);
+  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 6.5278);
   /* Volumen seco */
-  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 3.75;
-  /* Ratio acumulación (Vol+ / Vol- 10 ruedas) */
-  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
-  if (vp !== null && vn !== null) {
-    const ratio = vn <= 0 ? (vp > 0 ? 3 : null) : vp / vn;
-    if (ratio !== null) {
-      if (ratio >= 1.5)      pts += 5.8333;
-      else if (ratio >= 1.0) pts += _lineal(ratio, 1.0, 1.5, 2.9167, 5.8333);
-      else if (ratio >= 0.8) pts += _lineal(ratio, 0.8, 1.0, 0, 2.9167);
-    }
-  }
-  /* RSI en zona neutra */
-  pts += _tri(d['RSI 14'], 40, 55, 65, 78) * 2.5;
+  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 5.6944;
+  /* RSI en zona neutra (sin sumar por encima de 70) */
+  pts += _tri(d['RSI 14'], 40, 55, 65, 70) * 4.4444;
   /* VCP */
   if (_bool(d['VCP Detected'])) {
     let pv = _lineal(d['VCP Score'], 0, 100, 0, 3.3333);
