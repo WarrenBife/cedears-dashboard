@@ -4092,8 +4092,17 @@ if ('serviceWorker' in navigator) {
     Object.keys(store).forEach(function(k){ if(!esViernes(k)) delete store[k]; });
     if(!esViernes(hoy)) { snapSave(store); return; } // solo guarda un snapshot nuevo los viernes
     if(store[hoy]) { snapSave(store); return; }
+    /* Precio base = cierre de ayer (Precio actual descontando la Var Día % de hoy),
+       asi el retorno del viernes ya arranca igualado a la variacion diaria */
+    function basePrice(d){
+      var precio = num(d['Precio']), varDia = num(d['Var Día %']);
+      if(precio==null) return null;
+      if(varDia==null) return precio;
+      var factor = 1 + varDia/100;
+      return factor > 0 ? precio/factor : precio;
+    }
     var top10 = DATOS
-      .map(function(d){ return { t: d['Ticker'], p: num(d['Precio']), s: Math.round(calcWarrenDetalle(d).score) }; })
+      .map(function(d){ return { t: d['Ticker'], p: basePrice(d), s: Math.round(calcWarrenDetalle(d).score) }; })
       .filter(function(x){ return x.p > 0; })
       .sort(function(a,b){ return b.s - a.s; })
       .slice(0, 10);
