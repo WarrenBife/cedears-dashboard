@@ -3726,9 +3726,9 @@ if ('serviceWorker' in navigator) {
 
   /* — Retorno Top 10 — */
   var snapP = mkPanel('wb-snap-panel','Retorno Top 10 de la semana',
-    'Cómo rindieron las 10 mejores acciones del Warren Score hace 7 días',
+    'Cómo rindieron las 10 mejores acciones del Warren Score desde el último viernes',
     '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
-    'Cada vez que abrís el dashboard se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde hace 7 días.');
+    'Todos los viernes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último viernes.');
 
   /* — Reordenar todo — */
   var orden = [
@@ -4078,14 +4078,16 @@ if ('serviceWorker' in navigator) {
       box('% del capital', capital>0?fmt(posicion/capital*100,1)+'%':'—');
   };
 
-  /* ═══ 7. Retorno Top 10 semanal (snapshot localStorage) ═══ */
+  /* ═══ 7. Retorno Top 10 semanal (snapshot localStorage, solo viernes) ═══ */
   var SNAP_KEY = 'wb_snap_v1';
   function snapLoad(){ try{ return JSON.parse(localStorage.getItem(SNAP_KEY)||'{}'); }catch(e){ return {}; } }
   function snapSave(o){ try{ localStorage.setItem(SNAP_KEY, JSON.stringify(o)); }catch(e){} }
+  function esViernes(fechaISO){ return new Date(fechaISO+'T00:00:00').getDay() === 5; }
 
   function wbSnapGuardar(){
     if(!datosOK() || typeof calcWarrenDetalle!=='function') return;
     var hoy = hoyISO();
+    if(!esViernes(hoy)) return; // solo guarda un snapshot nuevo los viernes
     var store = snapLoad();
     if(store[hoy]) return;
     var top10 = DATOS
@@ -4095,7 +4097,7 @@ if ('serviceWorker' in navigator) {
       .slice(0, 10);
     store[hoy] = top10;
     var keys = Object.keys(store).sort();
-    if(keys.length > 30) keys.slice(0, keys.length - 30).forEach(function(k){ delete store[k]; });
+    if(keys.length > 20) keys.slice(0, keys.length - 20).forEach(function(k){ delete store[k]; });
     snapSave(store);
   }
 
@@ -4104,18 +4106,10 @@ if ('serviceWorker' in navigator) {
     var store = snapLoad();
     var keys = Object.keys(store).sort();
     var todayStr = hoyISO();
-    var snapKey = null;
-    var hace7str = new Date(new Date().getTime() - 7*86400000).toISOString().slice(0,10);
-    for(var i = keys.length-1; i >= 0; i--){
-      if(keys[i] <= hace7str){ snapKey = keys[i]; break; }
-    }
+    var candidatos = keys.filter(function(k){ return k !== todayStr; });
+    var snapKey = candidatos.length ? candidatos[candidatos.length-1] : null;
     if(!snapKey){
-      for(var j = 0; j < keys.length; j++){
-        if(keys[j] !== todayStr){ snapKey = keys[j]; break; }
-      }
-    }
-    if(!snapKey || keys.length < 2){
-      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">A partir de hoy se guarda el Top 10 diario.<br>En 7 días vas a ver el retorno acá.</div>';
+      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Los viernes se guarda el Top 10.<br>La semana que viene vas a ver el retorno acá.</div>';
       return;
     }
     var snap = store[snapKey];
