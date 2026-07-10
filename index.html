@@ -4302,15 +4302,27 @@ if ('serviceWorker' in navigator) {
 
   /* ── Capa 3: feedback de breakouts (15 pts) ── */
   function calcFeedback(log, datos){
-    var precios={}, hoy=new Date();
-    if(datos&&datos.length) datos.forEach(function(d){ var p=num(d['Precio']); if(p) precios[d['Ticker']]=p; });
+    var precios={}, filas={}, hoy=new Date();
+    if(datos&&datos.length) datos.forEach(function(d){
+      var p=num(d['Precio']); if(p) precios[d['Ticker']]=p;
+      filas[d['Ticker']]=d;
+    });
     var eval_=[];
     log.forEach(function(e){
       if(Math.round((hoy.getTime()-new Date(e.f).getTime())/86400000)>=3) eval_.push(e);
     });
     eval_=eval_.slice(-10);
     if(eval_.length<4) return {pts:null,max:15,detail:{evaluadas:eval_.length,minimas:4}};
-    var vigentes=eval_.filter(function(e){ var pA=precios[e.t]; return pA!=null&&e.p>0&&pA>=e.p; });
+    var vigentes=eval_.filter(function(e){
+      var pA=precios[e.t]; if(pA==null||!(e.p>0)) return false;
+      if(pA<e.p) return false; // rompio el precio de entrada del breakout
+      var d=filas[e.t]; if(!d) return true;
+      /* Vela de distribucion reciente: caida moderada con volumen alto — el precio
+         puede seguir arriba del breakout pero esa combinacion ya es una senal de fallo */
+      var varDia=num(d['Var Día %']), volInus=num(d['Vol Inusual %']);
+      if(varDia!=null && varDia<=-2 && volInus!=null && volInus>=50) return false;
+      return true;
+    });
     var tasa=vigentes.length/eval_.length;
     return {pts:Math.max(0,Math.min(15,(tasa-0.3)/(0.8-0.3)*15)),max:15,
             detail:{vigentes:vigentes.length,evaluadas:eval_.length,tasa:Math.round(tasa*100)}};
