@@ -4087,9 +4087,11 @@ if ('serviceWorker' in navigator) {
   function wbSnapGuardar(){
     if(!datosOK() || typeof calcWarrenDetalle!=='function') return;
     var hoy = hoyISO();
-    if(!esViernes(hoy)) return; // solo guarda un snapshot nuevo los viernes
     var store = snapLoad();
-    if(store[hoy]) return;
+    /* Purga snapshots viejos de días que no son viernes (quedaban del guardado diario anterior) */
+    Object.keys(store).forEach(function(k){ if(!esViernes(k)) delete store[k]; });
+    if(!esViernes(hoy)) { snapSave(store); return; } // solo guarda un snapshot nuevo los viernes
+    if(store[hoy]) { snapSave(store); return; }
     var top10 = DATOS
       .map(function(d){ return { t: d['Ticker'], p: num(d['Precio']), s: Math.round(calcWarrenDetalle(d).score) }; })
       .filter(function(x){ return x.p > 0; })
@@ -4104,7 +4106,7 @@ if ('serviceWorker' in navigator) {
   function wbRenderSnap(){
     var body = $('wb-snap-body'); if(!body) return;
     var store = snapLoad();
-    var keys = Object.keys(store).sort();
+    var keys = Object.keys(store).filter(esViernes).sort();
     var todayStr = hoyISO();
     var candidatos = keys.filter(function(k){ return k !== todayStr; });
     var snapKey = candidatos.length ? candidatos[candidatos.length-1] : null;
