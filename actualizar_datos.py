@@ -382,7 +382,22 @@ def div_rsi(hist):
         p1, p2 = pivots[-2], pivots[-1]
         if np.isnan(rw[p1]) or np.isnan(rw[p2]):
             return False
-        return bool(cw[p2] > cw[p1] and rw[p2] < rw[p1] - 3)
+        if not bool(cw[p2] > cw[p1] and rw[p2] < rw[p1] - 3):
+            return False
+
+        # Anulación: si en las últimas 5 ruedas el precio ya superó el último
+        # pivote confirmado y el RSI lo acompañó (no cayó ≥3 pts), el avance
+        # reciente objeta la divergencia vieja aunque todavía no sea un
+        # pivote "confirmado" (le faltan ruedas futuras para serlo)
+        recientes     = cw[-5:]
+        rsi_recientes = rw[-5:]
+        idx_max       = int(np.argmax(recientes))
+        max_reciente  = recientes[idx_max]
+        rsi_en_max    = rsi_recientes[idx_max]
+        if not np.isnan(rsi_en_max) and max_reciente > cw[p2] and rsi_en_max >= rw[p2] - 3:
+            return False
+
+        return True
     except:
         return False
 
@@ -405,7 +420,7 @@ def div_obv(hist):
 
 
 def churn_maximos(hist):
-    """Churning en máximos: ≥3 días en las últimas 10 ruedas con cierre en mitad inferior y volumen alto."""
+    """Churning en máximos: ≥3 días en las últimas 10 ruedas con cierre en mitad inferior y volumen ≥50% sobre el promedio de esas 10 ruedas."""
     try:
         if hist is None or len(hist) < 25:
             return False
@@ -416,14 +431,14 @@ def churn_maximos(hist):
         max_20 = hi[-20:].max()
         if max_20 <= 0 or (max_20 - c[-1]) / max_20 * 100 > 4:
             return False
-        vol_avg = v[-20:].mean()
+        vol_avg = v[-10:].mean()
         if vol_avg <= 0:
             return False
         count = sum(
             1 for i in range(-10, 0)
             if (hi[i] - lo[i]) > 0
             and (c[i] - lo[i]) / (hi[i] - lo[i]) < 0.5
-            and v[i] >= vol_avg
+            and v[i] >= vol_avg * 1.5
         )
         return count >= 3
     except:
