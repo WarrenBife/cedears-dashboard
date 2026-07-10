@@ -4107,9 +4107,7 @@ if ('serviceWorker' in navigator) {
     var body = $('wb-snap-body'); if(!body) return;
     var store = snapLoad();
     var keys = Object.keys(store).filter(esViernes).sort();
-    var todayStr = hoyISO();
-    var candidatos = keys.filter(function(k){ return k !== todayStr; });
-    var snapKey = candidatos.length ? candidatos[candidatos.length-1] : null;
+    var snapKey = keys.length ? keys[keys.length-1] : null;
     if(!snapKey){
       body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Los viernes se guarda el Top 10.<br>La semana que viene vas a ver el retorno acá.</div>';
       return;
