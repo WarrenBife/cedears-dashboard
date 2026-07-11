@@ -402,19 +402,46 @@ def div_rsi(hist):
         return False
 
 
-def div_obv(hist):
-    """Divergencia bajista de OBV: precio hace nuevo máximo en 10 ruedas pero OBV no."""
+def div_obv(hist, R=3, L=20):
+    """'Suba sin combustible' (reemplaza la vieja divergencia de OBV de dos ventanas):
+    el precio sigue haciendo maximos pegado al pico de las ultimas L ruedas, pero con
+    velas mas chicas y volumen mas seco que el impulso que marco ese pico. Distingue
+    agotamiento (sigue subiendo sin fuerza) de compresion sana (lateraliza/corrige)."""
     try:
-        if hist is None or len(hist) < 25:
+        if hist is None or len(hist) < L + R + 2:
             return False
-        c   = hist['Close'].values
-        v   = hist['Volume'].values
-        obv = np.zeros(len(c))
-        for i in range(1, len(c)):
-            obv[i] = obv[i-1] + (v[i] if c[i] > c[i-1] else (-v[i] if c[i] < c[i-1] else 0))
-        precio_rec  = c[-10:].max();   precio_prev = c[-20:-10].max()
-        obv_rec     = obv[-10:].max(); obv_prev    = obv[-20:-10].max()
-        return bool(precio_rec > precio_prev and obv_rec <= obv_prev)
+        c = hist['Close'].values
+        h = hist['High'].values
+        l = hist['Low'].values
+        v = hist['Volume'].values
+        n = len(hist)
+
+        # pico = indice del dia de mayor volumen en las ultimas L ruedas (el impulso real,
+        # no el maximo de High — asi no se corre dia a dia mientras el precio hace
+        # maximos marginales con volumen decreciente)
+        ini  = n - L
+        pico = ini + int(np.argmax(v[ini:]))
+
+        # si el pico es demasiado reciente, no hay "despues" que evaluar
+        if pico > n - 1 - R:
+            return False
+
+        # 1) sigue arriba pero avanza poco (y no se derrumba)
+        avance_reciente = (c[-1] - c[-1 - R]) / c[-1 - R] * 100
+        cond1 = (c[-1] >= h[pico] * 0.97) and (-3.0 < avance_reciente < 3.5)
+
+        # 2) velas mas chicas que en el impulso
+        rango = h - l
+        rango_reciente = rango[-R:].mean()
+        rango_impulso  = rango[pico - R + 1: pico + 1].mean()
+        cond2 = rango_impulso > 0 and (rango_reciente / rango_impulso) < 0.65
+
+        # 3) volumen secandose respecto del impulso
+        vol_reciente = v[-R:].mean()
+        vol_impulso  = v[pico - R + 1: pico + 1].mean()
+        cond3 = vol_impulso > 0 and (vol_reciente / vol_impulso) < 0.70
+
+        return bool(cond1 and cond2 and cond3)
     except:
         return False
 
