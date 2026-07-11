@@ -1182,7 +1182,7 @@ function isValidBreakout(d) {
         d['Breakout Vol OK'] === true &&
         d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] >= 0 && d['Dist SMA50 %'] <= 10)) return false;
   const varDia = d['Var Día %'], volRel = d['Vol Relativa'], volInus = d['Vol Inusual %'], sma50 = d['Dist SMA50 %'];
-  const bigDown  = varDia !== null && varDia <= -3;
+  const bigDown  = varDia !== null && varDia <= -2;
   const highVol  = (volRel !== null && volRel >= 1.3) || (volInus !== null && volInus >= 50);
   const belowSma = sma50 !== null && sma50 < -2;
   if ((bigDown && highVol) || (belowSma && highVol)) return false;
@@ -1818,7 +1818,7 @@ function renderBreakout() {
     const volRel = d['Vol Relativa'];
     const volInus = d['Vol Inusual %'];
     const sma50  = d['Dist SMA50 %'];
-    const bigDown  = varDia !== null && varDia !== undefined && varDia <= -3;
+    const bigDown  = varDia !== null && varDia !== undefined && varDia <= -2;
     const highVol  = (volRel !== null && volRel !== undefined && volRel >= 1.3) ||
                      (volInus !== null && volInus !== undefined && volInus >= 50);
     const belowSma = sma50 !== null && sma50 !== undefined && sma50 < -2;
