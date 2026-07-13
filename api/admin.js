@@ -14,6 +14,7 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 //   ?action=backfill&secret=...  (corrida unica: crea pago:{id} para los email:* viejos que no lo tengan)
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
 
   const { action, secret } = req.query;
 
