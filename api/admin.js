@@ -11,6 +11,7 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 // Uso:
 //   ?action=buscar&payment_id=X&secret=...
 //   ?action=otorgar&email=Y&products=dashboard,planilla&secret=...  (products opcional, default dashboard)
+//   ?action=backfill&secret=...  (corrida unica: crea pago:{id} para los email:* viejos que no lo tengan)
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
@@ -54,5 +55,36 @@ module.exports = async (req, res) => {
     return res.json({ ok: true, email, products: all_products, exp, payment_id: pid });
   }
 
-  res.status(400).json({ error: 'action invalido (buscar, otorgar)' });
+  if (action === 'backfill') {
+    const keys = await kv.keys('email:*');
+    let creados = 0, existentes = 0, sinPid = 0;
+
+    for (const key of keys) {
+      const data = await kv.get(key);
+      if (!data || !data.payment_id) { sinPid++; continue; }
+
+      const pagoKey = `pago:${data.payment_id}`;
+      const yaExiste = await kv.get(pagoKey);
+      if (yaExiste) { existentes++; continue; }
+
+      const email = key.replace(/^email:/, '');
+      // Fecha aproximada: no se guardaba explicita en los registros viejos,
+      // se calcula como exp - 365 dias (la duracion fija del acceso).
+      const fecha = data.exp ? new Date(data.exp - EXPIRY_MS).toISOString() : null;
+
+      await kv.set(pagoKey, {
+        email,
+        products:        data.products || ['dashboard'],
+        exp:             data.exp,
+        fecha,
+        subscription_id: data.subscription_id,
+        backfill:        true,
+      });
+      creados++;
+    }
+
+    return res.json({ ok: true, total: keys.length, creados, existentes, sinPid });
+  }
+
+  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill)' });
 };
