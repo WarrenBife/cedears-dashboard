@@ -25,15 +25,18 @@ function firmaValida(req, id) {
 }
 
 module.exports = async (req, res) => {
-  // MP requiere 200 inmediato o reintenta
-  res.status(200).end();
+  // Se responde 200 al final (en el finally), una vez terminado todo el procesamiento.
+  // Responder antes y seguir trabajando despues es un patron riesgoso en funciones
+  // serverless: el runtime puede dar por cerrada la invocacion apenas se manda la
+  // respuesta, cortando el resto del codigo (incluidos los console.log/warn/error).
+  // MP tolera hasta ~22s de respuesta, de sobra para este procesamiento.
 
   // MP envía el evento de varias formas segun el caso: query clasica (topic+id),
   // query nueva con clave literal "data.id" (no anidada, aunque sea POST), o body JSON (type+data.id)
   const topic = req.query.topic || req.query.type || req.body?.type;
   const id    = String(req.query.id || req.query['data.id'] || req.body?.data?.id || '').toLowerCase();
 
-  if (!topic || !id) return;
+  if (!topic || !id) { res.status(200).end(); return; }
 
   try {
     if (topic === 'payment') {
@@ -97,5 +100,7 @@ module.exports = async (req, res) => {
     }
   } catch (err) {
     console.error('[webhook] Error:', err.message, '| topic:', topic, '| id:', id);
+  } finally {
+    res.status(200).end();
   }
 };
