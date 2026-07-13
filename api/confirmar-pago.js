@@ -44,6 +44,7 @@ module.exports = async (req, res) => {
       const existing_products = existing?.products || (existing ? ['dashboard'] : []);
       const all_products = [...new Set([...existing_products, ...products])];
       await kv.set(`email:${email}`, { payment_id, exp: expiry, products: all_products });
+      await kv.set(`pago:${payment_id}`, { email, products: all_products, exp: expiry, fecha: new Date().toISOString() });
     }
 
     console.log(`[confirmar-pago] OK — pid=${payment_id} email=${email} products=${products}`);

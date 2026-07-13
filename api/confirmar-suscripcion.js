@@ -46,6 +46,7 @@ module.exports = async (req, res) => {
         products:        all_products,
         subscription_id: preapproval_id,
       });
+      await kv.set(`pago:${preapproval_id}`, { email, products: all_products, exp: expiry, subscription_id: preapproval_id, fecha: new Date().toISOString() });
     }
 
     console.log(`[confirmar-suscripcion] OK — sub=${preapproval_id} email=${email} products=${products}`);

@@ -45,26 +45,46 @@ module.exports = async (req, res) => {
       const p = await paymentApi.get({ id });
       if (p.status !== 'approved') return;
 
-      // Solo renovaciones de suscripción (tienen subscription_id o metadata.preapproval_id)
-      const subId = p.subscription_id || p.metadata?.preapproval_id;
-      if (!subId) return;
+      const expiry = Date.now() + EXPIRY_MS;
+      const subId  = p.subscription_id || p.metadata?.preapproval_id;
 
-      const preapprovalApi = new PreApproval(client);
-      const sub = await preapprovalApi.get({ id: subId });
-      const [rawEmail, productsStr] = (sub.external_reference || '').split('|');
-      const email    = (rawEmail || '').toLowerCase().trim();
-      const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
-      if (!email) return;
+      if (subId) {
+        // Renovación de suscripción — el mail correcto vive en la suscripción, no en el pago
+        const preapprovalApi = new PreApproval(client);
+        const sub = await preapprovalApi.get({ id: subId });
+        const [rawEmail, productsStr] = (sub.external_reference || '').split('|');
+        const email    = (rawEmail || '').toLowerCase().trim();
+        const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
+        if (!email) return;
 
-      const existing = await kv.get(`email:${email}`);
-      const expiry   = Date.now() + EXPIRY_MS;
-      await kv.set(`email:${email}`, {
-        payment_id:      String(p.id),
-        exp:             expiry,
-        products:        existing?.products || products,
-        subscription_id: subId,
-      });
-      console.log(`[webhook] Renovación OK — email=${email} pid=${p.id} sub=${subId} exp=${new Date(expiry).toISOString()}`);
+        const existing = await kv.get(`email:${email}`);
+        await kv.set(`email:${email}`, {
+          payment_id:      String(p.id),
+          exp:             expiry,
+          products:        existing?.products || products,
+          subscription_id: subId,
+        });
+        await kv.set(`pago:${p.id}`, { email, products: existing?.products || products, exp: expiry, subscription_id: subId, fecha: new Date().toISOString() });
+        console.log(`[webhook] Renovación OK — email=${email} pid=${p.id} sub=${subId} exp=${new Date(expiry).toISOString()}`);
+
+      } else {
+        // Pago único (Preference de crear-pago.js) — respaldo por si la redirección
+        // nunca llegó a confirmar-pago.js (browser cerrado, conexión cortada, etc.)
+        const [rawEmail, productsStr] = (p.external_reference || '').split('|');
+        const email    = (rawEmail || '').toLowerCase().trim();
+        const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
+        if (!email) {
+          console.warn(`[webhook] Pago único sin external_reference válido — pid=${id}`);
+          return;
+        }
+
+        const existing = await kv.get(`email:${email}`);
+        const existing_products = existing?.products || (existing ? ['dashboard'] : []);
+        const all_products = [...new Set([...existing_products, ...products])];
+        await kv.set(`email:${email}`, { payment_id: String(p.id), exp: expiry, products: all_products });
+        await kv.set(`pago:${p.id}`, { email, products: all_products, exp: expiry, fecha: new Date().toISOString() });
+        console.log(`[webhook] Pago único OK (respaldo webhook) — email=${email} pid=${p.id}`);
+      }
 
     } else if (topic === 'preapproval' || topic === 'subscription_preapproval') {
       const preapprovalApi = new PreApproval(client);
