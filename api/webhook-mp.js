@@ -28,9 +28,10 @@ module.exports = async (req, res) => {
   // MP requiere 200 inmediato o reintenta
   res.status(200).end();
 
-  // MP envía GET (topic + id) o POST (type + data.id)
+  // MP envía el evento de varias formas segun el caso: query clasica (topic+id),
+  // query nueva con clave literal "data.id" (no anidada, aunque sea POST), o body JSON (type+data.id)
   const topic = req.query.topic || req.query.type || req.body?.type;
-  const id    = String(req.query.id || req.body?.data?.id || '').toLowerCase();
+  const id    = String(req.query.id || req.query['data.id'] || req.body?.data?.id || '').toLowerCase();
 
   if (!topic || !id) return;
 
