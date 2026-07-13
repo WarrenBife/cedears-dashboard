@@ -17,7 +17,7 @@ function firmaValida(req, id) {
     if (!ts || !v1) return false;
     const expected = crypto
       .createHmac('sha256', WEBHOOK_SECRET)
-      .update(`id:${id};request-id:${requestId};ts:${ts}`)
+      .update(`id:${id};request-id:${requestId};ts:${ts};`)
       .digest('hex');
     if (v1.length !== expected.length) return false;
     return crypto.timingSafeEqual(Buffer.from(v1, 'hex'), Buffer.from(expected, 'hex'));
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
   // MP envía GET (topic + id) o POST (type + data.id)
   const topic = req.query.topic || req.query.type || req.body?.type;
-  const id    = String(req.query.id || req.body?.data?.id || '');
+  const id    = String(req.query.id || req.body?.data?.id || '').toLowerCase();
 
   if (!topic || !id) return;
 
