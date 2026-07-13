@@ -125,7 +125,7 @@
   .scanner-table tbody tr{transition:background .15s var(--ease);}
   .scanner-table tr:hover td{background:rgba(34,201,138,0.04);}
   .scanner-table tbody tr:hover td:first-child{box-shadow:inset 2px 0 0 rgba(34,201,138,0.55);}
-  .ticker-badge{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;background:var(--bg3);border:1px solid var(--border2);padding:2px 7px;border-radius:6px;letter-spacing:0.02em;}
+  .ticker-badge{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;background:var(--bg3);border:1px solid var(--border2);padding:2px 7px;border-radius:6px;letter-spacing:0.02em;cursor:pointer;}
   .score-pill{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:999px;min-width:38px;text-align:center;font-variant-numeric:tabular-nums;}
   .pill-green{background:var(--green-bg);color:var(--green);box-shadow:inset 0 0 0 1px rgba(34,201,138,0.25);}
   .pill-amber{background:var(--amber-bg);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(245,166,35,0.25);}
@@ -158,7 +158,7 @@
   .brk-card.brk-fail{border-color:rgba(240,70,70,0.65)!important;box-shadow:0 0 14px -3px rgba(240,70,70,0.45),0 0 0 1px rgba(240,70,70,0.12)!important;}
   .brk-badge-fail{font-size:9px;font-weight:700;letter-spacing:.06em;background:rgba(240,70,70,0.15);color:#f04646;border:1px solid rgba(240,70,70,0.55);box-shadow:0 0 7px rgba(240,70,70,0.35);padding:2px 7px;border-radius:5px;}
   .brk-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-  .brk-ticker{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--text);}
+  .brk-ticker{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;}
   .brk-badge-valid{font-size:9px;font-weight:700;letter-spacing:.06em;background:rgba(34,201,138,0.15);color:var(--green);border:1px solid rgba(34,201,138,0.35);padding:2px 7px;border-radius:5px;}
   .brk-days{font-size:10px;color:var(--muted);}
   .brk-layers{display:flex;flex-direction:column;gap:5px;}
@@ -3562,7 +3562,7 @@ if ('serviceWorker' in navigator) {
   .wb-spot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:6px 20px 18px;}
   .wb-spot-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent 55%),var(--bg3);
     border:1px solid var(--border2);border-radius:14px;padding:16px;position:relative;overflow:hidden;
-    display:flex;flex-direction:column;gap:10px;transition:transform .22s var(--ease),border-color .22s var(--ease);}
+    display:flex;flex-direction:column;gap:10px;transition:transform .22s var(--ease),border-color .22s var(--ease);cursor:pointer;}
   .wb-spot-card:hover{transform:translateY(-3px);border-color:rgba(34,201,138,0.45);}
   .wb-spot-card.rank1{border-color:rgba(245,193,66,0.45);background:linear-gradient(180deg,rgba(245,193,66,0.06),transparent 50%),var(--bg3);}
   .wb-spot-rank{position:absolute;top:10px;right:12px;font-size:16px;opacity:.9;}
@@ -4033,7 +4033,7 @@ if ('serviceWorker' in navigator) {
     body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Var día</th><th>Vol inusual</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
       rows.map(function(d){
         var st=wbStage(d);
-        return '<tr><td style="font-weight:500">'+esc(d['Ticker'])+'</td>'+
+        return '<tr><td><span class="ticker-badge">'+esc(d['Ticker'])+'</span></td>'+
           '<td style="color:var(--green)">+'+fmt(num(d['Var Día %']),1)+'%</td>'+
           '<td style="color:var(--amber)">+'+fmt(num(d['Vol Inusual %']),0)+'%</td>'+
           '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
@@ -5551,6 +5551,19 @@ window.wbIrARiesgo=function(ticker){
     if(rp) rp.scrollIntoView({behavior:'smooth'});
   },350);
 };
+
+/* Click en cualquier ticker del dashboard (Warren Score, Cartelera, Scanner,
+   Episodic Pivots, Despegue Fresco, Podio del dia) abre la Ficha de Ticker */
+document.addEventListener('click', function(e){
+  var el = e.target.closest('.ticker-badge, .brk-ticker');
+  if(el){ var t1=(el.textContent||'').trim(); if(t1) wbAbrirFicha(t1); return; }
+  var card = e.target.closest('.wb-spot-card');
+  if(card){
+    var tickerEl = card.querySelector('.wb-spot-ticker');
+    var t2 = tickerEl ? (tickerEl.textContent||'').trim() : '';
+    if(t2) wbAbrirFicha(t2);
+  }
+});
 
 })();
 </script>
