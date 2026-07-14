@@ -4255,24 +4255,9 @@ if ('serviceWorker' in navigator) {
   function hoyISO(){ return new Date().toISOString().slice(0,10); }
 
   /* ── localStorage ── */
-  var BRK_KEY='wb_brk_v3', HIST_KEY='wb_regimen_hist';
-  function brkLoad(){ try{return JSON.parse(localStorage.getItem(BRK_KEY)||'[]');}catch(e){return[];} }
-  function brkSave(a){ try{localStorage.setItem(BRK_KEY,JSON.stringify(a.slice(-200)));}catch(e){} }
+  var HIST_KEY='wb_regimen_hist';
   function histLoad(){ try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){return[];} }
   function histSave(a){ try{localStorage.setItem(HIST_KEY,JSON.stringify(a.slice(-120)));}catch(e){} }
-
-  /* ── Capa 3: logging de breakouts en key propia (sin tocar wb_track_v1) ── */
-  function wbBrkV3Registrar(){
-    if(!datosOK()) return;
-    var log=brkLoad(), hoy=hoyISO(), ya={};
-    log.forEach(function(e){ if(e.f===hoy) ya[e.t]=true; });
-    DATOS.forEach(function(d){
-      if(isValidBreakout(d)&&!ya[d['Ticker']]){
-        var p=num(d['Precio']); if(p) log.push({f:hoy,t:d['Ticker'],p:p});
-      }
-    });
-    brkSave(log);
-  }
 
   /* ── Capa 2: amplitud del universo (25 pts) ── */
   function calcAmplitud(datos){
@@ -4300,32 +4285,19 @@ if ('serviceWorker' in navigator) {
     };
   }
 
-  /* ── Capa 3: feedback de breakouts (15 pts) ── */
-  function calcFeedback(log, datos){
-    var precios={}, filas={}, hoy=new Date();
-    if(datos&&datos.length) datos.forEach(function(d){
-      var p=num(d['Precio']); if(p) precios[d['Ticker']]=p;
-      filas[d['Ticker']]=d;
-    });
-    var eval_=[];
-    log.forEach(function(e){
-      if(Math.round((hoy.getTime()-new Date(e.f).getTime())/86400000)>=3) eval_.push(e);
-    });
-    eval_=eval_.slice(-10);
-    if(eval_.length<4) return {pts:null,max:15,detail:{evaluadas:eval_.length,minimas:4}};
-    var vigentes=eval_.filter(function(e){
-      var pA=precios[e.t]; if(pA==null||!(e.p>0)) return false;
-      if(pA<e.p) return false; // rompio el precio de entrada del breakout
-      var d=filas[e.t]; if(!d) return true;
-      /* Vela de distribucion reciente: caida moderada con volumen alto — el precio
-         puede seguir arriba del breakout pero esa combinacion ya es una senal de fallo */
-      var varDia=num(d['Var Día %']), volInus=num(d['Vol Inusual %']);
-      if(varDia!=null && varDia<=-2 && volInus!=null && volInus>=50) return false;
-      return true;
-    });
-    var tasa=vigentes.length/eval_.length;
-    return {pts:Math.max(0,Math.min(15,(tasa-0.3)/(0.8-0.3)*15)),max:15,
-            detail:{vigentes:vigentes.length,evaluadas:eval_.length,tasa:Math.round(tasa*100)}};
+  /* ── Capa 3: feedback de breakouts (15 pts) — calculado en el pipeline sobre
+     todo el universo (ver actualizar_datos.py: BREAKOUTS_LOG / feedback_tasa),
+     ya no sobre el log de localStorage de este navegador ── */
+  function calcFeedback(reg){
+    var n=reg?num(reg.feedback_n):null;
+    var tasa=reg?num(reg.feedback_tasa):null;
+    if(tasa==null || n==null || n<5) return {pts:null,max:15,detail:{evaluables:n||0,minimas:5}};
+    var pts=Math.max(0,Math.min(15,(tasa-0.3)/(0.8-0.3)*15));
+    return {pts:pts,max:15,detail:{
+      evaluables:n,
+      sobrevivieron:Math.round(tasa*n),
+      tasa:Math.round(tasa*100)
+    }};
   }
 
   /* ── Capa 1: índices SPY/QQQ (50 pts) — requiere pipeline ── */
@@ -4370,7 +4342,7 @@ if ('serviceWorker' in navigator) {
     var reg=(typeof window.REGIMEN_DATA!=='undefined'&&window.REGIMEN_DATA)?window.REGIMEN_DATA:null;
     var capa1=calcIndices(reg);
     var capa2=datos.length?calcAmplitud(datos):null;
-    var capa3=datos.length?calcFeedback(brkLoad(),datos):null;
+    var capa3=calcFeedback(reg);
     var capa4=calcSentimiento(reg,capa1,capa2);
     var sumO=0,sumM=0;
     [capa1,capa2,capa3,capa4].forEach(function(c){ if(c&&c.pts!=null){sumO+=c.pts;sumM+=c.max;} });
@@ -4449,8 +4421,8 @@ if ('serviceWorker' in navigator) {
        micro:R.capa2?R.capa2.detail.pE+'% sobre EMA200 · '+R.capa2.detail.pS+'% sobre SMA50 · NH '+R.capa2.detail.nh+' vs NL '+R.capa2.detail.nl:null,
        pendMsg:null},
       {ico:'🚀',lbl:'Feedback de breakouts',max:15,capa:R.capa3,
-       micro:R.capa3&&R.capa3.pts!=null?R.capa3.detail.vigentes+' de '+R.capa3.detail.evaluadas+' despegues sobre su precio de señal ('+R.capa3.detail.tasa+'%)':null,
-       pendMsg:R.capa3?'Juntando historia — '+R.capa3.detail.evaluadas+'/4 señales':'Sin señales aún'},
+       micro:R.capa3&&R.capa3.pts!=null?R.capa3.detail.sobrevivieron+' de '+R.capa3.detail.evaluables+' breakouts recientes siguen sobre su pivote ('+R.capa3.detail.tasa+'%)':null,
+       pendMsg:'Muestra insuficiente'+(R.capa3&&R.capa3.detail.evaluables?' ('+R.capa3.detail.evaluables+' breakouts)':'')},
       {ico:'🧠',lbl:'Sentimiento (VIX / P-C ratio)',max:10,capa:R.capa4,
        micro:R.capa4?'VIX '+(R.capa4.detail.vix!=null?R.capa4.detail.vix.toFixed(1):'—')+'  ·  P/C ratio '+(R.capa4.detail.pc!=null?R.capa4.detail.pc.toFixed(2):'—'):null,
        pendMsg:'Pendiente de pipeline'}
@@ -4512,7 +4484,7 @@ if ('serviceWorker' in navigator) {
   rgmPanel.id='wb-rgm-panel';
   rgmPanel.innerHTML=
     '<div class="panel-head"><div>'+
-    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 4 capas: índices (pipeline), amplitud del universo, feedback de breakouts y sentimiento (pipeline). Fase 1 activa: capas 2 y 3. Score reponderado automáticamente según las capas disponibles.">'+
+    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 4 capas: índices (pipeline), amplitud del universo, feedback de breakouts (pipeline, sobre todo el universo) y sentimiento (pipeline). Score reponderado automáticamente según las capas disponibles.">'+
     '⚡ Régimen de mercado</div>'+
     '<div class="panel-sub">Score de condiciones 0–100 · guía de exposición progresiva</div>'+
     '</div></div>'+
@@ -4544,14 +4516,12 @@ if ('serviceWorker' in navigator) {
       var _rtV3=window.renderTodo;
       window.renderTodo=function(){
         var r=_rtV3.apply(this,arguments);
-        try{wbBrkV3Registrar();}catch(e){}
         try{wbRenderRegimenPanel();}catch(e){}
         return r;
       };
     }
   }catch(e){}
 
-  try{wbBrkV3Registrar();}catch(e){}
   try{wbRenderRegimenPanel();}catch(e){}
 
   /* ── Fetch de regimen.json (activa capas 1 y 4 automáticamente en Fase 2) ── */

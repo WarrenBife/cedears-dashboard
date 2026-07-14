@@ -629,12 +629,13 @@ def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
         v = hist['Volume'].values
         if len(c) < lookback + 2:
             return {'Breakout Fresh': False, 'Breakout Days Ago': None,
-                    'Breakout Vol OK': False, 'Breakout Vol Ratio': None}
+                    'Breakout Vol OK': False, 'Breakout Vol Ratio': None, 'Pivot': None}
 
         vol50 = float(np.mean(v[-51:-1])) if len(v) >= 51 else float(np.mean(v[:-1]))
 
         breakout_day = None
         vol_ratio    = None
+        pivot_val    = None
 
         for ago in range(frescura + 1):
             idx = len(c) - 1 - ago
@@ -645,6 +646,7 @@ def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
                 vr = float(v[idx]) / vol50 if vol50 > 0 else None
                 breakout_day = ago
                 vol_ratio    = round(vr, 2) if vr is not None else None
+                pivot_val    = round(pivot, 2)
                 break
 
         vol_ok = vol_ratio is not None and vol_ratio >= vol_factor
@@ -653,13 +655,73 @@ def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
             'Breakout Days Ago':  breakout_day,
             'Breakout Vol OK':    vol_ok,
             'Breakout Vol Ratio': vol_ratio,
+            'Pivot':              pivot_val,
         }
     except:
         return {'Breakout Fresh': False, 'Breakout Days Ago': None,
-                'Breakout Vol OK': False, 'Breakout Vol Ratio': None}
+                'Breakout Vol OK': False, 'Breakout Vol Ratio': None, 'Pivot': None}
 
 
-def calcular_kpis(ticker_symbol, hist_spy):
+# ── Feedback de breakouts (Capa 3 del Regimen de Mercado) ────────────
+# Reemplaza el viejo track record client-side (localStorage, sesgado a
+# quien haya abierto el dashboard) por un calculo objetivo sobre todo el
+# universo, persistido entre corridas en breakouts_log.json.
+FEEDBACK_VENTANA    = 5     # ruedas de gracia tras el breakout
+FEEDBACK_COLCHON    = 0.025 # 2.5% bajo el pivote = fallo
+FEEDBACK_MIN_MUESTRA = 5    # evaluables minimos para que la capa puntue
+FEEDBACK_POBLACION_DIAS = 28  # ventana (calendario) ~20 ruedas para la tasa
+FEEDBACK_PRUNE_DIAS  = 35   # se descartan entradas mas viejas que esto
+
+def _procesar_breakout_log(breakouts_log, ticker, hist, brk, hoy_str):
+    """Resuelve (si ya maduraron 5 ruedas) las entradas pendientes de este
+    ticker, y agrega una entrada nueva si hoy detecto un Breakout Fresh."""
+    try:
+        fechas_str = [d.strftime('%Y-%m-%d') for d in hist.index]
+        closes     = hist['Close'].values
+
+        for entry in breakouts_log:
+            if entry['ticker'] != ticker or entry.get('resultado'):
+                continue
+            try:
+                pos = fechas_str.index(entry['fecha_ruptura'])
+            except ValueError:
+                continue
+            ventana = closes[pos + 1: pos + 1 + FEEDBACK_VENTANA]
+            if len(ventana) < FEEDBACK_VENTANA:
+                continue  # todavia no tiene sus 5 ruedas de gracia completas
+            nivel_falla = entry['pivote'] * (1 - FEEDBACK_COLCHON)
+            entry['resultado'] = 'fallo' if any(float(cl) < nivel_falla for cl in ventana) else 'sobrevivio'
+
+        if brk.get('Breakout Fresh') and brk.get('Breakout Days Ago') == 0 and brk.get('Pivot'):
+            ya_logueado = any(e['ticker'] == ticker and e['fecha_ruptura'] == hoy_str for e in breakouts_log)
+            if not ya_logueado:
+                breakouts_log.append({
+                    'ticker':        ticker,
+                    'fecha_ruptura': hoy_str,
+                    'pivote':        brk['Pivot'],
+                    'resultado':     None,
+                })
+    except Exception as e:
+        print(f"    ⚠️ Error procesando breakout log de {ticker}: {e}")
+
+
+def calcular_feedback_breakouts(breakouts_log):
+    """tasa de supervivencia (0-1) y tamaño de muestra sobre la poblacion
+    evaluable reciente. Devuelve (None, n) si la muestra es insuficiente."""
+    from datetime import datetime as _dt
+    hoy_dt = _dt.now()
+    poblacion = [
+        e for e in breakouts_log
+        if e.get('resultado') and (hoy_dt - _dt.strptime(e['fecha_ruptura'], '%Y-%m-%d')).days <= FEEDBACK_POBLACION_DIAS
+    ]
+    n = len(poblacion)
+    if n < FEEDBACK_MIN_MUESTRA:
+        return None, n
+    sobrevivieron = sum(1 for e in poblacion if e['resultado'] == 'sobrevivio')
+    return round(sobrevivieron / n, 3), n
+
+
+def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
     try:
         tk   = yf.Ticker(ticker_symbol)
         hist = tk.history(period="2y")
@@ -729,6 +791,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
 
         # Breakout fresco
         brk = detectar_breakout(hist)
+        _procesar_breakout_log(breakouts_log, ticker_symbol, hist, brk, hoy_str)
 
         return {
             "Ticker":          ticker_symbol,
@@ -770,6 +833,7 @@ def calcular_kpis(ticker_symbol, hist_spy):
             "Breakout Days Ago":       brk['Breakout Days Ago'],
             "Breakout Vol OK":         brk['Breakout Vol OK'],
             "Breakout Vol Ratio":      brk['Breakout Vol Ratio'],
+            "Breakout Pivot":          brk['Pivot'],
             "Base Semanas":            base['semanas'],
             "Base Profundidad %":      base['prof'],
             "Base Posición %":         base['pos'],
@@ -908,6 +972,34 @@ if regimen_data:
 else:
     print("  ⚠️  Régimen no disponible, las capas 1 y 4 quedarán inactivas")
 
+# ── CREDENCIALES GITHUB (se necesitan antes del loop para leer breakouts_log.json) ──
+import json, base64, requests, os
+from datetime import datetime
+
+GITHUB_TOKEN = os.environ.get("PAT_TOKEN")
+GITHUB_USER  = "WarrenBife"
+GITHUB_REPO  = "cedears-dashboard"
+ARCHIVO      = "datos.json"
+gh_headers   = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+
+# ── CARGAR BREAKOUTS_LOG.JSON (feedback de breakouts, Capa 3 del regimen) ──
+BREAKOUTS_LOG_FILE = "breakouts_log.json"
+breakouts_log = []
+try:
+    resp_bl = requests.get(
+        f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{BREAKOUTS_LOG_FILE}",
+        headers=gh_headers,
+    )
+    if resp_bl.status_code == 200:
+        breakouts_log = json.loads(base64.b64decode(resp_bl.json()["content"]).decode("utf-8"))
+        print(f"  ✅ breakouts_log.json cargado: {len(breakouts_log)} entradas")
+    else:
+        print("  ℹ️  breakouts_log.json no existe todavía, arranca vacío")
+except Exception as e:
+    print(f"  ⚠️  Error cargando breakouts_log.json: {e}")
+
+hoy_str = datetime.now().strftime('%Y-%m-%d')
+
 # ── LOOP PRINCIPAL ────────────────────────────────────────────
 print("⏳ Calculando KPIs + Market Cap + Sector + Volumen...")
 todos_los_datos = []
@@ -921,7 +1013,7 @@ for grupo, tickers in TICKERS.items():
         tickers_procesados.add(ticker)
         print(f"  → {ticker}")
 
-        datos = calcular_kpis(ticker, hist_spy)
+        datos = calcular_kpis(ticker, hist_spy, breakouts_log, hoy_str)
         if not datos:
             continue
 
@@ -951,14 +1043,22 @@ df = pd.DataFrame(todos_los_datos)
 print(f"\n✅ Datos listos: {len(df)} tickers")
 print(df[["Ticker", "Dist Mín52W %", "Vol Relativa", "RS Score", "Sector", "Market Cap Cat"]].head(10).to_string(index=False))
 
-# ── EXPORTAR A GITHUB ──────────────────────────────────────────
-import json, base64, requests, os
-from datetime import datetime
+# ── PRUNE + FEEDBACK DE BREAKOUTS (Capa 3 del regimen) ────────
+breakouts_log = [
+    e for e in breakouts_log
+    if (datetime.now() - datetime.strptime(e['fecha_ruptura'], '%Y-%m-%d')).days <= FEEDBACK_PRUNE_DIAS
+]
+feedback_tasa, feedback_n = calcular_feedback_breakouts(breakouts_log)
+if regimen_data:
+    regimen_data['feedback_tasa'] = feedback_tasa
+    regimen_data['feedback_n']    = feedback_n
+if feedback_tasa is not None:
+    print(f"  ✅ Feedback breakouts: {feedback_tasa*100:.0f}% supervivencia sobre {feedback_n} evaluables")
+else:
+    print(f"  ℹ️  Feedback breakouts: muestra insuficiente ({feedback_n} evaluables)")
 
-GITHUB_TOKEN = os.environ.get("PAT_TOKEN")
-GITHUB_USER  = "WarrenBife"
-GITHUB_REPO  = "cedears-dashboard"
-ARCHIVO      = "datos.json"
+# ── EXPORTAR A GITHUB ──────────────────────────────────────────
+headers = gh_headers
 
 datos_export = []
 for _, row in df.iterrows():
@@ -1018,6 +1118,21 @@ if regimen_data:
         print(f"⚠️  Error subiendo regimen.json: {resp_reg.status_code} — {resp_reg.json().get('message')}")
 else:
     print("⚠️  regimen.json no exportado (datos insuficientes)")
+
+# ── EXPORTAR BREAKOUTS_LOG.JSON A GITHUB (feedback Capa 3) ────
+breakouts_str = json.dumps(breakouts_log, ensure_ascii=False)
+breakouts_b64 = base64.b64encode(breakouts_str.encode()).decode()
+url_bl = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{BREAKOUTS_LOG_FILE}"
+resp_bl = requests.get(url_bl, headers=headers)
+sha_bl  = resp_bl.json().get("sha") if resp_bl.status_code == 200 else None
+payload_bl = {"message": f"Auto-update breakouts_log {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": breakouts_b64}
+if sha_bl:
+    payload_bl["sha"] = sha_bl
+resp_bl = requests.put(url_bl, headers=headers, json=payload_bl)
+if resp_bl.status_code in [200, 201]:
+    print(f"✅ breakouts_log.json actualizado ({len(breakouts_log)} entradas)")
+else:
+    print(f"⚠️  Error subiendo breakouts_log.json: {resp_bl.status_code} — {resp_bl.json().get('message')}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
