@@ -6633,7 +6633,10 @@ if(document.readyState==='loading'){
 /* ── Pilar A v2 — Tendencia (20 pts) ── */
 function _pilarAv2(d){
   let pts = 0;
-  pts += _tri(d['Dist SMA50 %'],  -3, 0,  8, 25) * 10;
+  const sma50Slope = d['SMA50 Slope'], distSma50 = d['Dist SMA50 %'];
+  const sma50Bajista = sma50Slope !== null && sma50Slope !== undefined && sma50Slope < 0
+                     && distSma50  !== null && distSma50  !== undefined && distSma50  < 0;
+  if (!sma50Bajista) pts += _tri(distSma50, -3, 0, 10, 30) * 10;
   const atr14 = d['ATR14 %'];
   if (atr14 !== null && atr14 !== undefined && atr14 > 0) {
     const distATRs = d['Dist EMA200 %'] / atr14;
