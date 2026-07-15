@@ -4,7 +4,7 @@ const STATIC_CACHE = ['/manifest.json'];
 // Siempre ir a la red (nunca cache) para estas URLs
 const BYPASS_PATTERNS = [
   'datos.json', 'regimen.json',
-  'api/precios', 'yahoo', 'finance',
+  '/api/', 'yahoo', 'finance',
   'googleapis', 'gstatic'
 ];
 // El HTML principal siempre desde la red para que los clientes reciban updates

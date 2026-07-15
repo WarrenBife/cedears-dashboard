@@ -23,6 +23,6 @@ module.exports = async (req, res) => {
   const valid = crypto.timingSafeEqual(Buffer.from(token, 'hex'), Buffer.from(expected, 'hex'));
   if (!valid) return res.status(401).json({ error: 'Invalid token' });
 
-  await kv.set(`watchlist:${email.toLowerCase()}`, { tables });
+  await kv.set(`watchlist:${email.toLowerCase().trim()}`, { tables });
   res.json({ ok: true });
 };
