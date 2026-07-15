@@ -30,7 +30,7 @@ TICKERS = {
         "AMD", "INTC", "QCOM", "AVGO", "MU", "AMAT", "LRCX", "MRVL",
         "TXN", "TSM", "ARM", "ASML", "ADBE", "CRM", "NOW", "TEAM",
         "SNOW", "DOCU", "TWLO", "SHOP", "UBER", "ABNB", "BKNG",
-        "PYPL", "SQ", "COIN", "MSTR", "PLTR", "PANW", "CSCO", "IBM",
+        "PYPL", "XYZ", "COIN", "MSTR", "PLTR", "PANW", "CSCO", "IBM",
         "ORCL", "SAP", "INFY", "ACN", "ADP", "MSI", "GRMN",
         "EBAY", "ETSY", "PINS", "SNAP", "SPOT", "ZM", "RBLX",
         "ROKU", "SONY", "NTCO", "SE", "JD", "BIDU", "BABA",
@@ -80,8 +80,8 @@ TICKERS = {
         "XLK", "XLF", "XLE", "XLV", "XLI", "XLB",
         "XLC", "XLY", "XLP", "XLRE", "XLU",
         "SMH", "IBB", "ITA", "COPX", "URA",
-        "ARKK", "SPXL", "TQQQ", "SH", "PSQ",
-        "ESGU", "IVW", "IVE", "SPGI",
+        "ARKK", "TQQQ", "SH", "PSQ",
+        "ESGU", "IVE", "SPGI",
         "CIBR", "CLOU", "BOTZ", "KRE", "XOP", "ICLN"
     ],
     "CEDEARs ETFs Commodities & Bonos": [
@@ -110,7 +110,7 @@ TICKERS = {
 ETF_SECTOR = {
     # Tecnología
     "AAPL": "XLK", "MSFT": "XLK", "GOOGL": "XLK", "META": "XLK",
-    "UBER": "XLK", "SNAP": "XLK", "SHOP": "XLK", "SQ": "XLK",
+    "UBER": "XLK", "SNAP": "XLK", "SHOP": "XLK", "XYZ": "XLK",
     "ADBE": "XLK", "CRM": "XLK", "NOW": "XLK", "TEAM": "XLK",
     "SNOW": "XLK", "DOCU": "XLK", "TWLO": "XLK", "IBM": "XLK",
     "ORCL": "XLK", "SAP": "XLK", "ACN": "XLK", "ADP": "XLK",
