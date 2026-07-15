@@ -739,7 +739,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         ema200        = round(ema200_series.iloc[-1], 2)
         ema200_ref    = ema200_series.iloc[-10] if len(ema200_series) >= 10 else ema200_series.iloc[0]
         ema200_slope  = round(ema200 - float(ema200_ref), 4)
-        sma50         = round(close.rolling(window=50).mean().iloc[-1], 2)
+        sma50_series  = close.rolling(window=50).mean()
+        sma50         = round(sma50_series.iloc[-1], 2)
+        sma50_ref     = sma50_series.iloc[-10] if len(sma50_series.dropna()) >= 10 else sma50_series.dropna().iloc[0]
+        sma50_slope   = round(sma50 - float(sma50_ref), 4)
         dist_ema200   = round((precio_actual - ema200) / ema200 * 100, 2)
         dist_sma50    = round((precio_actual - sma50)  / sma50  * 100, 2)
 
@@ -801,6 +804,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "EMA200 Slope":    ema200_slope,
             "Dist EMA200 %":   dist_ema200,
             "SMA50":           sma50,
+            "SMA50 Slope":     sma50_slope,
             "Dist SMA50 %":    dist_sma50,
             "Máx 52W":         max_52w,
             "Dist Máx52W %":   dist_max52,
