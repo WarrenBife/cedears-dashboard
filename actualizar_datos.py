@@ -290,6 +290,71 @@ def vol_anual_pct(df):
     except:
         return None
 
+
+def _atr14_series(df):
+    """Serie completa de ATR14 (True Range promedio de 14 ruedas), no solo el ultimo valor."""
+    try:
+        high, low, close = df['High'], df['Low'], df['Close']
+        prev = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev).abs(),
+            (low  - prev).abs()
+        ], axis=1).max(axis=1)
+        return tr.rolling(14).mean()
+    except Exception:
+        return None
+
+
+# ── Panel "Regreso a la EMA200" — visitas raras a la media de largo plazo ──
+EMA200_CERCA_ATR = 2.0   # "cerca de la EMA200" = |precio - EMA200| <= CERCA_ATR x ATR14
+EMA200_RACHA_MIN = 80    # ruedas minimas de alejamiento previo para que la visita sea "rara" (~4 meses)
+EMA200_VENTANA   = 15    # la visita es "actual" si ocurrio dentro de las ultimas 15 ruedas
+
+def visita_ema200(close, ema200, atr14, cerca_atr=EMA200_CERCA_ATR, racha_min=EMA200_RACHA_MIN, ventana=EMA200_VENTANA):
+    """
+    Detecta visitas raras a la EMA200: un acercamiento actual precedido por
+    una racha larga de alejamiento (no la frecuencia anual, que solo informa).
+    close/ema200/atr14: arrays o series alineados, mismo largo (>= 260 ruedas).
+    """
+    try:
+        c = np.asarray(close, dtype=float)
+        e = np.asarray(ema200, dtype=float)
+        a = np.asarray(atr14, dtype=float)
+        n = len(c)
+        if n < 260:
+            return None
+        if np.isnan(a[-1]) or a[-1] <= 0:
+            return None  # ATR no computable -> el umbral "cerca" tampoco lo es
+
+        valid = ~np.isnan(a) & (a > 0)
+        cerca = np.zeros(n, dtype=bool)
+        cerca[valid] = np.abs(c[valid] - e[valid]) <= cerca_atr * a[valid]
+
+        freq = round(float(cerca[-252:].mean() * 100), 1) if n >= 252 else round(float(cerca.mean() * 100), 1)
+        dist_atrs = round(float((c[-1] - e[-1]) / a[-1]), 2)
+
+        idx_visitas = [i for i in range(max(0, n - ventana), n) if cerca[i]]
+        if not idx_visitas:
+            return {'visita': False, 'racha': None, 'freq': freq, 'dist_atrs': dist_atrs}
+
+        # inicio del acercamiento actual: retroceder mientras siga "cerca"
+        inicio = idx_visitas[0]
+        while inicio - 1 >= 0 and cerca[inicio - 1]:
+            inicio -= 1
+
+        # racha de alejamiento previa al acercamiento actual
+        racha = 0
+        j = inicio - 1
+        while j >= 0 and not cerca[j]:
+            racha += 1
+            j -= 1
+        # si la racha llega hasta el principio de la serie disponible, se toma tal cual (no None)
+
+        return {'visita': racha >= racha_min, 'racha': racha, 'freq': freq, 'dist_atrs': dist_atrs}
+    except Exception:
+        return None
+
 def detectar_base(df):
     """
     Detecta la base estructural de un papel (para Warren Score v2 Pilar D).
@@ -787,6 +852,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         atr14_p    = atr14_pct(hist)
         vol_anual  = vol_anual_pct(hist)
 
+        # Regreso a la EMA200: visita rara a la media de largo plazo
+        atr14_ser = _atr14_series(hist)
+        visita = visita_ema200(close.values, ema200_series.values, atr14_ser.values) if atr14_ser is not None else None
+
         # Señales de agotamiento del avance (Warren Score v2.2)
         div_rsi_v  = div_rsi(hist)
         div_obv_v  = div_obv(hist)
@@ -847,6 +916,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Div RSI":                 div_rsi_v,
             "Div OBV":                 div_obv_v,
             "Churn Máximos":           churn_v,
+            "EMA200 Visita":           visita['visita']    if visita else False,
+            "EMA200 Racha Previa":     visita['racha']     if visita else None,
+            "EMA200 Freq %":           visita['freq']      if visita else None,
+            "EMA200 Dist ATRs":        visita['dist_atrs'] if visita else None,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")

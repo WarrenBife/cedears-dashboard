@@ -3737,6 +3737,12 @@ if ('serviceWorker' in navigator) {
     '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
     'Todos los viernes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último viernes.');
 
+  /* — Regreso a la EMA200 (reemplaza a Despegue Fresco) — */
+  var ema200P = mkPanel('wb-ema200-panel','🧲 Regreso a la EMA200',
+    'Visitas raras a la media de largo plazo — el pullback donde las instituciones defienden a sus líderes',
+    '<div id="wb-ema200-body"></div>',
+    'Detecta papeles que están visitando su EMA200 diaria cuando eso es un evento raro para ese papel — no la frecuencia anual, sino cuántas ruedas llevaba lejos de la media antes de este acercamiento. Filtrado para que sea un pullback comprable dentro de una tendencia viva, no un derrumbe.');
+
   /* — Reordenar todo — */
   var orden = [
     spot, statsRow,
@@ -3744,7 +3750,7 @@ if ('serviceWorker' in navigator) {
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
     rrgP,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
-    P.warren, mkGrid(epP, P.brk),
+    P.warren, mkGrid(epP, ema200P),
     snapP,
     mkZone('🔬 &nbsp;Análisis — profundizá'),
     mkGrid(P.trend, P.sv), mkGrid(P.vinu, P.scan),
@@ -3752,7 +3758,7 @@ if ('serviceWorker' in navigator) {
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
   /* eliminar explícitamente los paneles que ya no van en el layout */
-  [P.sema, P.resurg].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
+  [P.sema, P.resurg, P.brk].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
   [P.cart, P.warren, snapP, P.cmp].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
   /* limpiar grid-2 que quedaron vacíos */
   main.querySelectorAll('.grid-2').forEach(function(g){ if(!g.children.length) g.remove(); });
@@ -4048,6 +4054,58 @@ if ('serviceWorker' in navigator) {
       }).join('')+'</tbody></table>';
   }
 
+  /* ═══ 5b. Regreso a la EMA200 — visitas raras a la media de largo plazo ═══ */
+  function _ema200RachaHumano(racha){
+    if(racha==null) return '—';
+    var meses = racha/21;
+    if(meses < 2){
+      var semanas = Math.max(1, Math.round(racha/5));
+      return 'hace '+semanas+(semanas===1?' semana':' semanas');
+    }
+    var m = Math.round(meses);
+    return 'hace '+m+(m===1?' mes':' meses');
+  }
+  function _ema200FreqLabel(freq){
+    if(freq==null) return {txt:'—', col:'var(--muted)'};
+    if(freq<=15) return {txt:'visita rara', col:'var(--green)'};
+    if(freq<=30) return {txt:'ocasional', col:'var(--amber)'};
+    return {txt:'habitual', col:'var(--red)'};
+  }
+  function wbRenderRegresoEMA200(){
+    var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
+    var rows = filtrados().filter(function(d){
+      if(!b_(d['EMA200 Visita'])) return false;
+      var slope=num(d['EMA200 Slope']); if(!(slope>0)) return false;
+      var rsMes=num(d['RS Mes ant.']), rs=num(d['RS Score']);
+      if(!((rsMes!=null && rsMes>=60) || (rs!=null && rs>=50))) return false;
+      var vol540=num(d['Vol 5d/40d']); if(!(vol540!=null && vol540<1.0)) return false;
+      var volRel=num(d['Vol Relativa']); if(!(volRel!=null && volRel<1.1)) return false;
+      var varDia=num(d['Var Día %']); if(!(varDia!=null && varDia>-4)) return false;
+      var volInu=num(d['Vol Inusual %']);
+      if(varDia!=null && varDia<-3 && volInu!=null && volInu>50) return false; // reversion con volumen activa
+      return true;
+    }).sort(function(a,b){ return (num(b['EMA200 Racha Previa'])||0)-(num(a['EMA200 Racha Previa'])||0); });
+
+    if(!rows.length){
+      body.innerHTML='<div class="wb-empty">Ningún líder visitando su EMA200 hoy — cuando pase, lo vas a ver acá primero.</div>';
+      return;
+    }
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Última vez</th><th>Dist</th><th>Frecuencia</th><th>RS 1m → hoy</th></tr></thead><tbody>'+
+      rows.map(function(d){
+        var base = num(d['Base Semanas']);
+        var baseBadge = (base!=null && base>=2) ? ' 🏗️' : '';
+        var dist = num(d['EMA200 Dist ATRs']);
+        var distStr = dist==null ? '—' : (dist>=0?'+':'')+fmt(dist,1)+' ATRs';
+        var fl = _ema200FreqLabel(num(d['EMA200 Freq %']));
+        var rsMes = num(d['RS Mes ant.']), rs = num(d['RS Score']);
+        return '<tr><td><span class="ticker-badge">'+esc(d['Ticker'])+'</span>'+baseBadge+'</td>'+
+          '<td style="font-weight:600;color:var(--text)">'+_ema200RachaHumano(num(d['EMA200 Racha Previa']))+'</td>'+
+          '<td style="font-family:\'DM Mono\',monospace">'+distStr+'</td>'+
+          '<td style="color:'+fl.col+'">'+fl.txt+'</td>'+
+          '<td>'+fmt(rsMes,0)+' → '+fmt(rs,0)+'</td></tr>';
+      }).join('')+'</tbody></table>';
+  }
+
   /* ═══ 6. Calculadora de riesgo ═══ */
   function wbPoblarRiskSelect(){
     var sel=$('wb-risk-ticker'); if(!sel || !datosOK()) return;
@@ -4194,6 +4252,7 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
+    try{ wbRenderRegresoEMA200(); }catch(e){ console.error('wbEMA200',e); }
     try{ wbSnapGuardar(); wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
