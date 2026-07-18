@@ -3740,7 +3740,10 @@ if ('serviceWorker' in navigator) {
   /* — Regreso a la EMA200 (reemplaza a Despegue Fresco) — */
   var ema200P = mkPanel('wb-ema200-panel','🧲 Regreso a la EMA200',
     'Visitas raras a la media de largo plazo — el pullback donde las instituciones defienden a sus líderes',
-    '<div id="wb-ema200-body"></div>',
+    '<div id="wb-ema200-body"></div>'+
+    '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
+      '<b>¿Qué es el ATR?</b> El "Average True Range" mide cuánto se mueve un activo por día, en promedio, durante las últimas 14 ruedas — es la "unidad de movimiento normal" de ese papel específico. La columna "Dist" muestra a cuántos ATRs de distancia está el precio de la EMA200: un valor bajo (por ejemplo +1.2 ATRs) significa que está pegado a la media; uno alto, que está lejos. Medir en ATRs en vez de en % permite comparar activos volátiles y tranquilos con la misma vara.'+
+    '</div>',
     'Detecta papeles que están visitando su EMA200 diaria cuando eso es un evento raro para ese papel — no la frecuencia anual, sino cuántas ruedas llevaba lejos de la media antes de este acercamiento. Filtrado para que sea un pullback comprable dentro de una tendencia viva, no un derrumbe.');
 
   /* — Reordenar todo — */
