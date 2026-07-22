@@ -3745,7 +3745,7 @@ if ('serviceWorker' in navigator) {
       '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderRegresoEMA200()">'+
       '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
-    '<div id="wb-ema200-body"></div>'+
+    '<div id="wb-ema200-body" style="max-height:320px;overflow-y:auto"></div>'+
     '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
       '<b>¿Qué es el ATR?</b> El "Average True Range" mide cuánto se mueve un activo por día, en promedio, durante las últimas 14 ruedas — es la "unidad de movimiento normal" de ese papel específico. La columna "Dist" muestra a cuántos ATRs de distancia está el precio de la EMA200: un valor bajo (por ejemplo +1.2 ATRs) significa que está pegado a la media; uno alto, que está lejos. Medir en ATRs en vez de en % permite comparar activos volátiles y tranquilos con la misma vara.'+
     '</div>',
@@ -4147,50 +4147,38 @@ if ('serviceWorker' in navigator) {
       box('% del capital', capital>0?fmt(posicion/capital*100,1)+'%':'—');
   };
 
-  /* ═══ 7. Retorno Top 10 semanal (snapshot localStorage, solo viernes) ═══ */
-  var SNAP_KEY = 'wb_snap_v1';
-  function snapLoad(){ try{ return JSON.parse(localStorage.getItem(SNAP_KEY)||'{}'); }catch(e){ return {}; } }
-  function snapSave(o){ try{ localStorage.setItem(SNAP_KEY, JSON.stringify(o)); }catch(e){} }
-  function esViernes(fechaISO){ return new Date(fechaISO+'T00:00:00').getDay() === 5; }
+  /* ═══ 7. Retorno Top 10 semanal (snapshot fijo del cierre de viernes, vía pipeline) ═══ */
+  var CIERRE_VIERNES_URL = 'https://warrenbife.github.io/cedears-dashboard/datos_viernes_cierre.json';
+  var _wbCierreViernes = null; // {fecha, datos[]} cacheado tras el primer fetch exitoso
+  var _wbCierreViernesFetching = false;
 
-  function wbSnapGuardar(){
-    if(!datosOK() || typeof calcWarrenDetalle!=='function') return;
-    var hoy = hoyISO();
-    var store = snapLoad();
-    /* Purga snapshots viejos de días que no son viernes (quedaban del guardado diario anterior) */
-    Object.keys(store).forEach(function(k){ if(!esViernes(k)) delete store[k]; });
-    if(!esViernes(hoy)) { snapSave(store); return; } // solo guarda un snapshot nuevo los viernes
-    if(store[hoy]) { snapSave(store); return; }
-    /* Precio base = cierre de ayer (Precio actual descontando la Var Día % de hoy),
-       asi el retorno del viernes ya arranca igualado a la variacion diaria */
-    function basePrice(d){
-      var precio = num(d['Precio']), varDia = num(d['Var Día %']);
-      if(precio==null) return null;
-      if(varDia==null) return precio;
-      var factor = 1 + varDia/100;
-      return factor > 0 ? precio/factor : precio;
-    }
-    var top10 = DATOS
-      .map(function(d){ return { t: d['Ticker'], p: basePrice(d), s: Math.round(calcWarrenDetalle(d).score) }; })
-      .filter(function(x){ return x.p > 0; })
-      .sort(function(a,b){ return b.s - a.s; })
-      .slice(0, 10);
-    store[hoy] = top10;
-    var keys = Object.keys(store).sort();
-    if(keys.length > 20) keys.slice(0, keys.length - 20).forEach(function(k){ delete store[k]; });
-    snapSave(store);
+  function wbFetchCierreViernes(cb){
+    if(_wbCierreViernes){ cb(); return; }
+    if(_wbCierreViernesFetching) return;
+    _wbCierreViernesFetching = true;
+    fetch(CIERRE_VIERNES_URL+'?_='+Date.now())
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){
+        _wbCierreViernesFetching = false;
+        if(data && data.fecha && Array.isArray(data.datos)){ _wbCierreViernes = data; cb(); }
+      })
+      .catch(function(){ _wbCierreViernesFetching = false; });
   }
 
   function wbRenderSnap(){
     var body = $('wb-snap-body'); if(!body) return;
-    var store = snapLoad();
-    var keys = Object.keys(store).filter(esViernes).sort();
-    var snapKey = keys.length ? keys[keys.length-1] : null;
-    if(!snapKey){
-      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Los viernes se guarda el Top 10.<br>La semana que viene vas a ver el retorno acá.</div>';
+    if(!_wbCierreViernes){
+      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Cargando el Top 10 del último cierre de viernes…</div>';
+      wbFetchCierreViernes(function(){ try{ wbRenderSnap(); }catch(e){} });
       return;
     }
-    var snap = store[snapKey];
+    if(typeof calcWarrenDetalle!=='function') return;
+    var snapKey = _wbCierreViernes.fecha;
+    var snap = _wbCierreViernes.datos
+      .map(function(d){ var p=num(d['Precio']); return p>0 ? { t:d['Ticker'], p:p, s:Math.round(calcWarrenDetalle(d).score) } : null; })
+      .filter(function(x){ return x; })
+      .sort(function(a,b){ return b.s - a.s; })
+      .slice(0, 10);
     var diasAtras = Math.round((new Date().getTime() - new Date(snapKey).getTime()) / 86400000);
     var preciosHoy = {};
     if(datosOK()) DATOS.forEach(function(d){ var p=num(d['Precio']); if(p) preciosHoy[d['Ticker']]=p; });
@@ -4213,7 +4201,7 @@ if ('serviceWorker' in navigator) {
     }).join('');
     var avgRet = conRet>0 ? sumRet/conRet : null;
     var resumen = '<div style="display:flex;gap:16px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;flex-wrap:wrap;background:rgba(255,255,255,0.02)">'+
-      (avgRet!=null?'<span style="color:var(--muted)">Retorno medio: <b style="color:'+(avgRet>=0?'var(--green)':'var(--red)','')+'">'+
+      (avgRet!=null?'<span style="color:var(--muted)">Retorno medio: <b style="color:'+(avgRet>=0?'var(--green)':'var(--red)')+'">'+
         (avgRet>=0?'+':'')+avgRet.toFixed(1)+'%</b></span>'+
         '<span style="color:var(--muted)">Win rate: <b style="color:var(--text)">'+wins+'/'+conRet+'</b></span>':'')+
       '<span style="color:var(--muted)">Hace <b style="color:var(--text)">'+diasAtras+' días</b> ('+snapKey+')</span>'+
@@ -4257,7 +4245,7 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
     try{ wbRenderRegresoEMA200(); }catch(e){ console.error('wbEMA200',e); }
-    try{ wbSnapGuardar(); wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
+    try{ wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
       ['wb-ep-body','wb-snap-body'].forEach(function(id){ var el=$(id); if(el && !el.classList.contains('wb-scrollx')) el.classList.add('wb-scrollx'); });

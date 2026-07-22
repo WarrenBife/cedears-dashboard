@@ -1178,6 +1178,32 @@ else:
     print(f"\n❌ Error subiendo JSON: {resp.status_code} — {resp.json().get('message')}")
     exit(1)
 
+# ── EXPORTAR DATOS_VIERNES_CIERRE.JSON (snapshot fijo del Top10 semanal) ──
+# Solo se pisa en la corrida de cierre (17:00 ARG) de un viernes, para que quede
+# fija toda la semana hasta el próximo cierre. RUN_SCHEDULE viene del workflow
+# (github.event.schedule) y viene vacío en corridas manuales (workflow_dispatch),
+# que por eso no la disparan.
+CIERRE_VIERNES_ARCHIVO = "datos_viernes_cierre.json"
+es_corrida_cierre = os.environ.get("RUN_SCHEDULE") == "0 20 * * 1-5"
+es_viernes = datetime.utcnow().weekday() == 4
+if es_corrida_cierre and es_viernes:
+    snapshot = {"fecha": datetime.utcnow().strftime('%Y-%m-%d'), "datos": datos_export}
+    snapshot_str = json.dumps(snapshot, ensure_ascii=False)
+    snapshot_b64 = base64.b64encode(snapshot_str.encode()).decode()
+    url_snap = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{CIERRE_VIERNES_ARCHIVO}"
+    resp_snap = requests.get(url_snap, headers=headers)
+    sha_snap  = resp_snap.json().get("sha") if resp_snap.status_code == 200 else None
+    payload_snap = {"message": f"Snapshot cierre viernes {datetime.utcnow().strftime('%d/%m/%Y')}", "content": snapshot_b64}
+    if sha_snap:
+        payload_snap["sha"] = sha_snap
+    resp_snap = requests.put(url_snap, headers=headers, json=payload_snap)
+    if resp_snap.status_code in [200, 201]:
+        print(f"✅ {CIERRE_VIERNES_ARCHIVO} actualizado (cierre de viernes)")
+    else:
+        print(f"⚠️  Error subiendo {CIERRE_VIERNES_ARCHIVO}: {resp_snap.status_code} — {resp_snap.json().get('message')}")
+else:
+    print(f"ℹ️  {CIERRE_VIERNES_ARCHIVO} no se toca en esta corrida (no es cierre de viernes)")
+
 # ── EXPORTAR REGIMEN.JSON A GITHUB ────────────────────────────
 if regimen_data:
     regimen_str = json.dumps(regimen_data, ensure_ascii=False)
