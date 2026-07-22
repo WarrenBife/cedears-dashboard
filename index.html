@@ -3740,6 +3740,11 @@ if ('serviceWorker' in navigator) {
   /* — Regreso a la EMA200 (reemplaza a Despegue Fresco) — */
   var ema200P = mkPanel('wb-ema200-panel','🧲 Regreso a la EMA200',
     'Visitas raras a la media de largo plazo — el pullback donde las instituciones defienden a sus líderes',
+    '<div class="panel-filters" style="margin:-14px -18px 12px;">'+
+      '<span class="pf-label">RS mín:</span>'+
+      '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderRegresoEMA200()">'+
+      '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
+    '</div>'+
     '<div id="wb-ema200-body"></div>'+
     '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
       '<b>¿Qué es el ATR?</b> El "Average True Range" mide cuánto se mueve un activo por día, en promedio, durante las últimas 14 ruedas — es la "unidad de movimiento normal" de ese papel específico. La columna "Dist" muestra a cuántos ATRs de distancia está el precio de la EMA200: un valor bajo (por ejemplo +1.2 ATRs) significa que está pegado a la media; uno alto, que está lejos. Medir en ATRs en vez de en % permite comparar activos volátiles y tranquilos con la misma vara.'+
@@ -4076,16 +4081,12 @@ if ('serviceWorker' in navigator) {
   }
   function wbRenderRegresoEMA200(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
+    var rsMinEl=$('ema200-rs-min');
+    var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
     var rows = filtrados().filter(function(d){
       if(!b_(d['EMA200 Visita'])) return false;
       var slope=num(d['EMA200 Slope']); if(!(slope>0)) return false;
-      var rsMes=num(d['RS Mes ant.']), rs=num(d['RS Score']);
-      if(!((rsMes!=null && rsMes>=60) || (rs!=null && rs>=50))) return false;
-      var vol540=num(d['Vol 5d/40d']); if(!(vol540!=null && vol540<1.0)) return false;
-      var volRel=num(d['Vol Relativa']); if(!(volRel!=null && volRel<1.1)) return false;
-      var varDia=num(d['Var Día %']); if(!(varDia!=null && varDia>-4)) return false;
-      var volInu=num(d['Vol Inusual %']);
-      if(varDia!=null && varDia<-3 && volInu!=null && volInu>50) return false; // reversion con volumen activa
+      var rs=num(d['RS Score']); if(rs==null || rs<rsMin) return false;
       return true;
     }).sort(function(a,b){ return (num(b['EMA200 Racha Previa'])||0)-(num(a['EMA200 Racha Previa'])||0); });
 
