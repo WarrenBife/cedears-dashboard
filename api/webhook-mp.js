@@ -5,7 +5,20 @@ const crypto = require('crypto');
 const kv     = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET;
-const EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
+// Pago único (Preference) siempre es anual en esta app — sin ambigüedad.
+const EXPIRY_ANUAL_MS = 365 * 24 * 60 * 60 * 1000;
+
+// Para renovaciones de suscripción (PreApproval) la duración depende de la
+// frecuencia REAL de esa suscripción, no de un valor fijo: si ya existiera
+// alguna suscripción con otra frecuencia (ej. anual armada a mano en el panel
+// de MP), esto no la toca — solo el caso mensual nuevo (frequency:1,
+// frequency_type:'months') recibe la duración corta. Cualquier otro caso cae
+// al fallback de 365 días, igual que siempre.
+function _duracionSuscripcionMs(autoRecurring) {
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  const esMensualNueva = autoRecurring?.frequency_type === 'months' && autoRecurring?.frequency === 1;
+  return esMensualNueva ? 33 * DIA_MS : EXPIRY_ANUAL_MS; // 33 = 30 reales + colchón reintento MP
+}
 
 function firmaValida(req, id) {
   if (!WEBHOOK_SECRET) return true; // sin secret configurado: aceptar (dev)
@@ -49,13 +62,13 @@ module.exports = async (req, res) => {
       const p = await paymentApi.get({ id });
       if (p.status !== 'approved') return;
 
-      const expiry = Date.now() + EXPIRY_MS;
-      const subId  = p.subscription_id || p.metadata?.preapproval_id;
+      const subId = p.subscription_id || p.metadata?.preapproval_id;
 
       if (subId) {
         // Renovación de suscripción — el mail correcto vive en la suscripción, no en el pago
         const preapprovalApi = new PreApproval(client);
         const sub = await preapprovalApi.get({ id: subId });
+        const expiry = Date.now() + _duracionSuscripcionMs(sub.auto_recurring);
         const [rawEmail, productsStr] = (sub.external_reference || '').split('|');
         const email    = (rawEmail || '').toLowerCase().trim();
         const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
@@ -72,8 +85,9 @@ module.exports = async (req, res) => {
         console.log(`[webhook] Renovación OK — email=${email} pid=${p.id} sub=${subId} exp=${new Date(expiry).toISOString()}`);
 
       } else {
-        // Pago único (Preference de crear-pago.js) — respaldo por si la redirección
+        // Pago único anual (Preference de crear-pago.js) — respaldo por si la redirección
         // nunca llegó a confirmar-pago.js (browser cerrado, conexión cortada, etc.)
+        const expiry = Date.now() + EXPIRY_ANUAL_MS;
         const [rawEmail, productsStr] = (p.external_reference || '').split('|');
         const email    = (rawEmail || '').toLowerCase().trim();
         const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];

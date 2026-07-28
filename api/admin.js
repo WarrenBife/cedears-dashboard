@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
   }
 
   if (action === 'otorgar') {
-    const { email: rawEmail, products: rawProducts, payment_id } = req.query;
+    const { email: rawEmail, products: rawProducts, payment_id, dias } = req.query;
 
     const email = (rawEmail || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'email requerido' });
@@ -44,7 +44,9 @@ module.exports = async (req, res) => {
     if (!products.length) return res.status(400).json({ error: 'products invalido (dashboard, planilla)' });
 
     const pid = payment_id || `manual-${Date.now()}`;
-    const exp = Date.now() + EXPIRY_MS;
+    // dias opcional: default 365 (anual). Para un pago mensual que no se registró solo, usar ?dias=33
+    const expiryMs = dias ? Number(dias) * 24 * 60 * 60 * 1000 : EXPIRY_MS;
+    const exp = Date.now() + expiryMs;
 
     const existing = await kv.get(`email:${email}`);
     const existing_products = existing?.products || [];

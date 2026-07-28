@@ -306,6 +306,55 @@ def _atr14_series(df):
         return None
 
 
+def avance_pico_15r(df):
+    """Avance Pico 15r % — estiramiento reciente medido contra el PICO de la
+    ventana, no contra el cierre de hoy. Motivo (caso CVX): si el papel subió
+    y corrigió parte en las últimas ruedas, medir cierre-a-cierre esconde el
+    estiramiento real; contra el pico queda capturado. cierre_base usa el menor
+    entre el cierre de hace 15 ruedas y el mínimo de cierre de la ventana, para
+    anclar bien la base de recuperaciones en V. Reemplaza a la vieja
+    'Var 10 Ruedas %' (Warren Score v2.3)."""
+    if df is None or len(df) < 16:
+        return None
+    try:
+        close, high = df['Close'], df['High']
+        pico_15r          = high.tail(15).max()
+        cierre_hace_15    = close.iloc[-16]
+        min_close_ventana = close.tail(15).min()
+        cierre_base       = min(cierre_hace_15, min_close_ventana)
+        if cierre_base <= 0:
+            return None
+        return round(float((pico_15r / cierre_base - 1) * 100), 2)
+    except Exception:
+        return None
+
+
+def choppiness_eficiencia(df):
+    """Choppiness (ATR14% actual vs hace 20 ruedas) y Eficiencia (Kaufman ER, 10 ruedas).
+    Detecta 'volatilidad sin dirección' — velas grandes sin avance neto, firma de
+    posible distribución (Warren Score v2.3, caso VOD)."""
+    if df is None or len(df) < 35:
+        return {'Choppiness': None, 'Eficiencia 10d': None}
+    try:
+        close = df['Close']
+        atr14_abs = _atr14_series(df)
+        if atr14_abs is None:
+            return {'Choppiness': None, 'Eficiencia 10d': None}
+        atr14_pct_ser = atr14_abs / close * 100
+        atr_hoy = atr14_pct_ser.iloc[-1]
+        atr_20r = atr14_pct_ser.iloc[-21]
+        choppiness = (round(float(atr_hoy / atr_20r), 4)
+                      if pd.notna(atr_hoy) and pd.notna(atr_20r) and atr_20r > 0 else None)
+
+        cambio_neto = abs(close.iloc[-1] - close.iloc[-11])
+        recorrido   = close.tail(11).diff().abs().sum()
+        eficiencia  = round(float(cambio_neto / recorrido), 4) if recorrido > 0 else None
+
+        return {'Choppiness': choppiness, 'Eficiencia 10d': eficiencia}
+    except Exception:
+        return {'Choppiness': None, 'Eficiencia 10d': None}
+
+
 # ── Panel "Regreso a la EMA200" — visitas raras a la media de largo plazo ──
 EMA200_CERCA_ATR = 2.0   # "cerca de la EMA200" = |precio - EMA200| <= CERCA_ATR x ATR14
 EMA200_RACHA_MIN = 80    # ruedas minimas de alejamiento previo para que la visita sea "rara" (~4 meses)
@@ -820,6 +869,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         # Variación del día
         var_dia = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2)
 
+        # Avance Pico 15r % — verticalidad reciente, medida contra el pico (Warren Score v2.3)
+        avance_pico15r = avance_pico_15r(hist)
+
         # RSI, Vol Relativa, Volumen inusual
         rsi     = calcular_rsi(close)
         vol_rel = calcular_volatilidad_relativa(close, high, low)
@@ -852,6 +904,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         atr14_p    = atr14_pct(hist)
         vol_anual  = vol_anual_pct(hist)
 
+        # Choppiness + Eficiencia — volatilidad sin dirección (Warren Score v2.3)
+        chop = choppiness_eficiencia(hist)
+
         # Regreso a la EMA200: visita rara a la media de largo plazo
         atr14_ser = _atr14_series(hist)
         visita = visita_ema200(close.values, ema200_series.values, atr14_ser.values) if atr14_ser is not None else None
@@ -869,6 +924,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
             "Var Día %":       var_dia,
+            "Avance Pico 15r %": avance_pico15r,
             "EMA200":          ema200,
             "EMA200 Slope":    ema200_slope,
             "Dist EMA200 %":   dist_ema200,
@@ -913,6 +969,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Base Vol Trend":          base['voltrend'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
+            "Choppiness":              chop['Choppiness'],
+            "Eficiencia 10d":          chop['Eficiencia 10d'],
             "Div RSI":                 div_rsi_v,
             "Div OBV":                 div_obv_v,
             "Churn Máximos":           churn_v,

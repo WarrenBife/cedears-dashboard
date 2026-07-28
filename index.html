@@ -244,6 +244,11 @@
   .pago-descuento{font-size:12px;color:var(--green);text-align:center;margin-bottom:8px;min-height:16px;font-weight:500;}
   .pago-promo{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,rgba(255,180,0,0.12),rgba(255,120,0,0.10));border:1px solid rgba(255,160,0,0.35);border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#ffc94d;font-weight:600;letter-spacing:.01em;}
   .pago-promo-badge{background:linear-gradient(135deg,#ff8c00,#ffb300);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.04em;flex-shrink:0;}
+  /* Selector de plan mensual/anual */
+  .pago-plan-toggle{display:flex;gap:8px;margin-bottom:18px;}
+  .pago-plan-btn{flex:1;padding:10px 8px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);color:var(--muted);font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color .2s,background .2s,color .2s;text-align:center;line-height:1.4;}
+  .pago-plan-btn.active{border-color:rgba(79,142,247,0.5);background:rgba(79,142,247,0.1);color:var(--text);}
+  .pago-plan-btn small{display:block;font-size:10px;font-weight:500;color:var(--green);margin-top:2px;}
   /* Planilla view */
   #view-planilla{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
   .pl-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:10px;}
@@ -427,7 +432,11 @@
     <img src="https://i.imgur.com/GuVsAWY.jpeg" class="pago-logo" onerror="this.style.display='none'">
     <div class="pago-titulo">Warren Bife</div>
     <div class="pago-sub">Elegí los productos a los que querés acceder</div>
-    <div class="pago-promo">
+    <div class="pago-plan-toggle" id="pago-plan-toggle">
+      <button type="button" class="pago-plan-btn active" data-plan="mensual" onclick="cambiarPlan('mensual')">Mensual</button>
+      <button type="button" class="pago-plan-btn" data-plan="anual" onclick="cambiarPlan('anual')">Anual<small>combo · ahorrás $80.000</small></button>
+    </div>
+    <div class="pago-promo" id="pago-promo">
       <span class="pago-promo-badge">50% OFF</span>
       Si llevás los 2, el segundo te sale a mitad de precio
     </div>
@@ -435,17 +444,17 @@
       <label class="pago-prod">
         <input type="checkbox" value="dashboard" id="prod-dashboard" onchange="actualizarProductos()">
         <span class="pago-prod-name">📊 Dashboard técnico</span>
-        <span class="pago-prod-price">$10.000/año</span>
+        <span class="pago-prod-price">$10.000/mes</span>
       </label>
       <label class="pago-prod">
         <input type="checkbox" value="planilla" id="prod-planilla" onchange="actualizarProductos()">
         <span class="pago-prod-name">📋 Planilla personalizada</span>
-        <span class="pago-prod-price">$10.000/año</span>
+        <span class="pago-prod-price">$10.000/mes</span>
       </label>
     </div>
     <div class="pago-descuento" id="pago-descuento"></div>
-    <div class="pago-precio" id="pago-precio-display">$10.000 <span>ARS/año</span></div>
-    <div class="pago-unique">Suscripción anual · acceso por 12 meses</div>
+    <div class="pago-precio" id="pago-precio-display">$10.000 <span>ARS/mes</span></div>
+    <div class="pago-unique" id="pago-unique">Suscripción mensual · se renueva automáticamente · cancelás cuando quieras</div>
     <input type="email" id="pago-email" class="pago-email-input" placeholder="tu@email.com">
     <div id="pago-msg" class="pago-msg"></div>
     <button class="pago-btn" id="pago-btn" onclick="iniciarPago()">
@@ -2407,17 +2416,45 @@ function mostrarMsgPago(texto, tipo) {
   el.style.display = 'block';
 }
 
+let _planActual = 'mensual';
+
+function cambiarPlan(plan) {
+  _planActual = plan;
+  document.querySelectorAll('.pago-plan-btn').forEach(b => b.classList.toggle('active', b.dataset.plan === plan));
+  document.getElementById('pago-promo').style.display = (plan === 'anual') ? 'none' : 'flex';
+
+  const dash = document.getElementById('prod-dashboard');
+  const plan_ = document.getElementById('prod-planilla');
+  if (plan === 'anual') {
+    // El anual con descuento solo existe como combo
+    dash.checked = true; plan_.checked = true;
+    dash.disabled = true; plan_.disabled = true;
+  } else {
+    dash.disabled = false; plan_.disabled = false;
+  }
+  actualizarProductos();
+}
+
 function actualizarProductos() {
   const hasDash = document.getElementById('prod-dashboard').checked;
   const hasPlan = document.getElementById('prod-planilla').checked;
   const both = hasDash && hasPlan;
-  const price = both ? '$15.000' : '$10.000';
-  document.getElementById('pago-precio-display').innerHTML = `${price} <span>ARS/año</span>`;
-  document.getElementById('pago-descuento').textContent = both ? '✓ Promo aplicada — ahorrás $5.000' : '';
+
+  if (_planActual === 'anual') {
+    document.getElementById('pago-precio-display').innerHTML = `$100.000 <span>ARS/año</span>`;
+    document.getElementById('pago-descuento').textContent = '✓ Ahorrás $80.000 respecto al mensual';
+    document.getElementById('pago-unique').textContent = 'Suscripción anual · acceso por 12 meses · pago único';
+  } else {
+    const price = both ? '$15.000' : '$10.000';
+    document.getElementById('pago-precio-display').innerHTML = `${price} <span>ARS/mes</span>`;
+    document.getElementById('pago-descuento').textContent = both ? '✓ Promo aplicada — ahorrás $5.000/mes' : '';
+    document.getElementById('pago-unique').textContent = 'Suscripción mensual · se renueva automáticamente · cancelás cuando quieras';
+  }
 }
 
 function abrirPago(product) {
   _pendingProduct = product || 'dashboard';
+  cambiarPlan('mensual');
   // Pre-seleccionar producto
   document.getElementById('prod-dashboard').checked = (product === 'dashboard');
   document.getElementById('prod-planilla').checked  = (product === 'planilla');
@@ -2496,11 +2533,12 @@ async function iniciarPago() {
     const r = await fetch('/api/crear-pago', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, products }),
+      body: JSON.stringify({ email, products, plan: _planActual }),
     });
     if (!r.ok) throw new Error(`Error ${r.status}`);
     const d = await r.json();
-    const url = IS_LOCAL ? d.sandbox_init_point : d.init_point;
+    // La suscripción mensual (PreApproval) solo trae init_point — sandbox_init_point es propio de Preference (anual)
+    const url = (_planActual === 'mensual') ? d.init_point : (IS_LOCAL ? d.sandbox_init_point : d.init_point);
     if (!url) throw new Error('No se recibió la URL de pago');
     location.href = url;
   } catch (err) {
@@ -4950,6 +4988,78 @@ if ('serviceWorker' in navigator) {
    UTILIDADES
 ──────────────────────────────────────────────── */
 function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var WB_NOMBRES={
+  'AAL':'AMERICAN AIRLINES GROUP INC','AAPL':'APPLE INC.','ABBV':'ABBVIE INC','ABEV':'AMBEV S.A.','ABNB':'Airbnb','ACN':'ACCENTURE PLC',
+  'ACWI':'iShares MSCI ACWI ETF','ADBE':'ADOBE SYSTEMS INCORPORATED','ADP':'AUTOMATIC DATA PROCESSING INC','AEM':'AGNICO EAGLE MINES LIMITED',
+  'AI':'C3.ai','AIG':'AMERICAN INTERNATIONAL GROUP INC (AIG)','ALAB':'Astera Labs','AMAT':'APPLIED MATERIALS INC.','AMD':'ADVANCED MICRO DEVICES, INC.',
+  'AMGN':'AMGEN INC.','AMZN':'AMAZON.COM, INC.','ANET':'Arista Networks','ANF':'ABERCROMBIE & FITCH CO.','ARCO':'ARCOS DORADOS HOLDINGS INC.',
+  'ARKK':'ARK Innovation ETF','ARM':'ARM HOLDINGS PLC','ASML':'ASML Holding','ASTS':'AST SpaceMobile','AVGO':'BROADCOM INC',
+  'AVY':'AVERY DENNISON CORPORATION','AXP':'AMERICAN EXPRESS Co.','AZN':'ASTRAZENECA PLC - ADR','BA':'BOEING Co.','BABA':'ALIBABA GROUP HOLDING LIMITED*',
+  'BAC':'BANK OF AMERICA CORPORATION','BAK':'BRASKEM SA','BBAR':'BBVA Argentina','BBD':'BANCO BRADESCO, S.A.','BHP':'BHP GROUP LTD',
+  'BIDU':'BAIDU, INC.','BIIB':'BIOGEN INC.','BIOX':'BIOCERES CROP SOLUTIONS CORP','BKNG':'BOOKING HOLDINGS INC.','BKR':'BAKER HUGHES CO.',
+  'BMA':'Banco Macro','BMY':'BRISTOL MYERS SQUIBB COMPANY','BOTZ':'Global X Robotics & Artificial Intelligence ETF',
+  'BP':'BP  plc. ADR','BSBR':'BANCO SANTANDER (BRASIL) S.A.','BX':'Blackstone Inc.','C':'CITIGROUP INCORPORATED','CAAP':'CORP AMERICA AIRPORTS SA',
+  'CAT':'CATERPILLAR Inc.','CCJ':'Cameco Corporation','CDE':'COEUR MINING INC','CEPU':'Central Puerto','CIBR':'First Trust NASDAQ Cybersecurity ETF',
+  'CL':'COLGATE PALMOLIVE COMPANY','CLOU':'Global X Cloud Computing ETF','COIN':'COINBASE GLOBAL INC','COP':'ConocoPhillips',
+  'COPX':'Global X Copper Miners ETF','COST':'COSTCO WHOLSALE CORP','CRM':'SALESFORCE INC.','CRWV':'CoreWeave','CSCO':'CISCO SYSTEMS  Inc.',
+  'CVS':'CVS HEALTH CORP.','CVX':'CHEVRON CORP','CX':'CEMEX S.A.B. de C.V. ADR','DAL':'DELTA AIR LINES INC.','DE':'DEERE & COMPANY',
+  'DECK':'Deckers Brands','DEO':'DIAGEO PLC ADR','DHR':'DANAHER CORP.','DIA':'SPDR Dow Jones Industrial Average ETF',
+  'DIS':'DISNEY COMMON STOCK','DOCU':'DOCUSIGN INC','DOW':'DOW INC','EBAY':'EBAY INC.','ECL':'Ecolab','EEM':'iShares MSCI Emerging Markets ETF',
+  'EFA':'iShares MSCI EAFE ETF','EMR':'Emerson Electric','EQNR':'EQUINOR ASA','ESGU':'iShares ESG Aware MSCI USA ETF',
+  'ETHA':'iShares Ethereum Trust','ETSY':'ETSY INC','EWJ':'iShares MSCI Japan ETF','EWZ':'iShares MSCI Brazil ETF','F':'Ford Motor Company',
+  'FCX':'FREEPORT MCMORAN INC.','FDX':'FEDEX CORP','FISV':'Fiserv','FXI':'ISHARES CHINA LARGE-CAP ETF','GDX':'VanEck Gold Miners ETF',
+  'GE':'GE AEROSPACE.','GFI':'GOLD FIELDS LTD.','GGAL':'Grupo Financiero Galicia','GGB':'GERDAU S.A.','GILD':'GILEAD SCIENCES, INC.',
+  'GLD':'SPDR Gold Shares','GLNG':'Golar LNG','GLOB':'GLOBANT S.A.','GLW':'CORNING INCORPORATED','GM':'GENERAL MOTORS CO',
+  'GOLD':'BARRICK GOLD CORP.','GOOGL':'Alphabet Inc. CL  "A"','GRMN':'GARMIN LTD.','GS':'THE GOLDMAN SACHS GROUP, INC',
+  'GSK':'GSK plc','HAL':'HALLIBURTON CO','HD':'HOME DEPOT INC.','HDB':'HDFC BANK LIMITED','HL':'HECLA MINING CO','HMC':'HONDA MOTOR  CO. LTD',
+  'HMY':'HARMONY GOLD MINING COMPANY LTD.','HOG':'HARLEY DAVIDSON INC.','HON':'HONEYWELL INTERNATIONAL INC. (ex Allied S.)',
+  'HOOD':'Robinhood Markets','HPQ':'HP Inc','HSBC':'HSBC HOLDINGS plc ADR','HSY':'THE HERSHEY COMPANY','HWM':'HOWMET AEROSPACE INC',
+  'HYG':'iShares iBoxx $ High Yield Corporate Bond ETF','IAU':'iShares Gold Trust','IBB':'iShares Nasdaq Biotechnology ETF',
+  'IBIT':'ISHARES BITCOIN TRUST','IBM':'IBM Corp.','IBN':'ICICI BANK LTD','ICLN':'iShares Global Clean Energy ETF','IEMG':'iShares Core MSCI Emerging Markets ETF',
+  'IEUR':'iShares Core MSCI Europe ETF','IFF':'INTERNATIONAL FLAVORS & FRAGRANCE INC.','IJH':'iShares Core S&P Mid-Cap ETF',
+  'ILF':'iShares Latin America 40 ETF','INFY':'INFOSYS LIMITED','ING':'ING Group NV ADR','INTC':'INTEL  Corporation',
+  'IP':'INTERNATIONAL PAPER Co.','IREN':'IREN Limited','IRS':'IRSA Inversiones y Representaciones','ISRG':'INTUITIVE SURGICAL INC.',
+  'ITA':'iShares U.S. Aerospace & Defense ETF','ITUB':'ITAÚ UNIBANCO HOLDING S.A.','IVE':'iShares S&P 500 Value ETF',
+  'IWM':'iShares Russell 2000 ETF','JCI':'JOHNSON CONTROLS INTERNATIONAL','JD':'JD.COM, INC.','JNJ':'JOHNSON & JOHNSON',
+  'JPM':'J.P. MORGAN & CHASE Co.','KB':'KB FINANCIAL GROUP INC.','KGC':'KINROSS GOLD CORP.','KMB':'KIMBERLY CLARK CORPORATION',
+  'KO':'COCA COLA Co.','KRE':'SPDR S&P Regional Banking ETF','LLY':'ELI LILLY AND COMPANY','LMT':'LOCKHEED MARTIN CORPORATION',
+  'LND':'BRASILAGRO - CO BRASILEIRA DE PROPRIEDADES AGRICOLAS','LOMA':'Loma Negra','LRCX':'LAM RESEARCH CORP','MA':'MASTERCARD INC',
+  'MBG':'Mercedes-Benz Group AG','MCD':'Mc DONALD\'S Corp.','MDLZ':'MONDELEZ INTERNATIONAL, INC.','MDT':'MEDTRONIC PLC',
+  'MELI':'MERCADOLIBRE INC.','META':'META PLATFORMS INC.','MFG':'MIZUHO FINANCIAL GROUP','MMM':'3M COMPANY','MO':'ALTRIA GROUP, INC',
+  'MOS':'The Mosaic Company','MP':'MP Materials','MRK':'MERCK & Co. Inc.','MRNA':'MODERNA INC.','MRVL':'MARVELL TECHNOLOGY INC',
+  'MS':'Morgan Stanley','MSFT':'MICROSOFT CORPORATION','MSI':'MOTOROLA SOLUTIONS Inc.','MSTR':'Strategy (MicroStrategy)',
+  'MU':'Micron Technology','MUFG':'MITSUBISHI UFJ FINANCIAL GROUP','MUX':'MCEWEN MINING INC','NBIS':'Nebius Group','NEE':'NextEra Energy',
+  'NEM':'NEWMONT  CORPORATION','NFLX':'NETFLIX, INC.','NG':'NOVAGOLD RESOURCES INC.','NGG':'NATIONAL GRID PLC-SP  ADR',
+  'NKE':'NIKE Inc.','NMR':'NOMURA HOLDINGS INC.','NOW':'ServiceNow','NTES':'NETEASE, INC.','NU':'NU HOLDINGS LTD/CAYMAN ISLANDS',
+  'NUE':'NUCOR CORPORATION','NVDA':'NVIDIA CORPORATION','NVS':'NOVARTIS AG - ADR','O':'Realty Income Corporation','OKLO':'Oklo Inc.',
+  'ONDS':'Ondas Holdings','ORCL':'ORACLE CORPORATION','OXY':'Occidental Petroleum','PAAS':'PAN AMERICAN SILVER CORP',
+  'PAGS':'PAGSEGURO DIGITAL LTD','PAM':'Pampa Energia','PANW':'Palo Alto Networks','PATH':'UiPath','PBR':'PETROLEO BRASILEIRO - PETROBRAS (ADR)',
+  'PCAR':'PACCAR INC','PDD':'PDD Holdings','PEP':'PEPSICO INC','PFE':'PFIZER INC','PG':'PROCTER & GAMBLE Co.','PHG':'KONINKLIJKE PHILIPS N.V',
+  'PINS':'PINTEREST INC.','PLTR':'PALANTIR TECHNOLOGIES INC','PM':'PHILIP MORRIS INTERNATIONAL INC.','PSQ':'ProShares Short QQQ',
+  'PSX':'PHILLIPS 66','PYPL':'PAYPAL HOLDINGS, INC.','QCOM':'QUALCOMM INCORPORATED','QQQ':'Invesco QQQ Trust','RACE':'FERRARI NV',
+  'RBLX':'Roblox Corporation','RGTI':'Rigetti Computing','RIO':'RIO TINTO PLC - ADR','RKLB':'Rocket Lab','ROKU':'ROKU INC.',
+  'ROST':'ROSS STORES, INC.','RTX':'RTX CORPORATION','SAN':'BANCO SANTANDER  S.A. (ADR)','SAP':'SAP SE','SATL':'Satellogic',
+  'SBS':'COMPANHIA DE SANEAMENTO BÁSICO DO ESTADO DE SÃO PAULO–SABESP','SBUX':'STARBUCKS CORPORATION','SCCO':'SOUTHERN COPPER CORP.',
+  'SCHW':'CHARLES SCHWAB CORP.','SE':'SEA LTD','SH':'ProShares Short S&P500','SHEL':'SHELL PLC','SHOP':'SHOPIFY INC','SID':'COMPANHIA SIDERÚRGICA NACIONAL',
+  'SIEGY':'SIEMENS AG ADR','SLB':'SCHLUMBERGER LIMITED','SLV':'iShares Silver Trust','SMH':'VanEck Semiconductor ETF',
+  'SNAP':'SNAP INC.','SNDK':'Sandisk Corporation','SNOW':'SNOWFLAKE INC','SONY':'SONY GROUP CORPORATION','SPGI':'S&P GLOBAL INC',
+  'SPOT':'SPOTIFY TECHNOLOGY SA','SPY':'SPDR S&P 500 ETF Trust','STLA':'STELLANTIS NV','STNE':'STONECO LTD','SUPV':'Grupo Supervielle',
+  'SUZ':'SUZANO SA','SYY':'SYSCO CORPORATION','T':'AT&T INC','TCOM':'TRIP.COM Group Ltd.','TEAM':'Atlassian','TEM':'Tempus AI',
+  'TGS':'Transportadora de Gas del Sur','TGT':'TARGET CORPORATION','TJX':'TJX COMPANIES INC./THE','TLT':'iShares 20+ Year Treasury Bond ETF',
+  'TM':'TOYOTA MOTOR CORPORATION ADR','TMO':'THERMO FISHER SCIENTIFIC INC.','TMUS':'T-MOBILE US INC.','TQQQ':'ProShares UltraPro QQQ',
+  'TSLA':'TESLA, INC.','TSM':'TAIWAN SEMICONDUCTOR MANUFACTURING','TTE':'TotalEnergies SE - ADR','TWLO':'TWILIO INC',
+  'TXN':'TEXAS INSTRUMENTS INCORPORATED','UAL':'United Airlines Holdings','UBER':'Uber Technologies','UGP':'ULTRAPAR PARTICIPAÇÕES S.A.',
+  'UL':'UNILEVER PLC-SPONSORED ADR','UNH':'UNITEDHEALTH GROUP INC','UNP':'UNION PACIFIC CORP','UPST':'Upstart Holdings',
+  'URA':'Global X Uranium ETF','URBN':'URBAN OUTFITTERS, INC.','USB':'U.S. BANCORP','USO':'United States Oil Fund','V':'VISA INC',
+  'VALE':'VALE S.A.','VEA':'Vanguard FTSE Developed Markets ETF','VIG':'Vanguard Dividend Appreciation ETF','VIST':'VISTA ENERGY S.A.B. de C.V (ADS)',
+  'VOD':'VODAFONE GROUP plc. ADR','VRTX':'Vertex Pharmaceuticals','VXX':'iPath S&P 500 VIX Short-Term Futures ETN','VZ':'VERIZON COMMUNICATIONS INC.',
+  'WFC':'WELLS FARGO & COMPANY','WMT':'WALMART Inc.','XLB':'The Materials Select Sector SPDR Fund','XLC':'The Communication Services Select Sector SPDR Fund',
+  'XLE':'Energy Select Sector SPDR Fund','XLF':'Financial Select Sector SPDR Fund','XLI':'The Industrial Select Sector SPDR Fund',
+  'XLK':'The Technology Select Sector SPDR Fund','XLP':'The Consumer Staples Select Sector SPDR Fund','XLRE':'The Real Estate Select Sector SPDR Fund',
+  'XLU':'Utilities Select Sector SPDR Fund','XLV':'The Health Care Select Sector SPDR Fund','XLY':'The Consumer Discretionary Select Sector SPDR Fund',
+  'XOM':'EXXON MOBIL CORPORATION','XOP':'SPDR S&P Oil & Gas Exploration & Production ETF','XP':'XP INC','XYZ':'BLOCK, INC',
+  'YPF':'YPF S.A.','ZM':'ZOOM COMMUNICATIONS INC'
+};
 function _n(v){ return (v!=null&&v!=='')?+v:null; }
 function _b(v){
   if(v==null) return false;
@@ -5404,6 +5514,8 @@ function _frow(lbl,val,cv){
 function _buildFicha(d){
   var wd=typeof calcWarrenDetalle==='function'?calcWarrenDetalle(d):null;
   var sc=wd?wd.score:0, pa=wd?wd.pa:0, pb=wd?wd.pb:0, pc=wd?wd.pc:0, pd=wd?wd.pd:0, fallas=wd?wd.fallas:[], flags=wd?wd.flags:[];
+  var restaVert=wd?wd.restaVert:0, velocidadAtrs=wd?wd.velocidadAtrs:null;
+  var restaChop=wd?wd.restaChop:0;
   var stg=_stage(d), stgLbl=['','Impulso','Tendencia alcista','Distribución','Bajista'][stg];
   var pr=_n(d['Precio']), vd=_n(d['Var Día %']);
   var vdS=vd!=null?(vd>0?'+':'')+vd.toFixed(2)+'%':'—', vdC=vd!=null?(vd>0?'#22c98a':vd<0?'#f0605a':'#737d8f'):'#737d8f';
@@ -5436,6 +5548,8 @@ function _buildFicha(d){
   h+='<span class="wb-fticker">'+_esc(d['Ticker']||'—')+'</span>';
   h+='<span class="wb-stage wb-s'+stg+'">Stage '+stg+' · '+stgLbl+'</span>';
   h+='</div><button class="wb-fclose" onclick="wbCerrarFicha()">✕</button></div>';
+  var _nombreEmpresa=WB_NOMBRES[d['Ticker']];
+  if(_nombreEmpresa) h+='<div style="font-size:11.5px;color:var(--muted);margin-top:1px">'+_esc(_nombreEmpresa)+'</div>';
   h+='<div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">';
   h+='<span style="font-family:DM Mono,monospace;font-size:22px;font-weight:500">'+(pr!=null?'$'+pr.toFixed(2):'—')+'</span>';
   h+='<span style="font-family:DM Mono,monospace;font-size:13px;color:'+vdC+'">'+vdS+'</span></div>';
@@ -5447,13 +5561,15 @@ function _buildFicha(d){
   h+='<div style="display:flex;gap:14px;align-items:center;">';
   h+='<div style="flex-shrink:0">'+_ring(sc,78)+'</div>';
   h+='<div style="flex:1">'+_pbar('Tendencia',pa,20)+_pbar('Fuerza RS',pb,25)+_pbar('Contracción',pc,30)+_pbar('Setup Estr.',pd,25)+'</div></div>';
+  if(restaVert>0) h+='<div style="margin-top:7px;font-size:10px;color:#f5a623;">− Verticalidad reciente: −'+restaVert.toFixed(1)+' (avanzó '+velocidadAtrs.toFixed(1)+' ATRs en 15 ruedas)</div>';
+  if(restaChop>0) h+='<div style="margin-top:7px;font-size:10px;color:#f5a623;">− Volatilidad sin dirección: −'+restaChop.toFixed(1)+' (velas amplias sin avance neto)</div>';
   if(fallas.length) h+='<div style="margin-top:7px;font-size:10px;color:#f0605a;">⚠ '+fallas.join(' · ')+'</div>';
   else h+='<div style="margin-top:7px"><span style="font-size:10px;background:rgba(34,201,138,0.1);color:#22c98a;border:1px solid rgba(34,201,138,0.25);border-radius:4px;padding:2px 7px;font-family:DM Mono,monospace">GATES OK ✓</span></div>';
   h+='</div>';
 
   // 2b. Advertencias activas
   if(flags.length){
-    var _flagTips={'🎈':'Sobreextensión — Muy lejos de su media para su volatilidad — riesgo de reversión','🩸':'Distribución activa — Mayoría de días negativos con el volumen en las caídas','💥':'Reversión con volumen — Caída fuerte de hoy con volumen inusual','⛔':'Breakout fallido — Rompió y volvió por debajo del pivot','📉':'Divergencia RSI — El precio hace máximos pero el impulso no los confirma','🪫':'Divergencia OBV — La suba viene con cada vez menos volumen — sin nafta','🐘':'Churning en máximos — Volumen alto sin avance en zona de máximos: posible distribución institucional'};
+    var _flagTips={'🎈':'Sobreextensión — Muy lejos de su media para su volatilidad — riesgo de reversión','🩸':'Distribución activa — Mayoría de días negativos con el volumen en las caídas','💥':'Reversión con volumen — Caída fuerte de hoy con volumen inusual','⛔':'Breakout fallido — Rompió y volvió por debajo del pivot','📉':'Divergencia RSI — El precio hace máximos pero el impulso no los confirma','🪫':'Divergencia OBV — La suba viene con cada vez menos volumen — sin nafta','🐘':'Churning en máximos — Volumen alto sin avance en zona de máximos: posible distribución institucional','🌪️':'Volatilidad sin dirección — posible distribución'};
     h+='<div class="wb-fsec"><div class="wb-fsec-ttl" style="color:#f5a623">⚠ Advertencias activas</div>';
     flags.forEach(function(f){
       var txt=_flagTips[f]||f;
@@ -6821,6 +6937,39 @@ function _penalizacionesV2(d){
   return { pen, flags };
 }
 
+/* ── Verticalidad reciente v2.3 — resta hasta 8 pts dentro del Pilar C
+   No expulsa del ranking (la suba puede ser legítima): solo descuenta el
+   setup de corto plazo cuando el avance CONTRA EL PICO de las últimas 15
+   ruedas fue muy veloz en relación al ATR14% del papel (rampa 5→11 ATRs
+   = 0→8, tope 8). Se mide contra el pico (no el cierre de hoy) para que
+   una corrección reciente no esconda el estiramiento (caso CVX). */
+function _restaVerticalidadV2(d){
+  const atrP = d['ATR14 %'], avPico = d['Avance Pico 15r %'];
+  if (atrP === null || atrP === undefined || atrP <= 0 ||
+      avPico === null || avPico === undefined) {
+    return { resta: 0, velocidadAtrs: null };
+  }
+  const velocidadAtrs = avPico / atrP;
+  return { resta: _lineal(velocidadAtrs, 5, 11, 0, 8), velocidadAtrs };
+}
+
+/* ── Volatilidad sin dirección v2.3 — resta hasta 5 pts dentro del Pilar C
+   Firma de posible distribución (caso VOD): velas grandes (choppiness > 1.3)
+   sin avance neto (eficiencia < 0.35). Las dos condiciones juntas evitan falsos
+   positivos — ni base tranquila (efi baja + chop bajo) ni tendencia fuerte
+   (chop alto + efi alta) disparan la resta. No es gate: no expulsa. */
+function _restaVolatilidadSinDireccionV2(d){
+  const chop = d['Choppiness'], efi = d['Eficiencia 10d'];
+  if (chop === null || chop === undefined || efi === null || efi === undefined) {
+    return { resta: 0, chop: null, efi: null, activa: false };
+  }
+  if (!(chop > 1.3 && efi < 0.35)) return { resta: 0, chop, efi, activa: false };
+  const fChop = _lineal(chop, 1.3, 2.0, 0, 1);
+  const fEfi  = _lineal(efi, 0.35, 0, 0, 1);
+  const severidad = (fChop + fEfi) / 2;
+  return { resta: severidad * 5, chop, efi, activa: true };
+}
+
 /* ── calcWarrenDetalleV2 — firma idéntica a v1 ── */
 window.calcWarrenDetalleV2 = function(d){
   const fallas = _evalGates(d);
@@ -6829,9 +6978,12 @@ window.calcWarrenDetalleV2 = function(d){
   /* Sin base detectada, Pilar D capa en 5/25 — el score se calcula sobre 100 igual */
   const pa = _ck('ws-pa') ? _pilarAv2(d) : 0;
   const pb = _ck('ws-pb') ? _pilarBv2(d) : 0;
-  const pc = _ck('ws-pc') ? _pilarCv2(d) : 0;
+  const { resta: restaVert, velocidadAtrs } = _restaVerticalidadV2(d);
+  const { resta: restaChop, activa: chopActiva } = _restaVolatilidadSinDireccionV2(d);
+  const pc = _ck('ws-pc') ? Math.max(0, _pilarCv2(d) - restaVert - restaChop) : 0;
   const pd = _ck('ws-pd') ? _pilarDv2(d) : 0;
   const { pen, flags } = _ck('ws-pen') ? _penalizacionesV2(d) : { pen: 0, flags: [] };
+  if (chopActiva) flags.push('🌪️');
 
   const sumRaw = pa + pb + pc + pd + pen;
   let score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
@@ -6856,7 +7008,7 @@ window.calcWarrenDetalleV2 = function(d){
     if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
   }
 
-  return { score, fallas, pa, pb, pc, pd, pen, flags };
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop };
 };
 
 /* v2 es el score público — reemplaza calcWarrenDetalle globalmente */

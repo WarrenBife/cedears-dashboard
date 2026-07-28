@@ -8,7 +8,17 @@ const SITE_URL = process.env.SITE_URL
   || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
   || `https://${process.env.VERCEL_URL}`;
 const SECRET   = process.env.ACCESS_SECRET;
-const EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
+
+// Duración de acceso según la frecuencia REAL de la suscripción, no un valor fijo:
+// si ya existiera alguna suscripción con otra frecuencia (ej. una anual armada a
+// mano en el panel de MP), esto no la toca — solo el caso mensual nuevo (frequency:1,
+// frequency_type:'months') recibe la duración corta. Cualquier otro caso cae al
+// fallback de 365 días, igual que siempre.
+function _duracionMs(autoRecurring) {
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  const esMensualNueva = autoRecurring?.frequency_type === 'months' && autoRecurring?.frequency === 1;
+  return esMensualNueva ? 33 * DIA_MS : 365 * DIA_MS; // 33 = 30 reales + colchón reintento MP
+}
 
 function generarToken(id, expiry) {
   return crypto.createHmac('sha256', SECRET).update(`${id}:${expiry}`).digest('hex');
@@ -33,7 +43,7 @@ module.exports = async (req, res) => {
     const email    = (rawEmail || '').toLowerCase().trim();
     const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
 
-    const expiry = Date.now() + EXPIRY_MS;
+    const expiry = Date.now() + _duracionMs(sub.auto_recurring);
     const token  = generarToken(preapproval_id, expiry);
 
     if (email) {
