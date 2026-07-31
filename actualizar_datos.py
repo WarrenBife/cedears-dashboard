@@ -97,7 +97,7 @@ TICKERS = {
         "ASML", "SAP", "ADBE", "AZN", "NVS", "GSK", "BAYER",
         "BAYN", "BAS", "EOAN", "NEC1", "MBG", "BSN",
         "VOD", "T", "TMUS", "VZ", "NGG", "ORAN",
-        "SIEGY", "PHG", "ING", "BBV", "SAN",
+        "PHG", "ING", "BBV", "SAN",
         "TTE", "ENI", "SHEL", "BP", "EQNR",
         "RIO", "BHP", "LFC", "SNP", "PTR",
         "HMC", "TM", "SONY", "MUFG", "MFG", "NMR",
