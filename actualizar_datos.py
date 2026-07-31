@@ -256,6 +256,26 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(float(mes["fr"]),    6),
     )
 
+def rs_score_series(close_ticker, close_spy, lookback=252):
+    """Serie completa de RS Score (percentrank de ticker/spy), dia por dia.
+    Standalone (no comparte tupla con calcular_rs_score) para no tocar esa
+    funcion ya probada en produccion. Usada para leer el RS Score en una
+    rueda especifica del pasado (ej. el dia de contacto con la EMA200)."""
+    df = pd.DataFrame({"ticker": close_ticker, "spy": close_spy}).dropna()
+    if len(df) < lookback + 1:
+        return None
+    fr = df["ticker"] / df["spy"]
+    arr = fr.values
+    scores = []
+    for i in range(len(arr)):
+        if i < lookback:
+            scores.append(np.nan)
+        else:
+            ventana = arr[i-lookback:i]
+            rank = (ventana < arr[i]).sum() / lookback * 100
+            scores.append(round(rank, 2))
+    return pd.Series(scores, index=fr.index)
+
 def atr14_pct(df):
     """ATR de 14 ruedas expresado como % del precio actual."""
     if df is None or len(df) < 15:
@@ -401,6 +421,87 @@ def visita_ema200(close, ema200, atr14, cerca_atr=EMA200_CERCA_ATR, racha_min=EM
         # si la racha llega hasta el principio de la serie disponible, se toma tal cual (no None)
 
         return {'visita': racha >= racha_min, 'racha': racha, 'freq': freq, 'dist_atrs': dist_atrs}
+    except Exception:
+        return None
+
+# ── EMA200 Reversal Score — clímax de volumen + repunte de RS en el contacto ──
+EMA200R_CONTACTO_ATR  = 1.0   # "en contacto" = |precio - EMA200| <= 1 ATR
+EMA200R_VENTANA       = 10    # el contacto cuenta si ocurrió en las últimas 10 ruedas
+EMA200R_CLIMAX_MARGEN = 3     # la vela de clímax se busca en contacto ± 3 ruedas
+
+def ema200_reversal_features(hist, ema200_series, atr14_series, rs_series):
+    """
+    Features para el EMA200 Reversal Score (calculado en el frontend):
+    - contacto_ruedas: ruedas atrás (0=hoy) del contacto más reciente con la
+      EMA200 (|dist| <= 1 ATR) dentro de las últimas 10 ruedas.
+    - dist_hace20: Dist EMA200 % de hace 20 ruedas (para ver si "venía de arriba").
+    - climax_vol_ratio / climax_pos_cierre: la vela de mayor volumen dentro de
+      contacto ± 3 ruedas (vela de clímax/absorción) y su cierre relativo a su rango.
+    - rs_en_contacto: RS Score en la rueda del contacto.
+    - precio_sobre_climax: si el precio actual ya superó el máximo de la vela de clímax.
+    Devuelve None si no hay suficiente historia o no hubo contacto en ventana.
+    """
+    try:
+        close  = hist['Close'].values
+        high   = hist['High'].values
+        low    = hist['Low'].values
+        volume = hist['Volume'].values
+        ema200 = ema200_series.values
+        atr    = atr14_series.values
+        n = len(close)
+        if n < 260 or rs_series is None:
+            return None
+        if np.isnan(atr[-1]) or atr[-1] <= 0:
+            return None
+
+        contacto_ruedas = None
+        for ago in range(EMA200R_VENTANA):
+            idx = n - 1 - ago
+            if idx < 0 or np.isnan(atr[idx]) or atr[idx] <= 0:
+                continue
+            if abs(close[idx] - ema200[idx]) / atr[idx] <= EMA200R_CONTACTO_ATR:
+                contacto_ruedas = ago
+                break
+        if contacto_ruedas is None:
+            return None
+
+        contacto_idx = n - 1 - contacto_ruedas
+
+        idx20 = n - 21
+        dist_hace20 = None
+        if idx20 >= 0 and not np.isnan(ema200[idx20]) and ema200[idx20] != 0:
+            dist_hace20 = round(float((close[idx20] - ema200[idx20]) / ema200[idx20] * 100), 2)
+
+        lo = max(0, contacto_idx - EMA200R_CLIMAX_MARGEN)
+        hi = min(n - 1, contacto_idx + EMA200R_CLIMAX_MARGEN)
+        climax_idx = max(range(lo, hi + 1), key=lambda i: volume[i])
+
+        climax_vol_ratio = None
+        if climax_idx >= 20:
+            vol_prom20 = float(np.mean(volume[climax_idx-20:climax_idx]))
+            if vol_prom20 > 0:
+                climax_vol_ratio = round(float(volume[climax_idx]) / vol_prom20, 2)
+
+        rango = high[climax_idx] - low[climax_idx]
+        climax_pos_cierre = 0.5 if rango <= 0 else round(float((close[climax_idx] - low[climax_idx]) / rango), 3)
+
+        rs_en_contacto = None
+        pos_rs = len(rs_series) - 1 - contacto_ruedas
+        if pos_rs >= 0:
+            val = rs_series.iloc[pos_rs]
+            if not pd.isna(val):
+                rs_en_contacto = round(float(val), 1)
+
+        precio_sobre_climax = bool(close[-1] > high[climax_idx])
+
+        return {
+            'contacto_ruedas':     contacto_ruedas,
+            'dist_hace20':         dist_hace20,
+            'climax_vol_ratio':    climax_vol_ratio,
+            'climax_pos_cierre':   climax_pos_cierre,
+            'rs_en_contacto':      rs_en_contacto,
+            'precio_sobre_climax': precio_sobre_climax,
+        }
     except Exception:
         return None
 
@@ -911,6 +1012,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         atr14_ser = _atr14_series(hist)
         visita = visita_ema200(close.values, ema200_series.values, atr14_ser.values) if atr14_ser is not None else None
 
+        # EMA200 Reversal Score: clímax de volumen + repunte de RS en el contacto
+        rs_ser_completa = rs_score_series(close, hist_spy["Close"])
+        reversal = ema200_reversal_features(hist, ema200_series, atr14_ser, rs_ser_completa) if atr14_ser is not None else None
+
         # Señales de agotamiento del avance (Warren Score v2.2)
         div_rsi_v  = div_rsi(hist)
         div_obv_v  = div_obv(hist)
@@ -978,6 +1083,12 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "EMA200 Racha Previa":     visita['racha']     if visita else None,
             "EMA200 Freq %":           visita['freq']      if visita else None,
             "EMA200 Dist ATRs":        visita['dist_atrs'] if visita else None,
+            "EMA200 Contacto Ruedas":  reversal['contacto_ruedas']     if reversal else None,
+            "EMA200 Dist Hace20 %":    reversal['dist_hace20']         if reversal else None,
+            "Climax Vol Ratio":        reversal['climax_vol_ratio']    if reversal else None,
+            "Climax Pos Cierre":       reversal['climax_pos_cierre']   if reversal else None,
+            "RS En Contacto":          reversal['rs_en_contacto']      if reversal else None,
+            "Precio Sobre Climax":     reversal['precio_sobre_climax'] if reversal else False,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")

@@ -3775,19 +3775,19 @@ if ('serviceWorker' in navigator) {
     '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
     'Todos los viernes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último viernes.');
 
-  /* — Regreso a la EMA200 (reemplaza a Despegue Fresco) — */
-  var ema200P = mkPanel('wb-ema200-panel','🧲 Regreso a la EMA200',
-    'Visitas raras a la media de largo plazo — el pullback donde las instituciones defienden a sus líderes',
+  /* — Rebotes en la EMA200 (reemplaza a Despegue Fresco / antes "Regreso a la EMA200") — */
+  var ema200P = mkPanel('wb-ema200-panel','🎯 Rebotes en la EMA200',
+    'El pullback institucional: clímax de volumen en la media + fuerza relativa repuntando',
     '<div class="panel-filters" style="margin:-14px -18px 12px;">'+
-      '<span class="pf-label">RS mín:</span>'+
-      '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderRegresoEMA200()">'+
+      '<span class="pf-label">RS mín hoy:</span>'+
+      '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
       '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
     '<div id="wb-ema200-body" style="max-height:320px;overflow-y:auto"></div>'+
     '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
-      '<b>¿Qué es el ATR?</b> El "Average True Range" mide cuánto se mueve un activo por día, en promedio, durante las últimas 14 ruedas — es la "unidad de movimiento normal" de ese papel específico. La columna "Dist" muestra a cuántos ATRs de distancia está el precio de la EMA200: un valor bajo (por ejemplo +1.2 ATRs) significa que está pegado a la media; uno alto, que está lejos. Medir en ATRs en vez de en % permite comparar activos volátiles y tranquilos con la misma vara.'+
+      '<b>¿Qué mide el score?</b> Que el papel haya corregido hasta la EMA200 desde arriba (35 pts), que haya tocado con un clímax de volumen — volumen alto Y cierre fuerte en la vela, no un derrumbe (30 pts), y que la fuerza relativa esté repuntando después del toque, cuanto antes reaccione mejor (35 pts). Se cae del ranking si la media de largo plazo está en baja, o si tocó hace más de 10 ruedas sin que la fuerza relativa responda.'+
     '</div>',
-    'Detecta papeles que están visitando su EMA200 diaria cuando eso es un evento raro para ese papel — no la frecuencia anual, sino cuántas ruedas llevaba lejos de la media antes de este acercamiento. Filtrado para que sea un pullback comprable dentro de una tendencia viva, no un derrumbe.');
+    'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo, tocaron con absorción institucional (volumen alto cerrando fuerte) y están confirmando con la fuerza relativa. No es el Warren Score (pre-breakout) — es el "buy the dip" bien filtrado.');
 
   /* — Reordenar todo — */
   var orden = [
@@ -4100,7 +4100,7 @@ if ('serviceWorker' in navigator) {
       }).join('')+'</tbody></table>';
   }
 
-  /* ═══ 5b. Regreso a la EMA200 — visitas raras a la media de largo plazo ═══ */
+  /* ═══ 5b. EMA200 Reversal Score — clímax de volumen + repunte de RS en el contacto ═══ */
   function _ema200RachaHumano(racha){
     if(racha==null) return '—';
     var meses = racha/21;
@@ -4111,40 +4111,83 @@ if ('serviceWorker' in navigator) {
     var m = Math.round(meses);
     return 'hace '+m+(m===1?' mes':' meses');
   }
-  function _ema200FreqLabel(freq){
-    if(freq==null) return {txt:'—', col:'var(--muted)'};
-    if(freq<=15) return {txt:'visita rara', col:'var(--green)'};
-    if(freq<=30) return {txt:'ocasional', col:'var(--amber)'};
-    return {txt:'habitual', col:'var(--red)'};
+  function _lin(x,x0,x1,y0,y1){
+    if(x==null || x<=x0) return y0;
+    if(x>=x1) return y1;
+    return y0+(y1-y0)*(x-x0)/(x1-x0);
   }
-  function wbRenderRegresoEMA200(){
+  function _tri(x,a,b,c,d){
+    if(x==null || x<=a || x>=d) return 0;
+    if(x<b) return (x-a)/(b-a);
+    if(x<=c) return 1;
+    return (d-x)/(d-c);
+  }
+  function _pilarMini(lbl,v,max){
+    return '<div class="wb-pilar"><div class="wb-pilar-lbl"><span>'+lbl+'</span><span>'+Math.round(v)+'/'+max+
+      '</span></div><div class="wb-pilar-bar"><i style="width:'+Math.max(0,Math.min(100,v/max*100)).toFixed(0)+'%"></i></div></div>';
+  }
+  function calcEMA200Reversal(d){
+    var slope = num(d['EMA200 Slope']);
+    if(slope==null || slope<0) return null;
+    var contactoRuedas = num(d['EMA200 Contacto Ruedas']);
+    if(contactoRuedas==null || contactoRuedas>10) return null;
+    var rsHoy=num(d['RS Score']), rsAyer=num(d['RS Ayer']), rsContacto=num(d['RS En Contacto']);
+    if(rsHoy==null || rsContacto==null) return null;
+    var deltaRs = rsHoy - rsContacto;
+    if(rsContacto<25 && deltaRs<=0) return null;
+
+    var distHace20 = num(d['EMA200 Dist Hace20 %']);
+    var vinoArriba = distHace20>=8 ? 12 : _lin(distHace20,3,8,0,12);
+    var contacto = _tri(num(d['EMA200 Dist ATRs']), -2, -0.5, 0.5, 2) * 13;
+    var rara = _lin(num(d['EMA200 Racha Previa']), 40, 120, 0, 10);
+    var p1 = vinoArriba + contacto + rara;
+
+    var climaxVol = num(d['Climax Vol Ratio']), climaxPos = num(d['Climax Pos Cierre']);
+    var fuerzaVol = climaxVol==null ? 0 : Math.max(0, Math.min(1, (climaxVol-1.0)/1.0));
+    var p2 = (climaxPos==null?0:climaxPos) * fuerzaVol * 30;
+
+    var factorRecencia = _lin(contactoRuedas, 1, 10, 1.0, 0.7);
+    var repunte = _lin(deltaRs, 0, 30, 0, 22) * factorRecencia;
+    var acelera = (rsHoy>rsAyer && rsAyer>rsContacto) ? 8 : 0;
+    var confirmo = b_(d['Precio Sobre Climax']) ? 5 : 0;
+    var p3 = repunte + acelera + confirmo;
+
+    return {score:Math.round(p1+p2+p3), p1:p1, p2:p2, p3:p3, deltaRs:deltaRs,
+      contactoRuedas:contactoRuedas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto};
+  }
+  function wbRenderEMA200Reversal(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
-    var rows = filtrados().filter(function(d){
-      if(!b_(d['EMA200 Visita'])) return false;
-      var slope=num(d['EMA200 Slope']); if(!(slope>0)) return false;
-      var rs=num(d['RS Score']); if(rs==null || rs<rsMin) return false;
-      return true;
-    }).sort(function(a,b){ return (num(b['EMA200 Racha Previa'])||0)-(num(a['EMA200 Racha Previa'])||0); });
+    var rows = filtrados().map(function(d){
+      var r=calcEMA200Reversal(d); if(!r) return null;
+      if((num(d['RS Score'])||0) < rsMin) return null;
+      r.d=d; return r;
+    }).filter(Boolean).sort(function(a,b){ return b.score-a.score; });
 
     if(!rows.length){
-      body.innerHTML='<div class="wb-empty">Ningún líder visitando su EMA200 hoy — cuando pase, lo vas a ver acá primero.</div>';
+      body.innerHTML='<div class="wb-empty">Ningún rebote en la EMA200 con confirmación hoy — aparecen acá cuando un líder toca la media y reacciona.</div>';
       return;
     }
-    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Última vez</th><th>Dist</th><th>Frecuencia</th><th>RS 1m → hoy</th></tr></thead><tbody>'+
-      rows.map(function(d){
-        var base = num(d['Base Semanas']);
-        var baseBadge = (base!=null && base>=2) ? ' 🏗️' : '';
-        var dist = num(d['EMA200 Dist ATRs']);
-        var distStr = dist==null ? '—' : (dist>=0?'+':'')+fmt(dist,1)+' ATRs';
-        var fl = _ema200FreqLabel(num(d['EMA200 Freq %']));
-        var rsMes = num(d['RS Mes ant.']), rs = num(d['RS Score']);
-        return '<tr><td><span class="ticker-badge">'+esc(d['Ticker'])+'</span>'+baseBadge+'</td>'+
-          '<td style="font-weight:600;color:var(--text)">'+_ema200RachaHumano(num(d['EMA200 Racha Previa']))+'</td>'+
-          '<td style="font-family:\'DM Mono\',monospace">'+distStr+'</td>'+
-          '<td style="color:'+fl.col+'">'+fl.txt+'</td>'+
-          '<td>'+fmt(rsMes,0)+' → '+fmt(rs,0)+'</td></tr>';
+    function scoreColor(s){ return s>=70?'var(--green)':s>=50?'var(--blue)':'var(--amber)'; }
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Score</th><th>Contacto</th><th>Clímax</th><th>RS</th><th>Última vez</th></tr></thead><tbody>'+
+      rows.map(function(r,i){
+        var d=r.d;
+        var climaxTxt = r.climaxVol==null ? '—' :
+          ((r.climaxPos!=null && r.climaxPos>=0.6 && r.climaxVol>=1.5) ? '🌊 ×' : '×')+fmt(r.climaxVol,1);
+        var rsCol = r.deltaRs>=0 ? 'var(--green)' : 'var(--red)';
+        var rid='ema200r-det-'+i;
+        return '<tr style="cursor:pointer" onclick="var e=document.getElementById(\''+rid+'\');e.style.display=e.style.display===\'table-row\'?\'none\':\'table-row\'">'+
+            '<td><span class="ticker-badge">'+esc(d['Ticker'])+'</span></td>'+
+            '<td style="font-weight:700;color:'+scoreColor(r.score)+'">'+r.score+'</td>'+
+            '<td>hace '+r.contactoRuedas+(r.contactoRuedas===1?' rueda':' ruedas')+'</td>'+
+            '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
+            '<td style="color:'+rsCol+'">'+fmt(r.rsContacto,0)+' → '+fmt(num(d['RS Score']),0)+'</td>'+
+            '<td style="font-weight:600;color:var(--text)">'+_ema200RachaHumano(num(d['EMA200 Racha Previa']))+'</td>'+
+          '</tr>'+
+          '<tr id="'+rid+'" style="display:none"><td colspan="6"><div class="wb-pilares">'+
+            _pilarMini('Visita',r.p1,35)+_pilarMini('Clímax',r.p2,30)+_pilarMini('RS repunte',r.p3,35)+
+          '</div></td></tr>';
       }).join('')+'</tbody></table>';
   }
 
@@ -4282,7 +4325,7 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
-    try{ wbRenderRegresoEMA200(); }catch(e){ console.error('wbEMA200',e); }
+    try{ wbRenderEMA200Reversal(); }catch(e){ console.error('wbEMA200',e); }
     try{ wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
