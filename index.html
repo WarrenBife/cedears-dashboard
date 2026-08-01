@@ -3782,6 +3782,9 @@ if ('serviceWorker' in navigator) {
       '<span class="pf-label">RS mín hoy:</span>'+
       '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
       '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
+      '<span class="pf-label" style="margin-left:10px">Semanas mín (última vez):</span>'+
+      '<input type="range" id="ema200-semanas-min" min="0" max="52" value="0" style="width:70px" oninput="document.getElementById(\'ema200-semanas-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
+      '<span id="ema200-semanas-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
     '<div id="wb-ema200-body" style="max-height:320px;overflow-y:auto"></div>'+
     '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
@@ -4159,9 +4162,13 @@ if ('serviceWorker' in navigator) {
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
+    var semMinEl=$('ema200-semanas-min');
+    var semMin = semMinEl ? parseFloat(semMinEl.value) : 0;
     var rows = filtrados().map(function(d){
       var r=calcEMA200Reversal(d); if(!r) return null;
       if((num(d['RS Score'])||0) < rsMin) return null;
+      var racha = num(d['EMA200 Racha Previa']);
+      if(semMin>0 && (racha==null || racha/5 < semMin)) return null;
       r.d=d; return r;
     }).filter(Boolean).sort(function(a,b){ return b.score-a.score; });
 
