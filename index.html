@@ -4158,7 +4158,7 @@ if ('serviceWorker' in navigator) {
     return {score:Math.round(p1+p2+p3), p1:p1, p2:p2, p3:p3, deltaRs:deltaRs,
       contactoRuedas:contactoRuedas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto};
   }
-  function wbRenderEMA200Reversal(){
+  window.wbRenderEMA200Reversal = function(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;

@@ -595,8 +595,10 @@ def div_rsi(hist):
             return False
         close = hist['Close']
         delta = close.diff()
-        gain  = delta.clip(lower=0).rolling(14, min_periods=14).mean()
-        loss  = (-delta.clip(upper=0)).rolling(14, min_periods=14).mean()
+        # Wilder's Smoothing (RMA) -- igual a calcular_rsi() y a ta.rma de TradingView.
+        # (antes usaba rolling().mean(), una SMA simple que da valores distintos)
+        gain  = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+        loss  = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean()
         rsi   = (100 - 100 / (1 + gain / loss.replace(0, np.nan))).values
         c     = close.values
         n     = min(40, len(c))
