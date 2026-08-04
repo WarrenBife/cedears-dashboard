@@ -713,7 +713,8 @@ def detectar_vcp(hist, pivot_order=3):
             h = h[-90:]; l = l[-90:]; c = c[-90:]; v = v[-90:]
         if len(c) < 30:
             return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
-                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': None}
 
         def find_pivots(arr, order, mode):
             pivots = []
@@ -730,33 +731,120 @@ def detectar_vcp(hist, pivot_order=3):
 
         if not ph or not pl:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': 0,
-                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': None}
 
         all_piv = [(i, 'H', val) for i, val in ph] + [(i, 'L', val) for i, val in pl]
         all_piv.sort()
 
-        contractions = []
-        i = 0
-        while i < len(all_piv):
-            if all_piv[i][1] == 'H':
-                hi, _, hval = all_piv[i]
-                for j in range(i + 1, len(all_piv)):
-                    if all_piv[j][1] == 'L' and all_piv[j][0] > hi:
-                        li, _, lval = all_piv[j]
-                        if hval > lval:
-                            pct     = (hval - lval) / hval * 100
-                            seg_vol = float(np.mean(v[hi:li+1])) if li > hi else float(v[hi])
-                            contractions.append({'high': hval, 'low': lval, 'pct': pct, 'avg_vol': seg_vol})
-                        i = j
+        # Cada máximo es candidato a inicio de su propia contracción: busca el
+        # primer mínimo siguiente, salteando máximos MENORES en el camino; si
+        # aparece un máximo MAYOR antes de encontrar el mínimo, este máximo
+        # queda superado por ese techo más alto y no arranca contracción.
+        # (el emparejamiento secuencial anterior saltaba el índice hasta el
+        # mínimo encontrado, dejando "huérfanos" a los máximos intermedios —
+        # nunca se evaluaban como inicio de su propia contracción)
+        candidatos = []
+        for k in range(len(all_piv)):
+            if all_piv[k][1] != 'H':
+                continue
+            hi, _, hval = all_piv[k]
+            li = lval = None
+            for j in range(k + 1, len(all_piv)):
+                jidx, jkind, jval = all_piv[j]
+                if jkind == 'H':
+                    if jval > hval:
+                        li = None
                         break
-                else:
-                    i += 1
-            else:
-                i += 1
+                    continue
+                li, lval = jidx, jval
+                break
+            if li is not None and hval > lval:
+                seg_vol = float(np.mean(v[hi:li+1])) if li > hi else float(v[hi])
+                candidatos.append({'hi_idx': hi, 'li_idx': li, 'high': hval, 'low': lval,
+                                    'pct': (hval - lval) / hval * 100, 'avg_vol': seg_vol})
+
+        # Si dos candidatos terminan en el mismo mínimo (un máximo menor
+        # "saltado" también llega al mismo mínimo), se queda el que arranca
+        # en el máximo más alto — es el techo relevante.
+        por_low = {}
+        for ct in candidatos:
+            actual = por_low.get(ct['li_idx'])
+            if actual is None or ct['high'] > actual['high']:
+                por_low[ct['li_idx']] = ct
+        contractions = sorted(por_low.values(), key=lambda ct: ct['hi_idx'])
 
         if len(contractions) < 2:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
-                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': None}
+
+        # El techo es el nivel más TESTEADO (más toques), no el más reciente ni
+        # el más alto -- pero tiene que ser una resistencia a ROMPER: al nivel
+        # del precio actual o por encima (2% de margen para el caso "recién
+        # roto"), y vigente (no más de 30% arriba, para no elegir un máximo
+        # viejo e irrelevante de cuando el papel cotizaba a otro precio).
+        # Tolerancia de toques adaptada al ATR: un % fijo es demasiado
+        # apretado para un papel volátil y demasiado laxo para uno tranquilo.
+        atr_hist  = atr14_pct(hist)
+        TOL_TOQUE = max(0.02, 0.008 * atr_hist) if atr_hist else 0.025
+        niveles   = [val for _, val in ph]
+
+        def _contar_toques(nivel):
+            return sum(1 for v in niveles if abs(v - nivel) / nivel <= TOL_TOQUE)
+
+        precio_actual = float(c[-1])
+        rango_valido  = [(idx_h, val_h) for idx_h, val_h in ph
+                         if precio_actual * 0.98 <= val_h <= precio_actual * 1.30]
+        candidatos_techo = [(idx_h, val_h, _contar_toques(val_h)) for idx_h, val_h in rango_valido]
+        con_toques = [ct for ct in candidatos_techo if ct[2] >= 2]
+
+        if con_toques:
+            max_toques = max(ct[2] for ct in con_toques)
+            mejores    = [ct for ct in con_toques if ct[2] == max_toques]
+            techo_idx, techo, techo_toques = min(mejores, key=lambda ct: ct[1])
+        elif candidatos_techo:
+            # Ningún nivel junta 2 toques: una resistencia de un solo toque es
+            # débil, pero no es ausencia de patrón -- el score sigue su curso
+            # normal, el componente de calidad de resistencia no suma puntos.
+            techo_idx, techo, techo_toques = max(candidatos_techo, key=lambda ct: ct[1])
+        else:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': 0}
+
+        # Delimitar la base: ancla en la ÚLTIMA CONTRACCIÓN real (no en el
+        # techo elegido por toques -- ese puede ser un máximo antiguo sin
+        # contracción propia asociada dentro de la ventana, lo que dejaría la
+        # lista vacía si el precio lo tocó apenas de pasada más tarde).
+        # Camina hacia atrás desde ahí mientras el precio no supere el
+        # máximo de esa última contracción ni caiga más de ~37% respecto de
+        # él. Descarta contracciones previas al inicio de la base (arrastradas
+        # por la ventana de 90 ruedas pero ajenas al patrón) y las que sean
+        # ruido relativo al rango de esa base (<20% del rango).
+        MAX_CAIDA_BASE = 0.37
+        base_idx  = contractions[-1]['hi_idx']
+        base_high = contractions[-1]['high']
+        inicio_base = 0
+        for k in range(base_idx - 1, -1, -1):
+            if c[k] > base_high or c[k] < base_high * (1 - MAX_CAIDA_BASE):
+                inicio_base = k + 1
+                break
+
+        contractions = [ct for ct in contractions if ct['hi_idx'] >= inicio_base]
+        if len(contractions) < 2:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': techo_toques}
+
+        rango_base_abs = base_high - float(np.min(l[inicio_base:base_idx + 1]))
+        if rango_base_abs > 0:
+            contractions = [ct for ct in contractions
+                             if (ct['high'] - ct['low']) / rango_base_abs >= 0.20]
+        if len(contractions) < 2:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': techo_toques}
 
         pcts = [ct['pct'] for ct in contractions]
         vols = [ct['avg_vol'] for ct in contractions]
@@ -766,9 +854,8 @@ def detectar_vcp(hist, pivot_order=3):
         pct_dec = sum(1 for k in range(pairs) if pcts[k] > pcts[k+1]) / pairs
         vol_dec = sum(1 for k in range(pairs) if vols[k] > vols[k+1]) / pairs
 
-        last_pct       = pcts[-1]
-        last_piv_high  = contractions[-1]['high']
-        dist_pivot     = (float(c[-1]) - last_piv_high) / last_piv_high * 100
+        last_pct   = pcts[-1]
+        dist_pivot = (float(c[-1]) - techo) / techo * 100
 
         score = 0
         score += round(pct_dec * 35)
@@ -784,19 +871,27 @@ def detectar_vcp(hist, pivot_order=3):
         if n_c >= 4:   score += 10
         elif n_c == 3: score += 7
         elif n_c == 2: score += 4
+        # Calidad de la resistencia: cuantos mas toques valido el techo, mas
+        # significativa es la ruptura.
+        if   techo_toques >= 5: score += 12
+        elif techo_toques == 4: score += 10
+        elif techo_toques == 3: score += 8
+        elif techo_toques == 2: score += 5
         score = min(100, score)
 
         return {
             'VCP Score':          score,
-            'VCP Detected':       score >= 60,
+            'VCP Detected':       score >= 55,
             'VCP Contractions':   n_c,
             'VCP Tightness':      round(last_pct, 2),
             'VCP Dist Pivot %':   round(dist_pivot, 2),
             'VCP Vol Decreasing': vol_dec >= 0.5,
+            'VCP Techo Toques':   techo_toques,
         }
     except:
         return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
-                'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False}
+                'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                'VCP Techo Toques': None}
 
 def calcular_sesiones_10(close, volume):
     """
@@ -1073,6 +1168,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "VCP Tightness":       vcp['VCP Tightness'],
             "VCP Dist Pivot %":    vcp['VCP Dist Pivot %'],
             "VCP Vol Decreasing":  vcp['VCP Vol Decreasing'],
+            "VCP Techo Toques":    vcp['VCP Techo Toques'],
             "Días + 10s":          dias_pos_10,
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
