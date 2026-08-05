@@ -7112,7 +7112,8 @@ try{ localStorage.removeItem('wb_v2_preview'); }catch(e){}
   #wb-vcpq-panel .wb-vcpq-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap;}
   #wb-vcpq-panel .wb-vcpq-toggle input{accent-color:var(--green);cursor:pointer;}
   #wb-vcpq-panel .wb-mini-table th, #wb-vcpq-panel .wb-mini-table td{text-align:center;}
-  #wb-vcpq-panel .wb-mini-table th:first-child, #wb-vcpq-panel .wb-mini-table td:first-child{text-align:left;}
+  #wb-vcpq-panel .wb-vcpq-ticker{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  #wb-vcpq-panel .wb-vcpq-ticker img{width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;}
 </style>
 <script id="wb-v9-js">
 (function(){
@@ -7246,7 +7247,8 @@ function wbRenderVcpQuality(){
     var contr  = d['VCP Contractions'];
     var volDec = _bool_v9(d['VCP Vol Decreasing']) ? '✅' : '—';
     return '<tr>'+
-      '<td><span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></td>'+
+      '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
+        '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
       '<td>'+(precio!=null ? Number(precio).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
       '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
       '<td title="'+tr.tip+'" style="color:'+tr.color+';font-weight:700;cursor:default">'+tr.arrow+'</td>'+
