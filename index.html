@@ -664,7 +664,7 @@
               <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
               <th data-tooltip="Símbolo del activo" style="text-align:center">Ticker</th>
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
-              <th data-tooltip="Gates Stage 2 de Minervini: precio > EMA200 con pendiente +, >30% del mínimo 52W, no más de 25% del máximo 52W, precio ≥ SMA50.">Gates</th>
+              <th data-tooltip="Gates Stage 2: precio > EMA200 con pendiente +, precio ≥ SMA50 (2% de margen). El requisito de >20% sobre el mínimo 52W dejó de ser gate binario: si el VCP ya es alto (Score≥70) se exime, si no resta puntos gradualmente (ver flag 🔻).">Gates</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
               <th data-tooltip="Pilar B — Fuerza relativa (máx 30 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 25 pts): rango H-L contraído, volumen secándose y RSI en zona neutra (40–70)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
@@ -1232,13 +1232,25 @@ function _bool(v) {
   return ['true','si','sí','yes','1','ok','verdadero'].includes(s);
 }
 
+/* Ex-gate "<20% del mín 52W" (Stage 2 de Weinstein): dejó de ser gate binario
+   (capeaba el score en 40 sin matices). Ahora: si el VCP ya es alto
+   (Score>=70) se exime por completo -- una base apretada es evidencia de
+   acumulación por sí misma, aunque el papel todavía no junte el 20% de
+   colchón sobre su piso de 52 semanas. Si no, resta gradual en
+   _penalizacionesV2 (ver ahí) proporcional a cuánto falta para el 20%, en vez
+   de capear todo por igual sin dar ninguna señal de "qué tan cerca" está.
+   Caso real: XOM tuvo VCP Score 90-100 sostenido ~14 semanas y quedó con
+   Warren Score congelado en 40 casi todo ese tiempo por este gate. */
+function _vcpAlto(d) {
+  return _bool(d['VCP Detected']) && (d['VCP Score'] ?? 0) >= 70;
+}
+
 function _evalGates(d) {
   const fallas = [];
   const precio = d['Precio'], ema200 = d['EMA200'], slope = d['EMA200 Slope'];
-  const distMin = d['Dist Mín52W %'], sma50 = d['SMA50'];
+  const sma50 = d['SMA50'];
   if (precio === null || ema200 === null || precio <= ema200) fallas.push('Precio ≤ EMA200');
   if (slope === null || slope <= 0)                          fallas.push('EMA200 slope ≤ 0');
-  if (distMin === null || distMin < 20)                      fallas.push('<20% del mín 52W');
   if (sma50 !== null && precio !== null && precio < sma50 * 0.98) fallas.push('Precio < SMA50');
   return fallas;
 }
@@ -1437,7 +1449,7 @@ function renderWarrenScore() {
           <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
           <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
-            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos'}[f]||f;
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🔻':'Cerca del mínimo de 52 semanas'}[f]||f;
             return `<span title="${tip}" style="font-size:13px;cursor:default">${f}</span>`;
           }).join('') : ''}</td>
         </tr>`;
@@ -2101,7 +2113,7 @@ const TICKER_DOMAINS = {
   MRK:'merck.com',PFE:'pfizer.com',BMY:'bms.com',GILD:'gilead.com',AMGN:'amgen.com',
   NEE:'nexteraenergy.com',DUK:'duke-energy.com',SO:'southerncompany.com',
   CCJ:'cameco.com',MP:'mpmaterials.com',GLNG:'golar.com',O:'realtyincome.com',
-  BX:'blackstone.com',SHEL:'shell.com',EQNR:'equinor.com',PSX:'phillips66.com',
+  BX:'blackstone.com',SHEL:'shell.com',CEG:'constellationenergy.com',PSX:'phillips66.com',
   HAL:'halliburton.com',BP:'bp.com',DOW:'dow.com',VALE:'vale.com',
   RIO:'riotinto.com',BHP:'bhp.com',SCCO:'southerncoppercorp.com',
   GOLD:'barrick.com',NEM:'newmont.com',FCX:'fcx.com',
@@ -3037,7 +3049,7 @@ const CEDEAR_RATIOS = {
   "STLA":0.2,"BKNG":0.00142857,"TMUS":0.03030303,"RIOT":0.33333333,"ROKU":0.07692308,
   "RACE":0.01204819,"SWKS":0.04761905,"PINS":0.14285714,"BKR":0.14285714,
   "DHR":0.01851852,"GT":0.5,"ISRG":0.01111111,"LAR":1,"NXE":1,"ORLY":0.0045045,
-  "TJX":0.04545455,"EQNR":0.16666667,"ARM":0.03703704,"IBIT":0.1,"FXI":0.2,
+  "TJX":0.04545455,"CEG":0.02222222,"ARM":0.03703704,"IBIT":0.1,"FXI":0.2,
   "IEUR":0.09090909,"IBB":0.03703704,"VEA":0.1,"IVE":0.025,"IVW":0.05,
   "XLC":0.05263158,"XLY":0.02325581,"XLB":0.05555556,"XLI":0.03571429,
   "XLK":0.02173913,"XLV":0.03448276,"XLP":0.0625,"XLRE":0.11111111,
@@ -3060,7 +3072,7 @@ function stopPreciosLiveTimer() {
 const PL_DEFAULTS = [
   { name: 'Tech USA',    tickers: ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','AMD','NFLX','PLTR'] },
   { name: 'Finanzas',   tickers: ['JPM','GS','V','MA','BAC','BX','SCHW','AXP','MS','PYPL'] },
-  { name: 'Energía',    tickers: ['XOM','CVX','OXY','COP','HAL','SLB','BP','SHEL','EQNR','PSX'] },
+  { name: 'Energía',    tickers: ['XOM','CVX','OXY','COP','HAL','SLB','BP','SHEL','CEG','PSX'] },
   { name: 'Argentina',  tickers: ['YPF','GGAL','MELI','BMA','VIST','GLOB','PAM','BBAR','TGS','CEPU'] },
   { name: 'Salud',      tickers: ['LLY','JNJ','ABBV','MRK','AMGN','ISRG','UNH','VRTX','PFE','DHR'] },
   { name: 'Materiales', tickers: ['GOLD','NEM','FCX','VALE','RIO','BHP','SCCO','MP','CCJ','DOW'] },
@@ -5055,7 +5067,7 @@ var WB_NOMBRES={
   'CVS':'CVS HEALTH CORP.','CVX':'CHEVRON CORP','CX':'CEMEX S.A.B. de C.V. ADR','DAL':'DELTA AIR LINES INC.','DE':'DEERE & COMPANY',
   'DECK':'Deckers Brands','DEO':'DIAGEO PLC ADR','DHR':'DANAHER CORP.','DIA':'SPDR Dow Jones Industrial Average ETF',
   'DIS':'DISNEY COMMON STOCK','DOCU':'DOCUSIGN INC','DOW':'DOW INC','EBAY':'EBAY INC.','ECL':'Ecolab','EEM':'iShares MSCI Emerging Markets ETF',
-  'EFA':'iShares MSCI EAFE ETF','EMR':'Emerson Electric','EQNR':'EQUINOR ASA','ESGU':'iShares ESG Aware MSCI USA ETF',
+  'EFA':'iShares MSCI EAFE ETF','EMR':'Emerson Electric','CEG':'Constellation Energy Corp','ESGU':'iShares ESG Aware MSCI USA ETF',
   'ETHA':'iShares Ethereum Trust','ETSY':'ETSY INC','EWJ':'iShares MSCI Japan ETF','EWZ':'iShares MSCI Brazil ETF','F':'Ford Motor Company',
   'FCX':'FREEPORT MCMORAN INC.','FDX':'FEDEX CORP','FISV':'Fiserv','FXI':'ISHARES CHINA LARGE-CAP ETF','GDX':'VanEck Gold Miners ETF',
   'GE':'GE AEROSPACE.','GFI':'GOLD FIELDS LTD.','GGAL':'Grupo Financiero Galicia','GGB':'GERDAU S.A.','GILD':'GILEAD SCIENCES, INC.',
@@ -6974,6 +6986,19 @@ function _penalizacionesV2(d){
     if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
   }
 
+  /* Ex-gate "<20% del mín 52W" (−0 a −20, gradual): eximido si el VCP ya es
+     alto (ver _vcpAlto); si no, resta proporcional a cuánto falta para el
+     20% de colchón sobre el mínimo de 52 semanas -- 0 en distMin=20, hasta
+     −20 pegado al mínimo. Reemplaza el gate binario que capeaba el score en
+     40 sin matices (ver _evalGates). */
+  if (!_vcpAlto(d)) {
+    const distMin = d['Dist Mín52W %'];
+    if (distMin !== null && distMin !== undefined && distMin < 20) {
+      const resta52 = _lineal(distMin, 0, 20, 20, 0);
+      if (resta52 > 0) { pen -= resta52; flags.push('🔻'); }
+    }
+  }
+
   /* Agotamiento del avance v2.2 (−4 con 1 señal / −10 con 2+) */
   const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
   const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
@@ -7070,6 +7095,188 @@ try{ localStorage.removeItem('wb_v2_preview'); }catch(e){}
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V8 ═══════════════ -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V9 — Panel "Bases VCP de Alta Calidad"
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V9"
+     Filtra directo por VCP Score, independiente del Warren Score compuesto
+     y de sus gates -- así una base bien formada no queda invisible por un
+     gate binario o por RS sin historial suficiente (ver hallazgos del
+     backtest VCP/Warren Score, ago-2026). Incluye tendencia del VCP Score
+     (últimas sesiones, vía historial en localStorage) y filtro "VCP≥70
+     recientes" para pescar bases que ya mostraron fuerza aunque hoy el
+     recálculo de pivotes las haga bajar transitoriamente.
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="wb-v9-css">
+  #wb-vcpq-panel .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  #wb-vcpq-panel .wb-vcpq-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap;}
+  #wb-vcpq-panel .wb-vcpq-toggle input{accent-color:var(--green);cursor:pointer;}
+  #wb-vcpq-panel .wb-mini-table th, #wb-vcpq-panel .wb-mini-table td{text-align:center;}
+  #wb-vcpq-panel .wb-mini-table th:first-child, #wb-vcpq-panel .wb-mini-table td:first-child{text-align:left;}
+</style>
+<script id="wb-v9-js">
+(function(){
+'use strict';
+try{
+
+function datosOK(){ return typeof DATOS!=='undefined' && DATOS && DATOS.length; }
+function filtrados(){ try{ return (typeof getDatosFiltrados==='function') ? getDatosFiltrados() : (datosOK()?DATOS:[]); }catch(e){ return datosOK()?DATOS:[]; } }
+function hoyISO(){ return new Date().toISOString().slice(0,10); }
+
+var main = document.querySelector('#view-dashboard .main');
+if(!main) return;
+
+/* ═══ Construcción del panel (una sola vez) ═══ */
+var wrap = document.createElement('div');
+wrap.innerHTML =
+  '<div class="panel" id="wb-vcpq-panel">'+
+    '<div class="panel-head">'+
+      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses.">🧬 Bases VCP de Alta Calidad</div>'+
+      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP Score ≥60 · independiente del Warren Score</div></div>'+
+      '<label class="wb-vcpq-toggle"><input type="checkbox" id="wb-vcpq-filter70" onchange="wbRenderVcpQuality()">VCP≥70 recientes</label>'+
+    '</div>'+
+    '<div class="panel-body" style="overflow-x:auto">'+
+      '<table class="wb-mini-table">'+
+        '<thead><tr>'+
+          '<th>Ticker</th><th>Precio</th>'+
+          '<th data-tooltip="Puntaje del detector VCP (0-100): contracciones cada vez más chicas + volumen decreciente + cerca del techo. ≥55 se considera detectado.">VCP</th>'+
+          '<th data-tooltip="Tendencia del VCP Score en las últimas sesiones (histórico guardado en este navegador). — hasta juntar 2 lecturas.">Tend.</th>'+
+          '<th data-tooltip="Cantidad de contracciones detectadas dentro de la base.">Contr.</th>'+
+          '<th data-tooltip="Distancia % del precio actual al techo/pivote de la base.">Dist. Pivote</th>'+
+          '<th data-tooltip="Precio del techo (pivote) de la base.">Techo</th>'+
+          '<th data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
+        '</tr></thead>'+
+        '<tbody id="wb-vcpq-body"><tr><td colspan="7" class="wb-empty">Cargando…</td></tr></tbody>'+
+      '</table>'+
+    '</div>'+
+  '</div>';
+var panel = wrap.firstElementChild;
+
+var spot = document.getElementById('wb-spotlight');
+if(spot && spot.parentNode === main){
+  spot.parentNode.insertBefore(panel, spot.nextSibling);
+} else {
+  main.insertBefore(panel, main.firstChild);
+}
+
+/* ═══ Historial de VCP Score en localStorage (tendencia + "recientes") ═══ */
+var VCPQ_KEY  = 'wb_vcp_hist_v1';
+var VCPQ_DIAS = 6;
+
+function vcpqLoadHist(){
+  try{ return JSON.parse(localStorage.getItem(VCPQ_KEY) || '{}'); }catch(e){ return {}; }
+}
+function vcpqGuardarHoy(datos){
+  try{
+    var hist = vcpqLoadHist();
+    var hoy = hoyISO();
+    if(!hist[hoy]) hist[hoy] = {};
+    datos.forEach(function(d){
+      var t = d['Ticker'], vs = Number(d['VCP Score']);
+      if(t && !isNaN(vs)) hist[hoy][t] = vs;
+    });
+    var keys = Object.keys(hist).sort();
+    while(keys.length > VCPQ_DIAS){ delete hist[keys.shift()]; }
+    localStorage.setItem(VCPQ_KEY, JSON.stringify(hist));
+  }catch(e){}
+}
+function vcpqTendencia(ticker){
+  var hist = vcpqLoadHist();
+  var dias = Object.keys(hist).sort();
+  var serie = [];
+  dias.forEach(function(f){ if(hist[f] && hist[f][ticker]!==undefined) serie.push(hist[f][ticker]); });
+  if(serie.length < 2) return { arrow:'—', color:'var(--muted)', max:serie.length?serie[0]:null, tip:'Sin historial suficiente todavía (se arma con cada visita al dashboard)' };
+  var delta = serie[serie.length-1] - serie[0];
+  var max   = Math.max.apply(null, serie);
+  var arrow = delta >= 5 ? '▲' : delta <= -5 ? '▼' : '→';
+  var color = delta >= 5 ? 'var(--green)' : delta <= -5 ? 'var(--red)' : 'var(--muted)';
+  return { arrow: arrow, color: color, max: max, tip: 'VCP Score, últimas '+serie.length+' lecturas: '+serie.join(' → ') };
+}
+
+/* ═══ Render ═══ */
+function wbRenderVcpQuality(){
+  if(!datosOK()) return;
+  var body = document.getElementById('wb-vcpq-body');
+  if(!body) return;
+
+  vcpqGuardarHoy(DATOS);
+
+  var soloRecientes = document.getElementById('wb-vcpq-filter70');
+  soloRecientes = !!(soloRecientes && soloRecientes.checked);
+
+  var rows = filtrados().filter(function(d){
+    var vs = Number(d['VCP Score']);
+    return !isNaN(vs) && vs >= 60;
+  });
+
+  if(soloRecientes){
+    rows = rows.filter(function(d){
+      var vs = Number(d['VCP Score']);
+      var tr = vcpqTendencia(d['Ticker']);
+      return vs >= 70 || (tr.max !== null && tr.max >= 70);
+    });
+  }
+
+  rows.sort(function(a,b){ return Number(b['VCP Score']) - Number(a['VCP Score']); });
+  rows = rows.slice(0, 15);
+
+  var countEl = document.getElementById('wb-vcpq-count');
+  if(countEl) countEl.textContent = rows.length;
+
+  if(!rows.length){
+    body.innerHTML = '<tr><td colspan="7" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(function(d){
+    var t  = d['Ticker'];
+    var vs = Number(d['VCP Score']);
+    var vsCls = vs>=80 ? 'pill-green' : vs>=70 ? 'pill-blue' : 'pill-amber';
+    var tr = vcpqTendencia(t);
+    var dp = d['VCP Dist Pivot %'];
+    var dpNum = (dp===null||dp===undefined) ? null : Number(dp);
+    var dpTxt = dpNum===null ? '—' : (dpNum>=0?'+':'')+dpNum.toFixed(1)+'%';
+    var dpCls = (dpNum!==null && Math.abs(dpNum)<=3) ? 'pill-green' : 'pill-blue';
+    var techo  = d['VCP Techo'];
+    var precio = d['Precio'];
+    var contr  = d['VCP Contractions'];
+    var volDec = _bool_v9(d['VCP Vol Decreasing']) ? '✅' : '—';
+    return '<tr>'+
+      '<td><span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></td>'+
+      '<td>'+(precio!=null ? Number(precio).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
+      '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
+      '<td title="'+tr.tip+'" style="color:'+tr.color+';font-weight:700;cursor:default">'+tr.arrow+'</td>'+
+      '<td>'+(contr!=null ? contr : '—')+'</td>'+
+      '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
+      '<td>'+(techo!=null ? Number(techo).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
+      '<td>'+volDec+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function _bool_v9(v){
+  if(v===null||v===undefined) return false;
+  if(typeof v==='boolean') return v;
+  if(typeof v==='number') return v!==0;
+  var s = String(v).trim().toLowerCase();
+  return s.indexOf('✅')>=0 || s.indexOf('✓')>=0 || ['true','si','sí','yes','1'].indexOf(s)>=0;
+}
+
+window.wbRenderVcpQuality = wbRenderVcpQuality;
+
+var _rt9 = window.renderTodo;
+if(typeof _rt9 === 'function'){
+  window.renderTodo = function(){
+    _rt9.apply(this, arguments);
+    wbRenderVcpQuality();
+  };
+}
+if(datosOK()) wbRenderVcpQuality();
+
+}catch(e){ console.error('WB V9 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V9 ═══════════════ -->
 
 </body>
 </html>

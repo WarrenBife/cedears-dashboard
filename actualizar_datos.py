@@ -59,7 +59,7 @@ TICKERS = {
     ],
     "CEDEARs Energía & Materiales": [
         "XOM", "CVX", "BP", "SHEL", "TTE", "OXY", "HAL", "SLB",
-        "BKR", "PSX", "EQNR", "FCX", "RIO", "BHP", "VALE",
+        "BKR", "PSX", "CEG", "FCX", "RIO", "BHP", "VALE",
         "GOLD", "NEM", "AEM", "GFI", "HMY", "KGC", "PAAS",
         "MUX", "HL", "CDE", "NG", "AUY", "GGB", "SID",
         "NUE", "SCCO", "MOS", "DOW", "LND", "BNG",
@@ -98,7 +98,7 @@ TICKERS = {
         "BAYN", "BAS", "EOAN", "NEC1", "MBG", "BSN",
         "VOD", "T", "TMUS", "VZ", "NGG", "ORAN",
         "PHG", "ING", "BBV", "SAN",
-        "TTE", "ENI", "SHEL", "BP", "EQNR",
+        "TTE", "ENI", "SHEL", "BP",
         "RIO", "BHP", "LFC", "SNP", "PTR",
         "HMC", "TM", "SONY", "MUFG", "MFG", "NMR",
         "TSM", "SMSN", "INFY", "HDB", "IBN",
@@ -137,7 +137,7 @@ ETF_SECTOR = {
     # Energía
     "XOM": "XLE", "CVX": "XLE", "BP": "XLE", "SHEL": "XLE",
     "TTE": "XLE", "OXY": "XLE", "HAL": "XLE", "SLB": "XLE",
-    "BKR": "XLE", "PSX": "XLE", "EQNR": "XLE", "COP": "XLE", "GLNG": "XLE",
+    "BKR": "XLE", "PSX": "XLE", "COP": "XLE", "GLNG": "XLE", "CEG": "XLU",
     # Materiales / Minería
     "GOLD": "GDX", "NEM": "GDX", "AEM": "GDX", "KGC": "GDX",
     "GFI": "GDX", "HMY": "GDX", "PAAS": "GDX", "MUX": "GDX",
@@ -209,10 +209,20 @@ def calcular_volumen_inusual(volume, ruedas=20):
         return None
     return round((vol_hoy / vol_promedio - 1) * 100, 2)
 
+RS_LOOKBACK_MIN = 60  # ~3 meses -- por debajo de esto el percentrank no es confiable
+
 def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
     df = pd.DataFrame({"ticker": close_ticker, "spy": close_spy}).dropna()
-    if len(df) < lookback + 1:
-        return None, None, None, None, None
+    # Historial corto (spin-offs/IPOs recientes, ej. SNDK desde 2/2025): en vez
+    # de devolver todo None y dejar el pilar de Fuerza Relativa ciego durante
+    # el primer año de cotizacion, usar como lookback todo lo disponible.
+    # Se reserva margen de 22 ruedas para que "ayer/semana/mes" tambien caigan
+    # dentro de la ventana valida del percentrank (si no, quedan en NaN aunque
+    # el valor de hoy si se calcule). Piso de RS_LOOKBACK_MIN ruedas para que
+    # el percentrank siga siendo estadisticamente razonable.
+    lb = min(lookback, len(df) - 22)
+    if lb < RS_LOOKBACK_MIN:
+        return None, None, None, None, None, None, None, None, None
 
     df["fr"]     = df["ticker"] / df["spy"]
     df["sma_fr"] = df["fr"].rolling(window=periodo_sma).mean()
@@ -235,7 +245,7 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
                 scores.append(round(rank, 2))
         return pd.Series(scores, index=series.index)
 
-    df["rs_score"] = percentrank_tv(df["fr"], lookback)
+    df["rs_score"] = percentrank_tv(df["fr"], lb)
 
     ultimo = df.iloc[-1]
     ayer   = df.iloc[-2]
@@ -260,19 +270,22 @@ def rs_score_series(close_ticker, close_spy, lookback=252):
     """Serie completa de RS Score (percentrank de ticker/spy), dia por dia.
     Standalone (no comparte tupla con calcular_rs_score) para no tocar esa
     funcion ya probada en produccion. Usada para leer el RS Score en una
-    rueda especifica del pasado (ej. el dia de contacto con la EMA200)."""
+    rueda especifica del pasado (ej. el dia de contacto con la EMA200).
+    Mismo lookback dinamico que calcular_rs_score() para tickers con poco
+    historial (ver RS_LOOKBACK_MIN)."""
     df = pd.DataFrame({"ticker": close_ticker, "spy": close_spy}).dropna()
-    if len(df) < lookback + 1:
+    lb = min(lookback, len(df) - 1)
+    if lb < RS_LOOKBACK_MIN:
         return None
     fr = df["ticker"] / df["spy"]
     arr = fr.values
     scores = []
     for i in range(len(arr)):
-        if i < lookback:
+        if i < lb:
             scores.append(np.nan)
         else:
-            ventana = arr[i-lookback:i]
-            rank = (ventana < arr[i]).sum() / lookback * 100
+            ventana = arr[i-lb:i]
+            rank = (ventana < arr[i]).sum() / lb * 100
             scores.append(round(rank, 2))
     return pd.Series(scores, index=fr.index)
 
@@ -702,7 +715,7 @@ def churn_maximos(hist):
         return False
 
 
-def detectar_vcp(hist, pivot_order=3):
+def _detectar_vcp_raw(hist, pivot_order=3):
     try:
         h = hist['High'].values
         l = hist['Low'].values
@@ -714,7 +727,7 @@ def detectar_vcp(hist, pivot_order=3):
         if len(c) < 30:
             return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': None}
+                    'VCP Techo Toques': None, 'VCP Techo': None}
 
         def find_pivots(arr, order, mode):
             pivots = []
@@ -732,7 +745,7 @@ def detectar_vcp(hist, pivot_order=3):
         if not ph or not pl:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': 0,
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': None}
+                    'VCP Techo Toques': None, 'VCP Techo': None}
 
         all_piv = [(i, 'H', val) for i, val in ph] + [(i, 'L', val) for i, val in pl]
         all_piv.sort()
@@ -777,7 +790,7 @@ def detectar_vcp(hist, pivot_order=3):
         if len(contractions) < 2:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': None}
+                    'VCP Techo Toques': None, 'VCP Techo': None}
 
         # El techo es el nivel más TESTEADO (más toques), no el más reciente ni
         # el más alto -- pero tiene que ser una resistencia a ROMPER: al nivel
@@ -794,8 +807,17 @@ def detectar_vcp(hist, pivot_order=3):
             return sum(1 for v in niveles if abs(v - nivel) / nivel <= TOL_TOQUE)
 
         precio_actual = float(c[-1])
+        # Elegibilidad del techo evaluada contra el MENOR precio de hoy/ayer
+        # (no solo hoy): un breakout con gap fuerte (>~2%) empuja precio_actual
+        # bien por encima del techo real y lo deja afuera de la tolerancia el
+        # mismo dia que deberia confirmarse -- justo cuando mas importa (caso
+        # NVDA 8/1/2024: VCP Score 100 -> 0 en la rueda del breakout). Usar
+        # tambien el cierre de ayer (pre-gap) le da al techo un dia de gracia
+        # sin tocar el resto de la logica (dist_pivot sigue midiendose contra
+        # precio_actual, sin cambios).
+        precio_ref    = min(precio_actual, float(c[-2])) if len(c) >= 2 else precio_actual
         rango_valido  = [(idx_h, val_h) for idx_h, val_h in ph
-                         if precio_actual * 0.98 <= val_h <= precio_actual * 1.30]
+                         if precio_ref * 0.98 <= val_h <= precio_actual * 1.30]
         candidatos_techo = [(idx_h, val_h, _contar_toques(val_h)) for idx_h, val_h in rango_valido]
         con_toques = [ct for ct in candidatos_techo if ct[2] >= 2]
 
@@ -811,23 +833,35 @@ def detectar_vcp(hist, pivot_order=3):
         else:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': 0}
+                    'VCP Techo Toques': 0, 'VCP Techo': None}
 
         # Delimitar la base: ancla en la ÚLTIMA CONTRACCIÓN real (no en el
         # techo elegido por toques -- ese puede ser un máximo antiguo sin
         # contracción propia asociada dentro de la ventana, lo que dejaría la
         # lista vacía si el precio lo tocó apenas de pasada más tarde).
         # Camina hacia atrás desde ahí mientras el precio no supere el
-        # máximo de esa última contracción ni caiga más de ~37% respecto de
-        # él. Descarta contracciones previas al inicio de la base (arrastradas
-        # por la ventana de 90 ruedas pero ajenas al patrón) y las que sean
-        # ruido relativo al rango de esa base (<20% del rango).
+        # máximo de esa última contracción (con el mismo margen de tolerancia
+        # ATR-adaptado que el techo, TOL_TOQUE) ni caiga más de ~37% respecto
+        # de él. Descarta contracciones previas al inicio de la base
+        # (arrastradas por la ventana de 90 ruedas pero ajenas al patrón) y
+        # las que sean ruido relativo al rango de esa base (<20% del rango).
+        #
+        # El margen de tolerancia importa: sin él, la contracción PENÚLTIMA
+        # de un VCP legítimo casi siempre queda excluida en cuanto se agrega
+        # una barra nueva -- por diseño, cada contracción tiene un máximo un
+        # poco más alto que la siguiente (eso ES la contracción), así que
+        # "no superar el máximo de la última" se dispara con la contracción
+        # vecina de inmediato y la base entera pierde el ancla (caso NVDA
+        # 8/1/2024: al confirmarse una contracción nueva al cierre del gap,
+        # la contracción previa -apenas 0.9% más alta- quedaba afuera y
+        # `contractions` caía de 2 a 1, tirando el score a 0 justo el día
+        # del breakout).
         MAX_CAIDA_BASE = 0.37
         base_idx  = contractions[-1]['hi_idx']
         base_high = contractions[-1]['high']
         inicio_base = 0
         for k in range(base_idx - 1, -1, -1):
-            if c[k] > base_high or c[k] < base_high * (1 - MAX_CAIDA_BASE):
+            if c[k] > base_high * (1 + TOL_TOQUE) or c[k] < base_high * (1 - MAX_CAIDA_BASE):
                 inicio_base = k + 1
                 break
 
@@ -835,7 +869,7 @@ def detectar_vcp(hist, pivot_order=3):
         if len(contractions) < 2:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': techo_toques}
+                    'VCP Techo Toques': techo_toques, 'VCP Techo': round(techo, 2)}
 
         rango_base_abs = base_high - float(np.min(l[inicio_base:base_idx + 1]))
         if rango_base_abs > 0:
@@ -844,7 +878,7 @@ def detectar_vcp(hist, pivot_order=3):
         if len(contractions) < 2:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                    'VCP Techo Toques': techo_toques}
+                    'VCP Techo Toques': techo_toques, 'VCP Techo': round(techo, 2)}
 
         pcts = [ct['pct'] for ct in contractions]
         vols = [ct['avg_vol'] for ct in contractions]
@@ -887,11 +921,47 @@ def detectar_vcp(hist, pivot_order=3):
             'VCP Dist Pivot %':   round(dist_pivot, 2),
             'VCP Vol Decreasing': vol_dec >= 0.5,
             'VCP Techo Toques':   techo_toques,
+            'VCP Techo':          round(techo, 2),
         }
     except:
         return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
                 'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                'VCP Techo Toques': None}
+                'VCP Techo Toques': None, 'VCP Techo': None}
+
+
+def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
+    """Envoltorio con histeresis sobre 'VCP Detected': exige `hyst_dias`
+    sesiones consecutivas por encima (o por debajo) del umbral 55 antes de
+    prender (o apagar) la deteccion. El recalculo de pivotes dia a dia hace
+    que VCP Score oscile +-6/7 pts sin que la base cambie de verdad -- eso
+    hacia parpadear 'VCP Detected' 13-17 veces durante una base legitima
+    (casos NVDA/MRVL). El resto de los campos (Score, Tightness, Dist Pivot,
+    etc.) se devuelven crudos, sin suavizar -- solo el booleano 'Detected'
+    tiene memoria de corto plazo."""
+    actual = _detectar_vcp_raw(hist, pivot_order)
+    if actual['VCP Score'] is None:
+        return actual
+    n = len(hist)
+    ventana = min(ventana_hyst, n - 30)
+    if ventana < hyst_dias:
+        return actual
+    detected = False
+    streak_on = streak_off = 0
+    for k in range(ventana, -1, -1):
+        idx_hasta = n - k
+        if idx_hasta < 30:
+            continue
+        raw = _detectar_vcp_raw(hist.iloc[:idx_hasta], pivot_order)
+        s = raw['VCP Score'] or 0
+        if s >= 55:
+            streak_on += 1; streak_off = 0
+        else:
+            streak_off += 1; streak_on = 0
+        if streak_on  >= hyst_dias: detected = True
+        if streak_off >= hyst_dias: detected = False
+    actual = dict(actual)
+    actual['VCP Detected'] = detected
+    return actual
 
 def calcular_sesiones_10(close, volume):
     """
@@ -942,12 +1012,19 @@ def obtener_info_ticker(ticker_symbol):
     except:
         return {"Market Cap USD": None, "Market Cap Cat": "—", "Sector": "—", "Tipo": "—"}
 
-def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
+def detectar_breakout(hist, vcp_techo=None, lookback=20, vol_factor=1.5, frescura=3):
     """
     3 capas de confirmación del breakout (Minervini):
     1. Precio cruzó el máximo de las últimas `lookback` velas hace ≤ `frescura` días
     2. El volumen ese día fue ≥ `vol_factor` veces el promedio de 50 ruedas
     3. (extensión: Dist SMA50 % — se calcula aparte y se evalúa en el frontend)
+
+    `vcp_techo`: techo de la base detectada por detectar_vcp() (o None). Cuando
+    existe y es MAS ALTO que el máximo de `lookback` velas, el pivote real de
+    la base es el techo, no el máximo corto -- de lo contrario 'Breakout Fresh'
+    puede prenderse con el precio todavía por debajo del verdadero techo de la
+    base (visto en MRVL/SNDK: Breakout Fresh=True con VCP Dist Pivot % todavía
+    negativo, dos pivotes que no coincidian).
     """
     try:
         c = hist['Close'].values
@@ -967,6 +1044,8 @@ def detectar_breakout(hist, lookback=20, vol_factor=1.5, frescura=3):
             if idx < lookback + 1:
                 break
             pivot = float(np.max(c[idx - lookback:idx]))
+            if vcp_techo and vcp_techo > pivot:
+                pivot = float(vcp_techo)
             if float(c[idx]) > pivot and float(c[idx - 1]) <= pivot:
                 vr = float(v[idx]) / vol50 if vol50 > 0 else None
                 breakout_day = ago
@@ -1131,8 +1210,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         div_obv_v  = div_obv(hist)
         churn_v    = churn_maximos(hist)
 
-        # Breakout fresco
-        brk = detectar_breakout(hist)
+        # Breakout fresco (el techo del VCP, si hay uno vigente, pisa el
+        # pivote de 20 ruedas cuando es mas alto -- ver detectar_breakout)
+        brk = detectar_breakout(hist, vcp_techo=vcp.get('VCP Techo'))
         _procesar_breakout_log(breakouts_log, ticker_symbol, hist, brk, hoy_str)
 
         return {
@@ -1169,6 +1249,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "VCP Dist Pivot %":    vcp['VCP Dist Pivot %'],
             "VCP Vol Decreasing":  vcp['VCP Vol Decreasing'],
             "VCP Techo Toques":    vcp['VCP Techo Toques'],
+            "VCP Techo":           vcp.get('VCP Techo'),
             "Días + 10s":          dias_pos_10,
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
