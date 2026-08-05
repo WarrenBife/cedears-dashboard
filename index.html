@@ -7152,11 +7152,15 @@ wrap.innerHTML =
   '</div>';
 var panel = wrap.firstElementChild;
 
-var spot = document.getElementById('wb-spotlight');
-if(spot && spot.parentNode === main){
-  spot.parentNode.insertBefore(panel, spot.nextSibling);
+/* Se inserta justo arriba del panel "Comparador de activos" (más abajo en
+   la zona 🔬 Análisis) -- puede no ser hijo directo de .main (vive dentro
+   de una .wb-zone), por eso se ancla en su propio parentNode y no en main. */
+var cmpEl    = document.getElementById('cmp-tabla');
+var cmpPanel = cmpEl ? cmpEl.closest('.panel') : null;
+if(cmpPanel && cmpPanel.parentNode){
+  cmpPanel.parentNode.insertBefore(panel, cmpPanel);
 } else {
-  main.insertBefore(panel, main.firstChild);
+  main.appendChild(panel);
 }
 
 /* ═══ Historial de VCP Score en localStorage (tendencia + "recientes") ═══ */
