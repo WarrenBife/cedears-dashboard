@@ -7284,5 +7284,260 @@ if(datosOK()) wbRenderVcpQuality();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V9 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V11 — Warren Score: ajustes puntuales Pilar B / Pilar C
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V11"
+     (el archivo vuelve exactamente al Warren Score v2 de WB UPGRADE V8)
+
+     Cambios pedidos (sin tocar Pilar A, Pilar D, gates ni penalizaciones):
+
+     Pilar B (techo sin cambios, 30 pts):
+     - Se saca el bono "RS > RS Ayer" (2.4 pts) y se suma al de
+       "RS > RS Semana ant.", que pasa de 2.4 a 4.8 pts.
+     - "RS > RS Mes ant." deja de ser "cualquier mejora" -- ahora exige
+       superar al RS de hace un mes por MÁS DE 15 puntos para cobrar el
+       bono completo (3 pts). Sigue siendo un bono puro (nunca resta):
+       por debajo del umbral, 0 pts, igual que antes si no mejoraba nada.
+
+     Pilar C (techo sin cambios, 25 pts):
+     - Vol Relativa: 6.5278 -> 4 pts.
+     - RSI: 4.4444 -> 6.9722 pts (absorbe los 2.5278 que se le sacaron a
+       Vol Relativa). Zona ideal (donde suma el 100%) pasa de 55-65 a
+       45-70. Bordes de rampa (izq/der) puestos en 30 y 80 -- margen de
+       15 puntos de cada lado, no especificado en el pedido, ver aviso.
+
+     _pilarAv3/_pilarDv3/_penalizacionesV3/_restaVerticalidadV3/
+     _restaVolatilidadSinDireccionV3 son copias VERBATIM de sus
+     equivalentes v2 (no se pudo reusarlas directo: viven dentro del IIFE
+     de WB UPGRADE V8, no son globales). Como ningún techo de pilar
+     cambia (20/30/25/25 igual que v2), no hace falta tocar
+     renderWarrenScore ni los tooltips de la tabla -- ya son correctos.
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v11-js">
+(function(){
+'use strict';
+try {
+
+/* ── Pilar A — Tendencia (20 pts) — SIN CAMBIOS, copia verbatim de v2 ── */
+function _pilarAv3(d){
+  let pts = 0;
+  const sma50Slope = d['SMA50 Slope'], distSma50 = d['Dist SMA50 %'];
+  const sma50Bajista = sma50Slope !== null && sma50Slope !== undefined && sma50Slope < 0
+                     && distSma50  !== null && distSma50  !== undefined && distSma50  < 0;
+  if (!sma50Bajista) pts += _tri(distSma50, -3, 0, 10, 30) * 10;
+  const atr14 = d['ATR14 %'];
+  if (atr14 !== null && atr14 !== undefined && atr14 > 0) {
+    const distATRs = d['Dist EMA200 %'] / atr14;
+    pts += _tri(distATRs, 0, 3, 10, 16) * 5.8333;
+  } else {
+    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 5.8333;
+  }
+  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 4.1667);
+  return Math.min(pts, 20);
+}
+
+/* ── Pilar B — Fuerza Relativa (30 pts, techo sin cambios) ── */
+function _pilarBv3(d){
+  let pts = 0;
+  const rs = d['RS Score'];
+  pts += _lineal(rs, 0, 100, 0, 15);
+  if (rs !== null) {
+    /* "RS > RS Ayer" eliminado -- sus 2.4 pts pasan a "RS > RS Semana ant." */
+    if (d['RS Semana ant.'] !== null && rs > d['RS Semana ant.']) pts += 4.8;
+    /* "RS > RS Mes ant.": ya no alcanza con mejorar un poco -- exige
+       superarlo por MÁS de 15 puntos. Sigue siendo bono puro (0 si no
+       se cumple, nunca resta). */
+    if (d['RS Mes ant.'] !== null && rs > d['RS Mes ant.'] + 15) pts += 3;
+  }
+  pts += _bool(d['FR > SMA50']) ? 4.2 : 0;
+  pts += _lineal(d['Vs Sector %'], 0, 10, 0, 3);
+  return Math.min(pts, 30);
+}
+
+/* ── Pilar C — Setup Corto (25 pts, techo sin cambios) ── */
+function _pilarCv3(d){
+  let pts = 0;
+  /* Vol Relativa comprimida: 6.5278 -> 4 */
+  pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 4);
+  /* Volumen seco: sin cambios */
+  pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 5.6944;
+  /* RSI: 4.4444 -> 6.9722, zona ideal ensanchada de 55-65 a 45-70,
+     rampas hasta 30 (izq) y 80 (der) */
+  pts += _tri(d['RSI 14'], 30, 45, 70, 80) * 6.9722;
+  /* VCP: sin cambios */
+  if (_bool(d['VCP Detected'])) {
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 3.3333);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 0.8333;
+    pts += Math.min(pv, 4.1667);
+    const dp = d['VCP Dist Pivot %'];
+    if (dp !== null) {
+      const dpA = Math.abs(dp);
+      pts += dpA <= 3 ? 2.5 : _lineal(dpA, 10, 3, 0, 2.5);
+    }
+  }
+  /* Breakout fresco: sin cambios */
+  if (_bool(d['Breakout Fresh'])) {
+    const days = d['Breakout Days Ago'] ?? 99;
+    const volOk = _bool(d['Breakout Vol OK']);
+    const vrat  = d['Breakout Vol Ratio'] ?? 0;
+    if (days <= 3 && (vrat >= 1.5 || volOk)) pts += 1.6667;
+    else if (days <= 3) pts += 0.8333;
+  }
+  return Math.min(pts, 25);
+}
+
+/* ── Pilar D — Setup Estructural (25 pts) — SIN CAMBIOS, copia verbatim de v2 ── */
+function _pilarDv3(d){
+  let pts = 0;
+  const semanas = d['Base Semanas'];
+  const prof    = d['Base Profundidad %'];
+  const pos     = d['Base Posición %'];
+  const vtrend  = d['Base Vol Trend'];
+  const distMin = d['Dist Mín52W %'];
+
+  const volA = d['Volatilidad Anual %'];
+  if (distMin !== null && distMin !== undefined && volA !== null && volA !== undefined && volA > 0) {
+    const ext = distMin / volA;
+    pts += _tri(ext, 0.3, 0.5, 1.8, 3.2) * 5;
+  } else {
+    pts += _tri(distMin, 25, 35, 110, 220) * 5;
+  }
+
+  if (semanas !== null && semanas !== undefined) {
+    pts += _tri(semanas, 4, 7, 26, 55) * 8;
+  }
+  if (prof !== null && prof !== undefined) {
+    pts += _tri(prof, 3, 10, 25, 35) * 5;
+  }
+  if (pos !== null && pos !== undefined) {
+    const posClamp = Math.min(pos, 100);
+    pts += _lineal(posClamp, 40, 75, 0, 4);
+  }
+  if (vtrend !== null && vtrend !== undefined) {
+    if (vtrend <= 0.8)     pts += 3;
+    else if (vtrend < 1.0) pts += _lineal(vtrend, 0.8, 1.0, 3, 0);
+  }
+  return Math.min(pts, 25);
+}
+
+/* ── Verticalidad reciente y Volatilidad sin dirección — SIN CAMBIOS,
+   copias verbatim de v2 (no accesibles desde acá, viven en el IIFE de V8) ── */
+function _restaVerticalidadV3(d){
+  const atrP = d['ATR14 %'], avPico = d['Avance Pico 15r %'];
+  if (atrP === null || atrP === undefined || atrP <= 0 ||
+      avPico === null || avPico === undefined) {
+    return { resta: 0, velocidadAtrs: null };
+  }
+  const velocidadAtrs = avPico / atrP;
+  return { resta: _lineal(velocidadAtrs, 5, 11, 0, 8), velocidadAtrs };
+}
+function _restaVolatilidadSinDireccionV3(d){
+  const chop = d['Choppiness'], efi = d['Eficiencia 10d'];
+  if (chop === null || chop === undefined || efi === null || efi === undefined) {
+    return { resta: 0, chop: null, efi: null, activa: false };
+  }
+  if (!(chop > 1.3 && efi < 0.35)) return { resta: 0, chop, efi, activa: false };
+  const fChop = _lineal(chop, 1.3, 2.0, 0, 1);
+  const fEfi  = _lineal(efi, 0.35, 0, 0, 1);
+  const severidad = (fChop + fEfi) / 2;
+  return { resta: severidad * 5, chop, efi, activa: true };
+}
+
+/* ── Penalizaciones — SIN CAMBIOS, copia verbatim de v2 ── */
+function _penalizacionesV3(d){
+  let pen = 0; const flags = [];
+  const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
+  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
+  const atrP = d['ATR14 %'];
+
+  const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
+    ? (d50 !== null && d50 / atrP > 7)
+    : (d50 !== null && d50 > 25);
+  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('🎈'); }
+
+  const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
+  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('🩸'); }
+
+  const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
+  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('💥'); }
+
+  const boDays = d['Breakout Days Ago'];
+  if (!_bool(d['Breakout Fresh']) && boDays !== null && boDays > 5 && boDays <= 15) {
+    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
+  }
+
+  if (!_vcpAlto(d)) {
+    const distMin = d['Dist Mín52W %'];
+    if (distMin !== null && distMin !== undefined && distMin < 20) {
+      const resta52 = _lineal(distMin, 0, 20, 20, 0);
+      if (resta52 > 0) { pen -= resta52; flags.push('🔻'); }
+    }
+  }
+
+  const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
+  const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
+  if (nAgot >= 1) {
+    pen -= nAgot === 1 ? 4 : 10;
+    if (divRsi) flags.push('📉');
+    if (divObv) flags.push('🪫');
+    if (churn)  flags.push('🐘');
+  }
+
+  return { pen, flags };
+}
+
+/* ── calcWarrenDetalleV3 — firma idéntica a v2 ── */
+window.calcWarrenDetalleV3 = function(d){
+  const fallas = _evalGates(d);
+  const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+
+  const pa = _ck('ws-pa') ? _pilarAv3(d) : 0;
+  const pb = _ck('ws-pb') ? _pilarBv3(d) : 0;
+  const { resta: restaVert, velocidadAtrs } = _restaVerticalidadV3(d);
+  const { resta: restaChop, activa: chopActiva } = _restaVolatilidadSinDireccionV3(d);
+  const pc = _ck('ws-pc') ? Math.max(0, _pilarCv3(d) - restaVert - restaChop) : 0;
+  const pd = _ck('ws-pd') ? _pilarDv3(d) : 0;
+  const { pen, flags } = _ck('ws-pen') ? _penalizacionesV3(d) : { pen: 0, flags: [] };
+  if (chopActiva) flags.push('🌪️');
+
+  const sumRaw = pa + pb + pc + pd + pen;
+  let score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
+  if (fallas.length > 0) score = Math.min(score, 40);
+
+  if (d['Dist Máx52W %'] === null || d['Dist Máx52W %'] === undefined ||
+      d['Dist Mín52W %'] === null || d['Dist Mín52W %'] === undefined) {
+    score = Math.min(score, 40);
+  }
+
+  const UMBRAL_ATR = 6;
+  const _atr14g = d['ATR14 %'], _d50g = d['Dist SMA50 %'];
+  if (_atr14g !== null && _atr14g !== undefined && _atr14g > 0 &&
+      _d50g  !== null && _d50g  !== undefined) {
+    const _estirado   = _d50g / _atr14g > UMBRAL_ATR;
+    const _sinPausa   = d['Base Semanas'] === null || d['Base Semanas'] === undefined || +d['Base Semanas'] < 2;
+    const _agotandose = _bool(d['Div RSI']) || _bool(d['Div OBV']) || _bool(d['Churn Máximos']);
+    if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
+  }
+
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, version: '3' };
+};
+
+/* v3 es el score público — reemplaza calcWarrenDetalle globalmente.
+   calcWarrenDetalleV2 (v2) queda intacto y accesible para comparación.
+   renderWarrenScore NO se toca: los techos de pilar (20/30/25/25) no
+   cambiaron, sus tooltips y badges siguen siendo correctos tal cual. */
+window.calcWarrenDetalle = window.calcWarrenDetalleV3;
+
+try {
+  if (typeof DATOS !== 'undefined' && DATOS && DATOS.length && typeof renderWarrenScore === 'function') {
+    renderWarrenScore();
+  }
+} catch(e){}
+
+} catch(e){ console.error('WB V11 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V11 ═══════════════ -->
+
 </body>
 </html>
