@@ -535,8 +535,14 @@ def detectar_base(df):
     """
     Detecta la base estructural de un papel (para Warren Score v2 Pilar D).
     Retorna dict con semanas, prof, pos, voltrend — o None en cada campo si no computable.
+
+    'minimo' y 'tramo_inicio' (agregados para el modificador de sacudon,
+    Warren Score v3.1) exponen valores YA calculados internamente para
+    profundidad/voltrend -- no cambian nada de lo que Pilar D usa ni de
+    como se calculan semanas/prof/pos/voltrend.
     """
-    NULL = {'semanas': None, 'prof': None, 'pos': None, 'voltrend': None}
+    NULL = {'semanas': None, 'prof': None, 'pos': None, 'voltrend': None,
+            'minimo': None, 'tramo_inicio': None}
     try:
         if df is None or len(df) < 30:
             return NULL
@@ -596,9 +602,222 @@ def detectar_base(df):
             'prof':     round(profundidad, 1),
             'pos':      round(posicion, 1),
             'voltrend': voltrend,
+            'minimo':       round(float(min_base), 2),
+            'tramo_inicio': tramo.index[0],
         }
     except Exception as e:
         return NULL
+
+
+def detectar_sacudon(hist, base, atr14_pct_valor):
+    """Modificador de sacudon (shakeout) -- Warren Score v3.1.
+
+    Antes de despegar, un papel que viene comprimiendo suele meter una
+    sacudida violenta (barrida de stops / spring de Wyckoff) que el score
+    castiga tres veces sin este modificador (compresion de corto, resta
+    de verticalidad, resta de volatilidad sin direccion). Las 5
+    condiciones deben cumplirse TODAS -- compresion previa valida es el
+    prerrequisito absoluto; sin base no hay sacudon, es volatilidad comun.
+
+    Devuelve tambien Vol Relativa / Vol 5d40d medidos en la ventana de 5
+    ruedas ANTERIOR al inicio de la sacudida (reusando las funciones
+    reales del pipeline, no reimplementadas) -- el frontend se queda con
+    el mejor valor entre esa ventana y la de hoy, para que la sacudida no
+    borre la compresion que el papel ya se habia ganado.
+    """
+    NULO = {'activo': False, 'ruedas': None, 'magnitud_atrs': None,
+            'vol_relativa_pre': None, 'vol_5d40d_pre': None}
+    try:
+        # 1) Compresion previa valida (prerrequisito absoluto) -----------
+        # El voltrend de detectar_base() mide el ultimo tercio del tramo
+        # COMPLETO hasta hoy -- si hay una sacudida real, sus propias velas
+        # de volumen altisimo caen justo en ese ultimo tercio y contaminan
+        # el promedio, inflando voltrend por encima de 1.0 y auto-vetando
+        # el propio caso que la condicion deberia admitir. Por eso el gate
+        # de compresion se recalcula excluyendo la ventana reciente donde
+        # se busca la sacudida (misma formula tercio/tercio que usa
+        # detectar_base, aplicada sobre tramo_base_ref mas abajo).
+        if base is None or base.get('semanas') is None or base['semanas'] < 4:
+            return NULO
+        # Posicion alta en la base: un spring de Wyckoff ocurre con el
+        # papel pegado al techo de su rango, listo para romper -- es lo
+        # que distingue una sacudida constructiva (MRVL: precio arriba del
+        # rango, sacude, sale) de una venta comun en un papel golpeado que
+        # viene de abajo (BP/CVX/EQNR veniendo de caidas, no de un techo).
+        if base.get('pos') is None or base['pos'] < 60:
+            return NULO
+        if base.get('minimo') is None or base.get('tramo_inicio') is None:
+            return NULO
+        if atr14_pct_valor is None or atr14_pct_valor <= 0:
+            return NULO
+
+        close  = hist['Close'].values
+        high   = hist['High'].values
+        low    = hist['Low'].values
+        volume = hist['Volume'].values
+        n = len(hist)
+        if n < 30:
+            return NULO
+
+        precio_actual = float(close[-1])
+        atr_dolares = atr14_pct_valor / 100 * precio_actual
+        if atr_dolares <= 0:
+            return NULO
+
+        VENTANA_RECIENTE = min(8, n - 1)
+
+        # Tramo de referencia DE LA BASE -- mismo tramo que uso
+        # detectar_base, pero excluyendo la ventana reciente (donde se
+        # busca la sacudida) para no contaminar el calculo con la propia
+        # vela que se esta evaluando.
+        tramo_base = hist.loc[base['tramo_inicio']:]
+        tramo_base_ref = tramo_base.iloc[:-VENTANA_RECIENTE] if len(tramo_base) > VENTANA_RECIENTE else tramo_base.iloc[:0]
+        if len(tramo_base_ref) < 5:
+            return NULO
+
+        # Voltrend "pre-sacudida": mismo concepto que detectar_base (ultimo
+        # tercio vs primer tercio del tramo, ya excluyendo la ventana
+        # reciente via tramo_base_ref), pero con MEDIANA en vez de promedio.
+        # Un solo dia de earnings dentro de la base (volumen 5x un dia
+        # puntual) no deberia invalidar una compresion real -- el promedio
+        # es sensible a ese outlier, la mediana es inmune por construccion.
+        # El umbral sigue siendo 1.0 con el mismo significado ("el volumen
+        # venia secandose"); lo que cambia es solo el estimador.
+        tercio_ref = max(5, len(tramo_base_ref) // 3)
+        vol_ini_ref = float(tramo_base_ref['Volume'].iloc[:tercio_ref].median())
+        vol_fin_ref = float(tramo_base_ref['Volume'].iloc[-tercio_ref:].median())
+        if vol_ini_ref <= 0:
+            return NULO
+        voltrend_pre = round(vol_fin_ref / vol_ini_ref, 2)
+        if voltrend_pre > 1.0:
+            return NULO
+
+        if n < 20:
+            return NULO
+        vol_prom_20 = float(pd.Series(volume).tail(20).mean())
+        if vol_prom_20 <= 0:
+            return NULO
+
+        # 2) Retroceso violento del ULTIMO TRAMO ALCISTA + 4) Volumen alto +
+        # 5) Reciente -- no es un spring que perfora un piso historico: en
+        # una base larga en pleno rally (ej. MRVL) el low de la sacudida
+        # puede seguir por ENCIMA de minimos de solo 1-2 semanas antes, asi
+        # que "perforar el piso" no aplica. Lo que si pasa es que se devuelve
+        # de un saque una porcion grande de la ultima pata alcista dentro de
+        # la base, y el papel aguanta -- eso es lo que se mide aca.
+        #
+        # Para cada candidato (vela o par) dentro de la ventana de escaneo:
+        #   a) se ubica el ULTIMO MINIMO LOCAL CONFIRMADO (pivote con margen,
+        #      no cualquier vela) y el maximo posterior a ese minimo -- eso
+        #      define "el ultimo tramo alcista".
+        #   b) ese tramo tiene que valer al menos 1.5 ATR en dolares -- un
+        #      retroceso del 50% de un movimiento insignificante no es nada.
+        #   c) el retroceso de la sacudida contra ese tramo tiene que ser
+        #      >=50%.
+        #   d) INNEGOCIABLE: el low del evento no puede perforar el minimo
+        #      de la base -- si lo perfora, es ruptura real, no sacudon, sin
+        #      importar cuan violento haya sido el movimiento.
+        LOOKBACK_TRAMO = 30
+        MARGEN_PIVOTE = 3
+        idx_base_inicio = n - len(tramo_base)
+
+        def _ultimo_tramo_alcista(idx_hasta):
+            """Maximo reciente + ultimo minimo local confirmado antes de idx_hasta
+            (ambos indices dentro de [idx_desde, idx_hasta)). None si no hay margen."""
+            idx_desde = max(0, idx_hasta - LOOKBACK_TRAMO, idx_base_inicio)
+            if idx_desde >= idx_hasta:
+                return None
+            pico_idx = idx_desde + int(np.argmax(high[idx_desde:idx_hasta]))
+            minimo_local_idx = None
+            for j in range(pico_idx - 1, idx_desde - 1, -1):
+                lo = max(idx_desde, j - MARGEN_PIVOTE)
+                hi = min(pico_idx, j + MARGEN_PIVOTE + 1)
+                if low[j] <= low[lo:hi].min() + 1e-9:
+                    minimo_local_idx = j
+                    break
+            if minimo_local_idx is None:
+                minimo_local_idx = idx_desde
+            tramo_dolares = float(high[pico_idx] - low[minimo_local_idx])
+            return tramo_dolares, high[pico_idx]
+
+        sacudida_idx = None   # dia de referencia para "ruedas desde" (el mas reciente del evento)
+        idx_inicio    = None   # dia en que arranca el evento (para truncar las series "pre")
+        magnitud_bruta = None
+        for i in range(n - VENTANA_RECIENTE, n):
+            if i < 1:
+                continue
+
+            # -- vela individual --
+            low_evento_vela = low[i]
+            if low_evento_vela > base['minimo']:  # (d) innegociable
+                r = _ultimo_tramo_alcista(i)
+                if r is not None:
+                    tramo_dolares, pico_valor = r
+                    if tramo_dolares >= 1.5 * atr_dolares:  # (b)
+                        retroceso = (pico_valor - low_evento_vela) / tramo_dolares
+                        vol_vela_ok = volume[i] >= 1.3 * vol_prom_20
+                        if retroceso >= 0.5 and vol_vela_ok:  # (c) + volumen
+                            sacudida_idx = i
+                            idx_inicio = i
+                            magnitud_bruta = max(high[i] - low[i], abs(low[i] - close[i - 1]))
+                            break
+
+            # -- par de 2 ruedas consecutivas --
+            if i >= 2:
+                low_evento_par = min(low[i - 1], low[i])
+                if low_evento_par > base['minimo']:  # (d) innegociable
+                    r = _ultimo_tramo_alcista(i - 1)
+                    if r is not None:
+                        tramo_dolares, pico_valor = r
+                        if tramo_dolares >= 1.5 * atr_dolares:  # (b)
+                            retroceso = (pico_valor - low_evento_par) / tramo_dolares
+                            vol_par_ok = (volume[i - 1] + volume[i]) / 2 >= 1.3 * vol_prom_20
+                            if retroceso >= 0.5 and vol_par_ok:  # (c) + volumen
+                                sacudida_idx = i
+                                idx_inicio = i - 1
+                                magnitud_bruta = max(
+                                    max(high[i - 1], high[i]) - low_evento_par,
+                                    abs(low_evento_par - close[i - 2])
+                                )
+                                break
+
+        if sacudida_idx is None:
+            return NULO
+
+        ruedas_desde = (n - 1) - sacudida_idx
+        if ruedas_desde > 8:
+            return NULO
+
+        # 3) Recuperacion -- condicion critica, NO negociable. El cierre
+        # de hoy tiene que estar en o por encima del minimo de la base;
+        # si no, es ruptura bajista real, no sacudon.
+        if close[-1] < base['minimo']:
+            return NULO
+
+        magnitud_atrs = round(magnitud_bruta / atr_dolares, 2)
+
+        # Vol Relativa / Vol 5d40d en la ventana pre-sacudida -- se
+        # truncan las series justo ANTES de que arranque el evento
+        # (idx_inicio, no sacudida_idx, para no incluir la primera vela del
+        # par en la ventana "pre") y se reusan las funciones reales
+        # (calcular_volatilidad_relativa ya hace .tail(5)/.tail(252)
+        # internamente).
+        vol_relativa_pre = calcular_volatilidad_relativa(
+            pd.Series(close[:idx_inicio]), pd.Series(high[:idx_inicio]), pd.Series(low[:idx_inicio])
+        )
+        vol_5d40d_pre = None
+        if idx_inicio >= 40:
+            v5  = pd.Series(volume[:idx_inicio]).tail(5).mean()
+            v40 = pd.Series(volume[:idx_inicio]).tail(40).mean()
+            if v40 > 0:
+                vol_5d40d_pre = round(float(v5 / v40), 2)
+
+        return {
+            'activo': True, 'ruedas': ruedas_desde, 'magnitud_atrs': magnitud_atrs,
+            'vol_relativa_pre': vol_relativa_pre, 'vol_5d40d_pre': vol_5d40d_pre,
+        }
+    except Exception:
+        return NULO
 
 
 def div_rsi(hist):
@@ -1194,6 +1413,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         atr14_p    = atr14_pct(hist)
         vol_anual  = vol_anual_pct(hist)
 
+        # Modificador de sacudon / shakeout (Warren Score v3.1)
+        sacudon = detectar_sacudon(hist, base, atr14_p)
+
         # Choppiness + Eficiencia — volatilidad sin dirección (Warren Score v2.3)
         chop = choppiness_eficiencia(hist)
 
@@ -1264,6 +1486,11 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Base Profundidad %":      base['prof'],
             "Base Posición %":         base['pos'],
             "Base Vol Trend":          base['voltrend'],
+            "Sacudon Activo":          sacudon['activo'],
+            "Sacudon Ruedas":          sacudon['ruedas'],
+            "Sacudon Magnitud ATRs":   sacudon['magnitud_atrs'],
+            "Sacudon Vol Relativa Pre": sacudon['vol_relativa_pre'],
+            "Sacudon Vol 5d40d Pre":   sacudon['vol_5d40d_pre'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
             "Choppiness":              chop['Choppiness'],

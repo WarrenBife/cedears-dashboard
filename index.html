@@ -7539,5 +7539,449 @@ try {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V11 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V12 — Warren Score v3.1: modificador de sacudón + gates
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V12"
+     (el archivo vuelve exactamente al Warren Score v3 de WB UPGRADE V11)
+
+     Cambios (spec "Warren Score v3.1: modificador de sacudón + eliminación
+     de dos gates"):
+
+     Parte 1 — Gates: se elimina "EMA200 slope ≤ 0" y "Precio < SMA50".
+     Queda un único gate: "Precio ≤ EMA200". _evalGatesV31 es una función
+     LOCAL nueva (no se toca el _evalGates global original, por si algo
+     más lo referencia).
+
+     Parte 2 — Pilar C, modificador de sacudón: cuando el pipeline marca
+     "Sacudon Activo" (compresión previa válida + retroceso violento del
+     último tramo alcista + volumen alto + sin perforar el mínimo de la
+     base + posición alta en la base — ver detectar_sacudon() en
+     actualizar_datos.py), Vol Relativa y Vol 5d/40d toman el MEJOR
+     puntaje entre hoy y la ventana pre-sacudida (misma fórmula de scoring
+     aplicada a ambos valores) y se suspenden las restas de Verticalidad
+     reciente y Volatilidad sin dirección — el fundamento es que esas 3
+     restas castigan tres veces la misma sacudida (compresión de corto,
+     verticalidad, volatilidad sin dirección) que en realidad es
+     constructiva. El gate "tren que ya pasó" (estirado sin pausa) se
+     mantiene SIN CAMBIOS, tal como pide la spec.
+
+     No cambia: Pilar A, Pilar B, Pilar D, penalizaciones, techos de pilar
+     (20/30/25/25 igual que v3) ni ningún otro gate/penalización.
+
+     _pilarAv3/_pilarBv3/_pilarDv3/_restaVerticalidadV3/
+     _restaVolatilidadSinDireccionV3/_penalizacionesV3 son copias VERBATIM
+     de sus equivalentes de WB UPGRADE V11 (no accesibles desde acá, viven
+     dentro de su propio IIFE).
+
+     Además: 🫨 nuevo emoji, marcado como POSITIVO (fondo/borde verde,
+     tooltip aclarando que es contexto favorable) en la tabla principal y
+     en la ficha; línea explicativa en el desglose de Pilar C de la ficha
+     cuando el modificador está activo; wsRankSnapSave/renderWarrenScore
+     versionan el snapshot de ranking (localStorage wb_ws_ranks) con
+     version:'3.1' para no mezclar series de ranking con v3 anterior — es
+     lo más cercano a un "track record versionado" que existe en este
+     archivo (no hay ningún log histórico de scores por versión más allá
+     de este snapshot de ranking diario, ver aviso al usuario).
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v12-js">
+(function(){
+'use strict';
+try {
+
+var WB_SCORE_VERSION = '3.1';
+
+/* ── Gates v3.1 — Parte 1: solo queda "Precio ≤ EMA200" ── */
+function _evalGatesV31(d) {
+  const fallas = [];
+  const precio = d['Precio'], ema200 = d['EMA200'];
+  if (precio === null || ema200 === null || precio <= ema200) fallas.push('Precio ≤ EMA200');
+  return fallas;
+}
+
+/* ── Pilar A — Tendencia (20 pts) — SIN CAMBIOS, copia verbatim de V11 ── */
+function _pilarAv3(d){
+  let pts = 0;
+  const sma50Slope = d['SMA50 Slope'], distSma50 = d['Dist SMA50 %'];
+  const sma50Bajista = sma50Slope !== null && sma50Slope !== undefined && sma50Slope < 0
+                     && distSma50  !== null && distSma50  !== undefined && distSma50  < 0;
+  if (!sma50Bajista) pts += _tri(distSma50, -3, 0, 10, 30) * 10;
+  const atr14 = d['ATR14 %'];
+  if (atr14 !== null && atr14 !== undefined && atr14 > 0) {
+    const distATRs = d['Dist EMA200 %'] / atr14;
+    pts += _tri(distATRs, 0, 3, 10, 16) * 5.8333;
+  } else {
+    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 5.8333;
+  }
+  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 4.1667);
+  return Math.min(pts, 20);
+}
+
+/* ── Pilar B — Fuerza Relativa (30 pts) — SIN CAMBIOS, copia verbatim de V11 ── */
+function _pilarBv3(d){
+  let pts = 0;
+  const rs = d['RS Score'];
+  pts += _lineal(rs, 0, 100, 0, 15);
+  if (rs !== null) {
+    if (d['RS Semana ant.'] !== null && rs > d['RS Semana ant.']) pts += 4.8;
+    if (d['RS Mes ant.'] !== null && rs > d['RS Mes ant.'] + 15) pts += 3;
+  }
+  pts += _bool(d['FR > SMA50']) ? 4.2 : 0;
+  pts += _lineal(d['Vs Sector %'], 0, 10, 0, 3);
+  return Math.min(pts, 30);
+}
+
+/* ── Pilar C — Setup Corto (25 pts) — Parte 2: modificador de sacudón ── */
+function _pilarCv31(d){
+  let pts = 0;
+  const sacudon = _bool(d['Sacudon Activo']);
+  if (sacudon) {
+    /* Vol Relativa y Vol 5d/40d toman el MEJOR puntaje entre hoy y la
+       ventana pre-sacudida -- misma fórmula de scoring aplicada a ambos
+       valores, se queda con el máximo (nunca resta, solo puede ayudar). */
+    const volRelHoy = _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 4);
+    const volRelPre = _lineal(d['Sacudon Vol Relativa Pre'], 1.2, 0.6, 0, 4);
+    pts += Math.max(volRelHoy, volRelPre);
+    const vol540Hoy = _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 5.6944;
+    const vol540Pre = _tri(d['Sacudon Vol 5d40d Pre'], 0.3, 0.5, 0.8, 1.3) * 5.6944;
+    pts += Math.max(vol540Hoy, vol540Pre);
+  } else {
+    pts += _lineal(d['Vol Relativa'], 1.2, 0.6, 0, 4);
+    pts += _tri(d['Vol 5d/40d'], 0.3, 0.5, 0.8, 1.3) * 5.6944;
+  }
+  pts += _tri(d['RSI 14'], 30, 45, 70, 80) * 6.9722;
+  if (_bool(d['VCP Detected'])) {
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 3.3333);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 0.8333;
+    pts += Math.min(pv, 4.1667);
+    const dp = d['VCP Dist Pivot %'];
+    if (dp !== null) {
+      const dpA = Math.abs(dp);
+      pts += dpA <= 3 ? 2.5 : _lineal(dpA, 10, 3, 0, 2.5);
+    }
+  }
+  if (_bool(d['Breakout Fresh'])) {
+    const days = d['Breakout Days Ago'] ?? 99;
+    const volOk = _bool(d['Breakout Vol OK']);
+    const vrat  = d['Breakout Vol Ratio'] ?? 0;
+    if (days <= 3 && (vrat >= 1.5 || volOk)) pts += 1.6667;
+    else if (days <= 3) pts += 0.8333;
+  }
+  return Math.min(pts, 25);
+}
+
+/* ── Pilar D — Setup Estructural (25 pts) — SIN CAMBIOS, copia verbatim de V11 ── */
+function _pilarDv3(d){
+  let pts = 0;
+  const semanas = d['Base Semanas'];
+  const prof    = d['Base Profundidad %'];
+  const pos     = d['Base Posición %'];
+  const vtrend  = d['Base Vol Trend'];
+  const distMin = d['Dist Mín52W %'];
+
+  const volA = d['Volatilidad Anual %'];
+  if (distMin !== null && distMin !== undefined && volA !== null && volA !== undefined && volA > 0) {
+    const ext = distMin / volA;
+    pts += _tri(ext, 0.3, 0.5, 1.8, 3.2) * 5;
+  } else {
+    pts += _tri(distMin, 25, 35, 110, 220) * 5;
+  }
+
+  if (semanas !== null && semanas !== undefined) {
+    pts += _tri(semanas, 4, 7, 26, 55) * 8;
+  }
+  if (prof !== null && prof !== undefined) {
+    pts += _tri(prof, 3, 10, 25, 35) * 5;
+  }
+  if (pos !== null && pos !== undefined) {
+    const posClamp = Math.min(pos, 100);
+    pts += _lineal(posClamp, 40, 75, 0, 4);
+  }
+  if (vtrend !== null && vtrend !== undefined) {
+    if (vtrend <= 0.8)     pts += 3;
+    else if (vtrend < 1.0) pts += _lineal(vtrend, 0.8, 1.0, 3, 0);
+  }
+  return Math.min(pts, 25);
+}
+
+/* ── Verticalidad reciente y Volatilidad sin dirección — SIN CAMBIOS,
+   copias verbatim de V11 (no accesibles desde acá) ── */
+function _restaVerticalidadV3(d){
+  const atrP = d['ATR14 %'], avPico = d['Avance Pico 15r %'];
+  if (atrP === null || atrP === undefined || atrP <= 0 ||
+      avPico === null || avPico === undefined) {
+    return { resta: 0, velocidadAtrs: null };
+  }
+  const velocidadAtrs = avPico / atrP;
+  return { resta: _lineal(velocidadAtrs, 5, 11, 0, 8), velocidadAtrs };
+}
+function _restaVolatilidadSinDireccionV3(d){
+  const chop = d['Choppiness'], efi = d['Eficiencia 10d'];
+  if (chop === null || chop === undefined || efi === null || efi === undefined) {
+    return { resta: 0, chop: null, efi: null, activa: false };
+  }
+  if (!(chop > 1.3 && efi < 0.35)) return { resta: 0, chop, efi, activa: false };
+  const fChop = _lineal(chop, 1.3, 2.0, 0, 1);
+  const fEfi  = _lineal(efi, 0.35, 0, 0, 1);
+  const severidad = (fChop + fEfi) / 2;
+  return { resta: severidad * 5, chop, efi, activa: true };
+}
+
+/* ── Penalizaciones — SIN CAMBIOS, copia verbatim de V11 ── */
+function _penalizacionesV3(d){
+  let pen = 0; const flags = [];
+  const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
+  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
+  const atrP = d['ATR14 %'];
+
+  const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
+    ? (d50 !== null && d50 / atrP > 7)
+    : (d50 !== null && d50 > 25);
+  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('🎈'); }
+
+  const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
+  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('🩸'); }
+
+  const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
+  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('💥'); }
+
+  const boDays = d['Breakout Days Ago'];
+  if (!_bool(d['Breakout Fresh']) && boDays !== null && boDays > 5 && boDays <= 15) {
+    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
+  }
+
+  if (!_vcpAlto(d)) {
+    const distMin = d['Dist Mín52W %'];
+    if (distMin !== null && distMin !== undefined && distMin < 20) {
+      const resta52 = _lineal(distMin, 0, 20, 20, 0);
+      if (resta52 > 0) { pen -= resta52; flags.push('🔻'); }
+    }
+  }
+
+  const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
+  const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
+  if (nAgot >= 1) {
+    pen -= nAgot === 1 ? 4 : 10;
+    if (divRsi) flags.push('📉');
+    if (divObv) flags.push('🪫');
+    if (churn)  flags.push('🐘');
+  }
+
+  return { pen, flags };
+}
+
+/* ── calcWarrenDetalleV31 — firma idéntica a v3, con gates reducidos y
+   modificador de sacudón en Pilar C ── */
+window.calcWarrenDetalleV31 = function(d){
+  const fallas = _evalGatesV31(d);
+  const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+  const sacudon = _bool(d['Sacudon Activo']);
+
+  const pa = _ck('ws-pa') ? _pilarAv3(d) : 0;
+  const pb = _ck('ws-pb') ? _pilarBv3(d) : 0;
+  const { resta: restaVertRaw, velocidadAtrs } = _restaVerticalidadV3(d);
+  const { resta: restaChopRaw, activa: chopActiva } = _restaVolatilidadSinDireccionV3(d);
+  /* Sacudón activo: se suspenden las 2 restas -- ya castigadas 2 veces
+     (Pilar C reducido + estas restas) por el mismo movimiento, que en
+     este contexto es constructivo, no un problema. */
+  const restaVert = sacudon ? 0 : restaVertRaw;
+  const restaChop = sacudon ? 0 : restaChopRaw;
+  const pc = _ck('ws-pc') ? Math.max(0, _pilarCv31(d) - restaVert - restaChop) : 0;
+  const pd = _ck('ws-pd') ? _pilarDv3(d) : 0;
+  const { pen, flags } = _ck('ws-pen') ? _penalizacionesV3(d) : { pen: 0, flags: [] };
+  if (chopActiva && !sacudon) flags.push('🌪️');
+  if (sacudon) flags.push('🫨');
+
+  const sumRaw = pa + pb + pc + pd + pen;
+  let score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
+  if (fallas.length > 0) score = Math.min(score, 40);
+
+  if (d['Dist Máx52W %'] === null || d['Dist Máx52W %'] === undefined ||
+      d['Dist Mín52W %'] === null || d['Dist Mín52W %'] === undefined) {
+    score = Math.min(score, 40);
+  }
+
+  /* Gate "tren que ya pasó" (estirado sin pausa) -- SE MANTIENE SIN
+     CAMBIOS, tal como pide la spec. */
+  const UMBRAL_ATR = 6;
+  const _atr14g = d['ATR14 %'], _d50g = d['Dist SMA50 %'];
+  if (_atr14g !== null && _atr14g !== undefined && _atr14g > 0 &&
+      _d50g  !== null && _d50g  !== undefined) {
+    const _estirado   = _d50g / _atr14g > UMBRAL_ATR;
+    const _sinPausa   = d['Base Semanas'] === null || d['Base Semanas'] === undefined || +d['Base Semanas'] < 2;
+    const _agotandose = _bool(d['Div RSI']) || _bool(d['Div OBV']) || _bool(d['Churn Máximos']);
+    if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
+  }
+
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, version: WB_SCORE_VERSION };
+};
+
+/* v3.1 es el score público — reemplaza calcWarrenDetalle globalmente.
+   calcWarrenDetalleV3 (v3) y calcWarrenDetalleV2 (v2) quedan intactos y
+   accesibles para comparación. Los techos de pilar (20/30/25/25) no
+   cambiaron respecto a v3. */
+window.calcWarrenDetalle = window.calcWarrenDetalleV31;
+
+/* ── wsRankSnapSave — versionado, para no mezclar el ranking (flechas
+   ▲▼ de la tabla) entre series de formula distintas ── */
+window.wsRankSnapSave = function() {
+  if (!DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return;
+  const hoy = new Date().toISOString().slice(0, 10);
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null'); } catch(e) {}
+  if (snap && snap.date === hoy && snap.version === WB_SCORE_VERSION) return;
+  const ranks = {};
+  DATOS
+    .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .forEach((x, i) => { ranks[x.t] = i + 1; });
+  const prevValido = !!(snap && snap.version === WB_SCORE_VERSION);
+  try {
+    localStorage.setItem('wb_ws_ranks', JSON.stringify({
+      date: hoy, version: WB_SCORE_VERSION, ranks, prev: prevValido ? (snap.ranks || {}) : {}
+    }));
+  } catch(e) {}
+};
+
+/* ── renderWarrenScore — copia verbatim del original (index.html línea
+   ~1374), con 2 cambios: (1) tooltip + estilo positivo para 🫨 en la
+   columna Advertencias, (2) el snapshot previo de ranking se ignora si
+   es de otra version (no mezclar series). Los techos de pilar no
+   cambiaron, así que el resto de la tabla queda igual. ── */
+window.renderWarrenScore = function() {
+  const filtro = document.getElementById('ws-min').value;
+  const topN   = parseInt(document.getElementById('ws-n').value);
+
+  let data = getDatosFiltrados()
+    .map(d => ({ d, ...calcWarrenDetalle(d) }))
+    .filter(x => x.score > 0)
+    .filter(x => {
+      if (filtro === 'gates') return x.fallas.length === 0;
+      if (filtro === '50')    return x.score >= 50;
+      if (filtro === '60')    return x.score >= 60;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN);
+
+  const scoreBadge = s => {
+    const cls = s >= 70 ? 'pill-green' : s >= 50 ? 'pill-blue' : 'pill-amber';
+    return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
+  };
+  const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+  const pilarBadge = (v, max, ckId) => {
+    if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
+    const pct = v / max;
+    const cls = pct >= 0.7 ? 'pill-green' : pct >= 0.4 ? 'pill-amber' : 'pill-red';
+    return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
+  };
+
+  const _allRanks = {};
+  if (DATOS && DATOS.length) {
+    DATOS
+      .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .forEach((x, i) => { _allRanks[x.t] = i + 1; });
+  }
+  let _prevRanks = {};
+  try {
+    const _snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null');
+    if (_snap && _snap.version === WB_SCORE_VERSION) _prevRanks = _snap.prev || {};
+  } catch(e) {}
+
+  const body = document.getElementById('warren-body');
+  body.innerHTML = data.length === 0
+    ? '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
+    : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
+        const ticker   = d['Ticker'];
+        const globalPos = _allRanks[ticker] || null;
+        const prevPos   = _prevRanks[ticker];
+        let deltaHtml = '';
+        if (prevPos && globalPos) {
+          const delta = prevPos - globalPos;
+          if (delta > 0)      deltaHtml = `<span style="color:var(--green);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▲${delta}</span>`;
+          else if (delta < 0) deltaHtml = `<span style="color:var(--red);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▼${Math.abs(delta)}</span>`;
+          else                deltaHtml = `<span style="color:var(--muted);font-size:9px;line-height:1">—</span>`;
+        }
+        const gatesOk  = fallas.length === 0;
+        const gatesHtml = gatesOk
+          ? `<span style="color:var(--green);font-size:12px">✓</span>`
+          : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
+        const penHtml  = pen < 0
+          ? `<span style="color:var(--red);font-size:11px" title="${flags.join(', ')}">${pen}</span>`
+          : `<span style="color:var(--muted);font-size:11px">—</span>`;
+        const isBrk   = isValidBreakout(d);
+        const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
+        const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
+        return `<tr ${trStyle}>
+          <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
+          <td style="text-align:center">${gatesHtml}</td>
+          <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
+          <td style="text-align:center">${pilarBadge(pb, 30, 'ws-pb')}</td>
+          <td style="text-align:center">${pilarBadge(pc, 25, 'ws-pc')}</td>
+          <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
+          <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+          <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🔻':'Cerca del mínimo de 52 semanas','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia'}[f]||f;
+            const esPositivo = f === '🫨';
+            const flagStyle = esPositivo
+              ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
+              : 'font-size:13px;cursor:default';
+            return `<span title="${tip}" style="${flagStyle}">${f}</span>`;
+          }).join('') : ''}</td>
+        </tr>`;
+      }).join('');
+};
+
+/* ── _buildFicha — se envuelve el ORIGINAL (o el último override) para
+   insertar la línea explicativa del sacudón en el desglose de Pilar C,
+   sin duplicar las ~150 líneas de la ficha completa. ── */
+var _buildFichaPreV12 = (typeof window._buildFicha === 'function') ? window._buildFicha : _buildFicha;
+window._buildFicha = function(d){
+  var h = _buildFichaPreV12(d);
+  try {
+    if (_bool(d['Sacudon Activo'])) {
+      var _sacRuedas = d['Sacudon Ruedas'];
+      var _linea = '<div style="margin-top:7px;font-size:10px;color:#22c98a;">🫨 Sacudón detectado (hace '
+        + (_sacRuedas !== null && _sacRuedas !== undefined ? _sacRuedas : '?')
+        + ' ruedas): compresión medida pre-sacudón, penalizaciones de verticalidad y volatilidad suspendidas</div>';
+      // Se inserta justo antes del cierre de la sección "Warren Score"
+      // (después de la línea de GATES OK / fallas, que es lo último que
+      // agrega esa sección antes de su </div> de cierre).
+      var marcaOk = 'GATES OK ✓</span></div>';
+      var idxOk = h.indexOf(marcaOk);
+      if (idxOk !== -1) {
+        var pos = idxOk + marcaOk.length;
+        h = h.slice(0, pos) + _linea + h.slice(pos);
+      } else {
+        var marcaFallas = '⚠ ';
+        var idxF = h.indexOf(marcaFallas);
+        if (idxF !== -1) {
+          var idxCloseDiv = h.indexOf('</div>', idxF);
+          if (idxCloseDiv !== -1) {
+            var pos2 = idxCloseDiv + '</div>'.length;
+            h = h.slice(0, pos2) + _linea + h.slice(pos2);
+          }
+        }
+      }
+    }
+  } catch(e) { console.error('WB V12 ficha sacudon error', e); }
+  return h;
+};
+
+try {
+  if (typeof DATOS !== 'undefined' && DATOS && DATOS.length && typeof renderWarrenScore === 'function') {
+    renderWarrenScore();
+  }
+} catch(e){}
+
+} catch(e){ console.error('WB V12 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V12 ═══════════════ -->
+
 </body>
 </html>
