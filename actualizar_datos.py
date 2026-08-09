@@ -49,7 +49,7 @@ TICKERS = {
     "CEDEARs Salud": [
         "JNJ", "PFE", "ABBV", "MRK", "AMGN", "GILD", "BIIB",
         "MRNA", "BMY", "AZN", "NVS", "GSK", "LLY", "MDT",
-        "ISRG", "DHR", "TMO", "UNH", "CVS", "VRTX", "MDLZ"
+        "ISRG", "DHR", "TMO", "UNH", "CVS", "VRTX", "MDLZ", "HIMS"
     ],
     "CEDEARs Consumo & Retail": [
         "KO", "PEP", "MCD", "WMT", "COST", "TGT", "HD", "NKE",
@@ -133,7 +133,7 @@ ETF_SECTOR = {
     "AMGN": "XLV", "GILD": "XLV", "BIIB": "XLV", "MRNA": "XLV",
     "BMY": "XLV", "LLY": "XLV", "MDT": "XLV", "ISRG": "XLV",
     "DHR": "XLV", "TMO": "XLV", "UNH": "XLV", "CVS": "XLV",
-    "VRTX": "XLV", "AZN": "XLV", "NVS": "XLV", "GSK": "XLV",
+    "VRTX": "XLV", "AZN": "XLV", "NVS": "XLV", "GSK": "XLV", "HIMS": "XLV",
     # Energía
     "XOM": "XLE", "CVX": "XLE", "BP": "XLE", "SHEL": "XLE",
     "TTE": "XLE", "OXY": "XLE", "HAL": "XLE", "SLB": "XLE",
