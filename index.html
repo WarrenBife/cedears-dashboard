@@ -7998,8 +7998,8 @@ try {
      meses), que es lo pedido. No se toca el HTML/JS original de V2.
 
      Parte 2 — Panel "Bases VCP de Alta Calidad" (WB UPGRADE V9): las
-     columnas se descentran respecto al título SOLO después de tocar el
-     filtro "VCP≥70 recientes" (o tras cualquier refresh automático).
+     columnas se descentran respecto al título tras cualquier refresh
+     automático (no hace falta ni tocar el filtro "VCP≥70 recientes").
      Causa raíz encontrada con el navegador: wbAlinearTodas() (WB UPGRADE
      V4) recorre TODAS las tablas del dashboard, detecta columnas
      numéricas por contenido y les pone text-align inline (derecha/
@@ -8012,11 +8012,31 @@ try {
      centrado del CSS), pero el <thead> se queda pegado con el inline
      viejo (izquierda/derecha) de la ÚLTIMA vez que corrió
      wbAlinearTodas(). Resultado: título y dato quedan en alineaciones
-     distintas -- eso es lo que se ve "descentrado". Fix: después de
-     cada corrida de wbAlinearTodas(), resetear el inline del <thead> de
-     este panel puntual para que la regla CSS (centrado) vuelva a mandar.
-     No se toca wbAlinearTodas ni el resto de las tablas que sí quieren
-     alineación automática por contenido.
+     distintas -- eso es lo que se ve "descentrado".
+
+     Intento 1 (descartado, verificado en vivo que NO alcanza): envolver
+     window.wbAlinearTodas para resetear el header despues de cada
+     corrida. No sirve porque wbAlinearTodas() se dispara casi siempre
+     desde DENTRO del propio closure de WB UPGRADE V4 (su wrapper de
+     renderTodo, sus setTimeout fijos de 400/1200/3000ms, su
+     MutationObserver de Planilla) -- esas llamadas usan la referencia
+     LOCAL de la función, nunca pasan por window.wbAlinearTodas, así que
+     envolver la propiedad de window no intercepta nada en la práctica.
+
+     Intento 2 (descartado, verificado en vivo que tampoco dispara):
+     MutationObserver con subtree:true sobre el <thead> -- confirmado con
+     un contador de disparos en el propio navegador que NO se activa ni
+     con cambios de estilo directos (fired:0), aunque el mismo Observer
+     SÍ dispara cuando se observa el <th> directamente (sin subtree). No
+     vale la pena perseguir la causa exacta del subtree roto acá.
+
+     Fix real: poll liviano cada 250ms que resetea el inline del <thead>
+     de este panel puntual (8 elementos, comparación de string, costo
+     nulo) para que la regla CSS (centrado) siempre termine mandando,
+     sin importar quién ni cuándo dispare wbAlinearTodas(). Probado en
+     vivo: renderTodo() manual + espera confirma header y body 100%
+     sincronizados. No se toca wbAlinearTodas ni el resto de las tablas
+     que sí quieren alineación automática por contenido.
      ═══════════════════════════════════════════════════════════════ -->
 <script id="wb-v13-js">
 (function(){
@@ -8034,25 +8054,18 @@ try {
     }
   }
 
-  /* ── Parte 2: VCP alta calidad -- resincronizar header tras cada
-     corrida de wbAlinearTodas() ── */
-  function _wbFixVcpqHeader(){
+  /* ── Parte 2: VCP alta calidad -- poll liviano que mantiene el header
+     centrado pase lo que pase (ver aviso arriba: wbAlinearTodas no es
+     interceptable desde afuera, y MutationObserver con subtree no
+     disparó en las pruebas reales contra el sitio en vivo). ── */
+  setInterval(function(){
     try {
       var ths = document.querySelectorAll('#wb-vcpq-panel .wb-mini-table th');
-      for (var i = 0; i < ths.length; i++) ths[i].style.textAlign = '';
+      for (var i = 0; i < ths.length; i++) {
+        if (ths[i].style.textAlign !== '') ths[i].style.textAlign = '';
+      }
     } catch(e) {}
-  }
-  var _origAlinearTodas = window.wbAlinearTodas;
-  if (typeof _origAlinearTodas === 'function') {
-    window.wbAlinearTodas = function(){
-      var r = _origAlinearTodas.apply(this, arguments);
-      _wbFixVcpqHeader();
-      return r;
-    };
-  }
-  // Primera pasada: por si el thead ya quedo mal alineado de una corrida
-  // anterior (antes de que este bloque se cargara).
-  _wbFixVcpqHeader();
+  }, 250);
 
 } catch(e){ console.error('WB V13 init error', e); }
 })();
