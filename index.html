@@ -8072,5 +8072,110 @@ try {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V13 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V14 — Reordenar dashboard (aditivo, sin tocar V2/V9)
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V14"
+     (el layout vuelve al orden armado por WB UPGRADE V2 + la inserción
+     original de WB UPGRADE V9)
+
+     No reconstruye ningún panel: los localiza por el id de un elemento
+     interno ya existente (mismo patrón "panelOf" que usa V2) y los
+     reubica con insertBefore/appendChild -- son movimientos de nodos ya
+     creados, no clones ni HTML nuevo. Corre una sola vez, al cargar el
+     script (los renders posteriores sólo tocan el contenido interno de
+     cada panel, nunca recrean el wrapper .panel).
+
+     Orden nuevo, debajo de Warren Score:
+       1. Retorno Top 10 de la semana
+       2. Grid: Rebotes en la EMA200 (izq) / Episodic Pivots hoy (der)
+          -- antes era al revés (Episodic izq / EMA200 der)
+       3. zona "🔬 Análisis — profundizá" (se mueve junto con lo de abajo)
+       4. Grid: Tendencia RS Score / Sesiones & Volumen -- sin cambios
+       5. Grid: Volumen inusual hoy (izq) / Bases VCP de Alta Calidad (der)
+          -- reemplaza al Scanner de calidad en esa grilla
+       6. Comparador de activos (ancla final, no se mueve)
+
+     Scanner de calidad: se saca de la vista pero NO se borra su código
+     ni sus datos -- el panel entero se mueve a un contenedor oculto
+     (#wb-hidden-panels, display:none) colgado del <body>. Para
+     reactivarlo alcanza con volver a insertarlo en el layout (o borrar
+     este bloque V14 entero, que restaura el orden original de V2/V9).
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v14-js">
+(function(){
+'use strict';
+try {
+
+  var main = document.querySelector('#view-dashboard .main');
+  if (!main) return;
+
+  function panelOf(id){ var el = document.getElementById(id); return el ? el.closest('.panel') : null; }
+
+  var warrenPanel = panelOf('warren-table');
+  var snapPanel   = document.getElementById('wb-snap-panel');
+  var ema200Panel = document.getElementById('wb-ema200-panel');
+  var epPanel     = document.getElementById('wb-ep-panel');
+  var trendPanel  = panelOf('trendRankTable');
+  var svPanel     = panelOf('svChart');
+  var vinuPanel   = panelOf('vinuChart');
+  var scanPanel   = panelOf('scanner-body');
+  var vcpqPanel   = document.getElementById('wb-vcpq-panel');
+  var cmpPanel    = panelOf('cmp-tabla');
+
+  // Si falta alguna pieza (cambió un id en otro lado), no tocar nada --
+  // mejor dejar el orden viejo que romper el layout a medias.
+  if (!warrenPanel || !snapPanel || !ema200Panel || !epPanel || !trendPanel ||
+      !svPanel || !vinuPanel || !vcpqPanel || !cmpPanel) return;
+
+  var zonaAnalisis = null;
+  document.querySelectorAll('.wb-zone-title').forEach(function(t){
+    if (t.textContent.indexOf('Análisis') !== -1) zonaAnalisis = t.closest('.wb-zone');
+  });
+
+  // La grilla de Tendencia RS Score / Sesiones & Volumen se reubica
+  // entera (sin abrirla) -- su contenido interno no cambia.
+  var gridTrendSv = trendPanel.closest('.grid-2') || trendPanel.parentNode;
+
+  function mkGrid2(a, b){
+    var g = document.createElement('div');
+    g.className = 'grid-2';
+    if (a) g.appendChild(a);
+    if (b) g.appendChild(b);
+    return g;
+  }
+  var gridEma200Ep = mkGrid2(ema200Panel, epPanel);
+  var gridVinuVcpq = mkGrid2(vinuPanel, vcpqPanel);
+
+  // Scanner de calidad: oculto, no eliminado.
+  if (scanPanel) {
+    var holder = document.getElementById('wb-hidden-panels');
+    if (!holder) {
+      holder = document.createElement('div');
+      holder.id = 'wb-hidden-panels';
+      holder.style.display = 'none';
+      document.body.appendChild(holder);
+    }
+    holder.appendChild(scanPanel);
+  }
+
+  // Reordenar: se inserta todo, en secuencia, justo antes de cmpPanel
+  // (que queda como ancla final sin moverse).
+  [snapPanel, gridEma200Ep, zonaAnalisis, gridTrendSv, gridVinuVcpq].forEach(function(el){
+    if (el) main.insertBefore(el, cmpPanel);
+  });
+
+  // Limpiar los grid-2 originales que quedaron vacíos (el de
+  // Episodic/EMA200 y el de Volumen inusual/Scanner, ya vaciados arriba).
+  main.querySelectorAll('.grid-2').forEach(function(g){ if (!g.children.length) g.remove(); });
+
+  // Recalcular el índice de la animación de entrada escalonada con el
+  // orden nuevo (mismo cálculo que usa V2 en su primer render).
+  main.querySelectorAll('.panel').forEach(function(el, i){ el.style.setProperty('--wb-i', Math.min(i, 10)); });
+
+} catch(e){ console.error('WB V14 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V14 ═══════════════ -->
+
 </body>
 </html>
