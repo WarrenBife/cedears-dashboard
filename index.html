@@ -7147,7 +7147,7 @@ wrap.innerHTML =
           '<th data-tooltip="Precio del techo (pivote) de la base.">Techo</th>'+
           '<th data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
         '</tr></thead>'+
-        '<tbody id="wb-vcpq-body"><tr><td colspan="7" class="wb-empty">Cargando…</td></tr></tbody>'+
+        '<tbody id="wb-vcpq-body"><tr><td colspan="8" class="wb-empty">Cargando…</td></tr></tbody>'+
       '</table>'+
     '</div>'+
   '</div>';
@@ -7229,7 +7229,7 @@ function wbRenderVcpQuality(){
   if(countEl) countEl.textContent = rows.length;
 
   if(!rows.length){
-    body.innerHTML = '<tr><td colspan="7" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
     return;
   }
 
