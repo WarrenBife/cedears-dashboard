@@ -7983,5 +7983,81 @@ try {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V12 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V13 — Fix: mínimo EMA200 en meses + desalineación VCP
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V13"
+
+     Parte 1 — Panel "Rebotes en la EMA200" (creado en WB UPGRADE V2):
+     el filtro "Semanas mín (última vez)" en sí funciona bien (probado:
+     filtra correctamente por EMA200 Racha Previa/5 >= umbral, estable,
+     sin resets) -- el problema real es de USABILIDAD: el control mide
+     70px para un rango 0-52, ~1.3px por semana, imposible de ajustar con
+     precisión a mano. Se ensancha el control (no se puede vía CSS porque
+     el ancho está en un style inline en el HTML original -- se pisa con
+     JS, que sí gana) y se fija el valor por defecto en 8 semanas (~2
+     meses), que es lo pedido. No se toca el HTML/JS original de V2.
+
+     Parte 2 — Panel "Bases VCP de Alta Calidad" (WB UPGRADE V9): las
+     columnas se descentran respecto al título SOLO después de tocar el
+     filtro "VCP≥70 recientes" (o tras cualquier refresh automático).
+     Causa raíz encontrada con el navegador: wbAlinearTodas() (WB UPGRADE
+     V4) recorre TODAS las tablas del dashboard, detecta columnas
+     numéricas por contenido y les pone text-align inline (derecha/
+     izquierda) tanto en <td> como en <th> -- inline gana siempre sobre
+     la regla CSS "#wb-vcpq-panel .wb-mini-table th{text-align:center}"
+     que este panel necesita (todas las columnas centradas a propósito).
+     El <thead> de este panel es HTML estático (se crea una sola vez);
+     wbRenderVcpQuality() sólo reconstruye el <tbody> en cada render/
+     toggle del filtro -- las <td> nuevas nacen sin inline (heredan el
+     centrado del CSS), pero el <thead> se queda pegado con el inline
+     viejo (izquierda/derecha) de la ÚLTIMA vez que corrió
+     wbAlinearTodas(). Resultado: título y dato quedan en alineaciones
+     distintas -- eso es lo que se ve "descentrado". Fix: después de
+     cada corrida de wbAlinearTodas(), resetear el inline del <thead> de
+     este panel puntual para que la regla CSS (centrado) vuelva a mandar.
+     No se toca wbAlinearTodas ni el resto de las tablas que sí quieren
+     alineación automática por contenido.
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v13-js">
+(function(){
+'use strict';
+try {
+
+  /* ── Parte 1: EMA200 -- default ~2 meses + control mas usable ── */
+  var _semSlider = document.getElementById('ema200-semanas-min');
+  if (_semSlider) {
+    _semSlider.style.width = '170px'; // pisa el style inline original (70px)
+    if (_semSlider.value === '0') {
+      _semSlider.value = 8; // 8 semanas ~= 2 meses
+      var _semVal = document.getElementById('ema200-semanas-min-val');
+      if (_semVal) _semVal.textContent = '8';
+    }
+  }
+
+  /* ── Parte 2: VCP alta calidad -- resincronizar header tras cada
+     corrida de wbAlinearTodas() ── */
+  function _wbFixVcpqHeader(){
+    try {
+      var ths = document.querySelectorAll('#wb-vcpq-panel .wb-mini-table th');
+      for (var i = 0; i < ths.length; i++) ths[i].style.textAlign = '';
+    } catch(e) {}
+  }
+  var _origAlinearTodas = window.wbAlinearTodas;
+  if (typeof _origAlinearTodas === 'function') {
+    window.wbAlinearTodas = function(){
+      var r = _origAlinearTodas.apply(this, arguments);
+      _wbFixVcpqHeader();
+      return r;
+    };
+  }
+  // Primera pasada: por si el thead ya quedo mal alineado de una corrida
+  // anterior (antes de que este bloque se cargara).
+  _wbFixVcpqHeader();
+
+} catch(e){ console.error('WB V13 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V13 ═══════════════ -->
+
 </body>
 </html>
