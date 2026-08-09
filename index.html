@@ -8054,15 +8054,21 @@ try {
     }
   }
 
-  /* ── Parte 2: VCP alta calidad -- poll liviano que mantiene el header
-     centrado pase lo que pase (ver aviso arriba: wbAlinearTodas no es
-     interceptable desde afuera, y MutationObserver con subtree no
-     disparó en las pruebas reales contra el sitio en vivo). ── */
+  /* ── Parte 2: VCP alta calidad -- poll liviano que mantiene header Y
+     celdas centrados pase lo que pase (ver aviso arriba: wbAlinearTodas
+     no es interceptable desde afuera, y MutationObserver con subtree no
+     disparó en las pruebas reales contra el sitio en vivo).
+     Ojo: alinearTabla() le pone text-align inline (izq/der) tanto al
+     <th> COMO al <td> -- la primera versión de este fix sólo reseteaba
+     el <th>, así que antes de tocar el filtro (con el <tbody> "viejo",
+     ya pisado por alinearTabla en algún render automático) las celdas
+     de datos quedaban desalineadas igual, aunque el header ya se viera
+     bien. Hay que resetear ambos. ── */
   setInterval(function(){
     try {
-      var ths = document.querySelectorAll('#wb-vcpq-panel .wb-mini-table th');
-      for (var i = 0; i < ths.length; i++) {
-        if (ths[i].style.textAlign !== '') ths[i].style.textAlign = '';
+      var celdas = document.querySelectorAll('#wb-vcpq-panel .wb-mini-table th, #wb-vcpq-panel .wb-mini-table td');
+      for (var i = 0; i < celdas.length; i++) {
+        if (celdas[i].style.textAlign !== '') celdas[i].style.textAlign = '';
       }
     } catch(e) {}
   }, 250);
