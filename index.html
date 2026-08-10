@@ -8377,6 +8377,19 @@ try {
      ETF activo y una X para sacarlo -- clickear la X vuelve a llamar a
      wbRrgLectClick() con el mismo sector, que lo des-selecciona en el
      propio cuadro de rotación también (mismo toggle que ya usa V7).
+
+     Bug encontrado y corregido en vivo: llamar a renderTodo() en cada
+     click también dispara wbRenderRRG() (el chart de modo "Acciones"
+     del MISMO panel), que recrea su instancia de Chart.js sobre
+     #wbRrgChart -- y Chart.js, al reconstruirse, fuerza ese canvas a
+     display:block, pisando el display:none que puso wbRrgModo('etfs').
+     Resultado: los dos canvases (Acciones y ETFs) quedaban visibles a
+     la vez, superpuestos, aunque el modo interno de V7 seguía siendo
+     'etfs' (por eso el toggle no cambiaba, pero visualmente parecía que
+     sí). Fix: después de cada renderTodo() disparado por este bloque,
+     se reafirma el display correcto de ambos canvases -- si llegó este
+     evento es porque se está en modo ETFs (el click en burbuja sólo se
+     procesa en ese modo, y la Lectura sólo es clickeable visible ahí).
      ═══════════════════════════════════════════════════════════════ -->
 <script id="wb-v16-js">
 (function(){
@@ -8390,6 +8403,16 @@ try {
     if (_etfFiltro === sector) return; // sin cambio real, no re-renderizar de más
     _etfFiltro = sector; // ticker del ETF (ej. 'XLK') o null si se deseleccionó
     if (typeof window.renderTodo === 'function') window.renderTodo();
+    // renderTodo() re-dispara wbRenderRRG() (chart de Acciones del mismo
+    // panel), y Chart.js fuerza su canvas a display:block al recrearse --
+    // pisa el display:none que puso el modo ETFs. Se reafirma el estado
+    // correcto (si llegó este evento, estamos en modo ETFs).
+    try {
+      var cvA = document.getElementById('wbRrgChart');
+      var cvS = document.getElementById('wbRrgSectores');
+      if (cvA) cvA.style.display = 'none';
+      if (cvS) cvS.style.display = 'block';
+    } catch(err) {}
   });
 
   var _origGetDatosFiltrados = window.getDatosFiltrados;
