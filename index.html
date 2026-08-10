@@ -8183,5 +8183,164 @@ try {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V14 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V15 — Buscador de ticker en el Warren Score
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V15"
+     (el panel vuelve a filtrar solo por Gates/Score y Top N, como antes)
+
+     Agrega un campo de búsqueda por ticker a los filtros del panel
+     Warren Score, con el mismo autocompletado (datalist
+     #cmp-tickers-list) que ya usa el Comparador de activos.
+     (Se evaluó matchear también por nombre de empresa vía WB_NOMBRES,
+     pero ese diccionario vive dentro del closure de WB UPGRADE V5 y no
+     es accesible desde acá -- hubiera fallado en silencio. Se dejó solo
+     el match por ticker, que es lo que se pidió.)
+
+     Cuando hay texto en el buscador:
+       - se filtra por Ticker conteniendo el texto (sin importar
+         mayúsculas)
+       - se ignora el límite "Mostrar: Top N" -- si estás buscando un
+         papel puntual, no tiene sentido que se lo coma el corte de Top
+         20/30/50 por no estar entre los mejores
+       - el filtro "Gates OK / Score ≥" sigue aplicando igual (si querés
+         ver el ticker pase lo que pase, el dropdown de Filtro tiene que
+         estar en "Todos")
+
+     window.renderWarrenScore se reemplaza de nuevo (mismo patrón de
+     WB UPGRADE V12): copia verbatim de esa versión + el filtro de
+     búsqueda intercalado antes del sort/slice. No se toca nada de
+     calcWarrenDetalle ni de los pilares.
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v15-js">
+(function(){
+'use strict';
+try {
+
+  /* ── Insertar el campo de búsqueda en los filtros del panel ── */
+  var _wsMin = document.getElementById('ws-min');
+  var _filtersRow = _wsMin ? _wsMin.closest('.panel-filters') : null;
+  if (_filtersRow && !document.getElementById('ws-search')) {
+    var _wrap = document.createElement('span');
+    _wrap.style.marginLeft = '10px';
+    _wrap.innerHTML =
+      '<span class="pf-label">Buscar:</span> ' +
+      '<input id="ws-search" list="cmp-tickers-list" oninput="renderWarrenScore()" autocomplete="off" ' +
+      'placeholder="Ticker..." ' +
+      'style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;' +
+      'border-radius:6px;font-size:11px;width:130px;font-family:\'DM Mono\',monospace">';
+    _filtersRow.appendChild(_wrap);
+  }
+
+  /* ── renderWarrenScore -- copia verbatim de WB UPGRADE V12 + filtro
+     de búsqueda intercalado antes del sort/slice ── */
+  window.renderWarrenScore = function() {
+    const filtro = document.getElementById('ws-min').value;
+    const topN   = parseInt(document.getElementById('ws-n').value);
+    const searchEl = document.getElementById('ws-search');
+    const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+
+    let data = getDatosFiltrados()
+      .map(d => ({ d, ...calcWarrenDetalle(d) }))
+      .filter(x => x.score > 0)
+      .filter(x => {
+        if (filtro === 'gates') return x.fallas.length === 0;
+        if (filtro === '50')    return x.score >= 50;
+        if (filtro === '60')    return x.score >= 60;
+        return true;
+      });
+
+    if (searchTerm) {
+      data = data.filter(x => (x.d['Ticker'] || '').toLowerCase().indexOf(searchTerm) !== -1);
+    }
+
+    data = data.sort((a, b) => b.score - a.score);
+    if (!searchTerm) data = data.slice(0, topN); // buscando un ticker puntual, el Top N no debe ocultarlo
+
+    const scoreBadge = s => {
+      const cls = s >= 70 ? 'pill-green' : s >= 50 ? 'pill-blue' : 'pill-amber';
+      return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
+    };
+    const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+    const pilarBadge = (v, max, ckId) => {
+      if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
+      const pct = v / max;
+      const cls = pct >= 0.7 ? 'pill-green' : pct >= 0.4 ? 'pill-amber' : 'pill-red';
+      return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
+    };
+
+    const _allRanks = {};
+    if (DATOS && DATOS.length) {
+      DATOS
+        .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+        .filter(x => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .forEach((x, i) => { _allRanks[x.t] = i + 1; });
+    }
+    let _prevRanks = {};
+    try {
+      // WB_SCORE_VERSION vive dentro del closure de WB UPGRADE V12, no es
+      // accesible desde acá -- mismo valor hardcodeado ('3.1'), no hace
+      // falta más que eso para este chequeo puntual.
+      const _snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null');
+      if (_snap && _snap.version === '3.1') _prevRanks = _snap.prev || {};
+    } catch(e) {}
+
+    const body = document.getElementById('warren-body');
+    body.innerHTML = data.length === 0
+      ? `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">${searchTerm ? 'Ningún ticker coincide con "' + searchEl.value.trim() + '"' : 'Sin resultados'}</td></tr>`
+      : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
+          const ticker   = d['Ticker'];
+          const globalPos = _allRanks[ticker] || null;
+          const prevPos   = _prevRanks[ticker];
+          let deltaHtml = '';
+          if (prevPos && globalPos) {
+            const delta = prevPos - globalPos;
+            if (delta > 0)      deltaHtml = `<span style="color:var(--green);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▲${delta}</span>`;
+            else if (delta < 0) deltaHtml = `<span style="color:var(--red);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▼${Math.abs(delta)}</span>`;
+            else                deltaHtml = `<span style="color:var(--muted);font-size:9px;line-height:1">—</span>`;
+          }
+          const gatesOk  = fallas.length === 0;
+          const gatesHtml = gatesOk
+            ? `<span style="color:var(--green);font-size:12px">✓</span>`
+            : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
+          const penHtml  = pen < 0
+            ? `<span style="color:var(--red);font-size:11px" title="${flags.join(', ')}">${pen}</span>`
+            : `<span style="color:var(--muted);font-size:11px">—</span>`;
+          const isBrk   = isValidBreakout(d);
+          const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
+          const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
+          return `<tr ${trStyle}>
+            <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
+            <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
+            <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
+            <td style="text-align:center">${gatesHtml}</td>
+            <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
+            <td style="text-align:center">${pilarBadge(pb, 30, 'ws-pb')}</td>
+            <td style="text-align:center">${pilarBadge(pc, 25, 'ws-pc')}</td>
+            <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
+            <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+            <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
+              const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🔻':'Cerca del mínimo de 52 semanas','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia'}[f]||f;
+              const esPositivo = f === '🫨';
+              const flagStyle = esPositivo
+                ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
+                : 'font-size:13px;cursor:default';
+              return `<span title="${tip}" style="${flagStyle}">${f}</span>`;
+            }).join('') : ''}</td>
+          </tr>`;
+        }).join('');
+  };
+
+  try {
+    if (typeof DATOS !== 'undefined' && DATOS && DATOS.length && typeof renderWarrenScore === 'function') {
+      renderWarrenScore();
+    }
+  } catch(e){}
+
+} catch(e){ console.error('WB V15 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V15 ═══════════════ -->
+
 </body>
 </html>
