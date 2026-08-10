@@ -6097,6 +6097,16 @@ document.addEventListener('click', function(e){
 <!-- ═══════════════════════════════════════════════════════════════
      WB UPGRADE V7 — RRG Toggle Acciones ⇄ ETFs con estelas
      Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V7"
+
+     [Editado por WB UPGRADE V16] selSector, series, frame y draw() son
+     privados a este closure -- no hay forma externa de saber qué ETF se
+     seleccionó sin acceso a esta lógica. Se agregaron 2 líneas (marcadas
+     "WB UPGRADE V16" donde aparecen) que disparan un CustomEvent
+     'wbRrgSelSector' con el sector actual justo después de que
+     selSector cambia, tanto al clickear una burbuja como al clickear
+     una línea de "Lectura". No cambia ningún comportamiento existente
+     de V7 -- es sólo un aviso hacia afuera. El filtro del dashboard en
+     sí vive entero en WB UPGRADE V16, más abajo.
      ═══════════════════════════════════════════════════════════════ -->
 <style id="wb-v7-css">
 .rrg-toggle-wrap{display:flex;gap:3px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:3px;}
@@ -6587,6 +6597,7 @@ document.addEventListener('click',function(e){
   selSector=(selSector===hit)?null:hit;
   draw();
   _syncLectActiva();
+  document.dispatchEvent(new CustomEvent('wbRrgSelSector',{detail:{sector:selSector}})); /* WB UPGRADE V16: avisa afuera del closure para el filtro del dashboard */
 });
 
 /* ── Tooltip ejes ── */
@@ -6815,6 +6826,7 @@ window.wbRrgLectClick = function(sec){
   selSector = (selSector === sec) ? null : sec;
   draw();
   _syncLectActiva();
+  document.dispatchEvent(new CustomEvent('wbRrgSelSector',{detail:{sector:selSector}})); /* WB UPGRADE V16: avisa afuera del closure para el filtro del dashboard */
 };
 
 /* ── Hook en renderTodo ── */
@@ -8341,6 +8353,83 @@ try {
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V15 ═══════════════ -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V16 — Click en ETF del cuadro de rotación filtra el dashboard
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V16"
+     (además hay que revertir las 2 líneas marcadas "WB UPGRADE V16"
+     dentro de WB UPGRADE V7 -- son las que disparan el evento que este
+     bloque escucha)
+
+     Al hacer click en una burbuja de ETF (modo "ETFs" del cuadro de
+     rotación) o en una línea de "Lectura de rotación", además de aislar
+     la estela en el gráfico (comportamiento ya existente de V7), ahora
+     también filtra el resto del dashboard (Warren Score, Cartelera,
+     Rebotes EMA200, Episodic Pivots, Bases VCP, etc.) para mostrar solo
+     las acciones cuyo sector pertenece a ese ETF -- usando el campo
+     "ETF Sector" que ya viene calculado por el pipeline en cada ticker,
+     no una tabla nueva.
+
+     Mecanismo: getDatosFiltrados() (función global original, usada por
+     TODOS los paneles vía filtrados()) se envuelve para sumar este
+     filtro extra al final, sin tocar sus condiciones existentes.
+     actualizarBadges() se envuelve para agregar una chip visible con el
+     ETF activo y una X para sacarlo -- clickear la X vuelve a llamar a
+     wbRrgLectClick() con el mismo sector, que lo des-selecciona en el
+     propio cuadro de rotación también (mismo toggle que ya usa V7).
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v16-js">
+(function(){
+'use strict';
+try {
+
+  var _etfFiltro = null;
+
+  document.addEventListener('wbRrgSelSector', function(e){
+    var sector = (e && e.detail) ? e.detail.sector : null;
+    if (_etfFiltro === sector) return; // sin cambio real, no re-renderizar de más
+    _etfFiltro = sector; // ticker del ETF (ej. 'XLK') o null si se deseleccionó
+    if (typeof window.renderTodo === 'function') window.renderTodo();
+  });
+
+  var _origGetDatosFiltrados = window.getDatosFiltrados;
+  if (typeof _origGetDatosFiltrados === 'function') {
+    window.getDatosFiltrados = function(){
+      var base = _origGetDatosFiltrados.apply(this, arguments);
+      if (!_etfFiltro) return base;
+      return base.filter(function(d){ return d['ETF Sector'] === _etfFiltro; });
+    };
+  }
+
+  var _origActualizarBadges = window.actualizarBadges;
+  if (typeof _origActualizarBadges === 'function') {
+    window.actualizarBadges = function(){
+      _origActualizarBadges.apply(this, arguments);
+      if (!_etfFiltro) return;
+      try {
+        var cont = document.getElementById('active-filters');
+        if (!cont) return;
+        var badge = document.createElement('span');
+        badge.style.cssText = 'background:rgba(34,201,138,0.12);border:1px solid rgba(34,201,138,0.4);' +
+          'color:var(--green);padding:2px 7px;border-radius:4px;font-size:10px;cursor:pointer;' +
+          'display:inline-flex;align-items:center;gap:5px;';
+        badge.title = 'Click para sacar el filtro por ETF';
+        badge.innerHTML = '🔄 Sector de ' + _etfFiltro + ' <b style="font-size:11px">✕</b>';
+        badge.onclick = function(){
+          // mismo toggle que ya usa V7 -- des-selecciona en el propio cuadro
+          // de rotación (dispara wbRrgSelSector con sector:null, que este
+          // bloque escucha y limpia el filtro).
+          if (typeof window.wbRrgLectClick === 'function') window.wbRrgLectClick(_etfFiltro);
+        };
+        cont.appendChild(badge);
+      } catch(err) {}
+    };
+  }
+
+} catch(e){ console.error('WB V16 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V16 ═══════════════ -->
 
 </body>
 </html>
