@@ -108,62 +108,117 @@ TICKERS = {
 
 # ETF de sector por ticker (para comparar vs su sector)
 ETF_SECTOR = {
-    # Tecnología
-    "AAPL": "XLK", "MSFT": "XLK", "GOOGL": "XLK", "META": "XLK",
-    "UBER": "XLK", "SNAP": "XLK", "SHOP": "XLK", "XYZ": "XLK",
-    "ADBE": "XLK", "CRM": "XLK", "NOW": "XLK", "TEAM": "XLK",
-    "SNOW": "XLK", "DOCU": "XLK", "TWLO": "XLK", "IBM": "XLK",
-    "ORCL": "XLK", "SAP": "XLK", "ACN": "XLK", "ADP": "XLK",
-    "CSCO": "XLK", "MSI": "XLK", "INFY": "XLK", "PLTR": "XLK",
-    "PANW": "XLK", "PATH": "XLK", "AI": "XLK", "TEM": "XLK",
-    "COIN": "XLK", "MSTR": "XLK", "HOOD": "XLK",
-    "ANET": "XLK", "SNDK": "SMH", "NBIS": "XLK", "ONDS": "XLK",
-    # Semis
-    "NVDA": "SMH", "AMD": "SMH", "INTC": "SMH", "QCOM": "SMH",
-    "AVGO": "SMH", "MU": "SMH", "AMAT": "SMH", "LRCX": "SMH",
-    "MRVL": "SMH", "TXN": "SMH", "TSM": "SMH", "ARM": "SMH",
-    "ASML": "SMH", "SWKS": "SMH", "ADI": "SMH",
-    # Finanzas
-    "JPM": "XLF", "BAC": "XLF", "GS": "XLF", "C": "XLF",
-    "WFC": "XLF", "AXP": "XLF", "V": "XLF", "MA": "XLF",
-    "SCHW": "XLF", "BX": "XLF", "BK": "XLF", "USB": "XLF",
-    "PYPL": "XLF", "FISV": "XLF", "O": "XLRE",
+    # Tecnologia
+    "AAPL": "XLK", "ACN": "XLK", "ADBE": "XLK", "AI": "XLK",
+    "ALAB": "XLK", "AMAT": "XLK", "AMD": "XLK", "ANET": "XLK",
+    "ARM": "XLK", "AVGO": "XLK", "CRM": "XLK", "CRWV": "XLK",
+    "CSCO": "XLK", "DOCU": "XLK", "GLOB": "XLK", "GLW": "XLK",
+    "GRMN": "XLK", "HPQ": "XLK", "IBM": "XLK", "INTC": "XLK",
+    "IREN": "XLK", "LRCX": "XLK", "MRVL": "XLK", "MSFT": "XLK",
+    "MSI": "XLK", "MSTR": "XLK", "MU": "XLK", "NBIS": "XLK",
+    "NOW": "XLK", "NVDA": "XLK", "ORCL": "XLK", "PANW": "XLK",
+    "PATH": "XLK", "PLTR": "XLK", "QCOM": "XLK", "RGTI": "XLK",
+    "SHOP": "XLK", "SNDK": "XLK", "SNOW": "XLK", "TEAM": "XLK",
+    "TWLO": "XLK", "TXN": "XLK", "ZM": "XLK",
+
+    # Financiero
+    "AIG": "XLF", "AXP": "XLF", "BAC": "XLF", "BBAR": "XLF",
+    "BK": "XLF", "BMA": "XLF", "BX": "XLF", "C": "XLF",
+    "COIN": "XLF", "FISV": "XLF", "GGAL": "XLF", "GS": "XLF",
+    "HOOD": "XLF", "JPM": "XLF", "MA": "XLF", "MS": "XLF",
+    "PYPL": "XLF", "SCHW": "XLF", "SPGI": "XLF", "SUPV": "XLF",
+    "UPST": "XLF", "USB": "XLF", "V": "XLF", "WFC": "XLF",
+    "XYZ": "XLF",
+
     # Salud
-    "JNJ": "XLV", "PFE": "XLV", "ABBV": "XLV", "MRK": "XLV",
-    "AMGN": "XLV", "GILD": "XLV", "BIIB": "XLV", "MRNA": "XLV",
-    "BMY": "XLV", "LLY": "XLV", "MDT": "XLV", "ISRG": "XLV",
-    "DHR": "XLV", "TMO": "XLV", "UNH": "XLV", "CVS": "XLV",
-    "VRTX": "XLV", "AZN": "XLV", "NVS": "XLV", "GSK": "XLV", "HIMS": "XLV",
-    # Energía
-    "XOM": "XLE", "CVX": "XLE", "BP": "XLE", "SHEL": "XLE",
-    "TTE": "XLE", "OXY": "XLE", "HAL": "XLE", "SLB": "XLE",
-    "BKR": "XLE", "PSX": "XLE", "COP": "XLE", "GLNG": "XLE", "CEG": "XLU",
-    # Materiales / Minería
-    "GOLD": "GDX", "NEM": "GDX", "AEM": "GDX", "KGC": "GDX",
-    "GFI": "GDX", "HMY": "GDX", "PAAS": "GDX", "MUX": "GDX",
-    "HL": "GDX", "CDE": "GDX", "NG": "GDX", "AUY": "GDX",
-    "FCX": "COPX", "SCCO": "COPX", "MP": "XLB", "CCJ": "URA", "NEE": "XLU",
-    "RIO": "XLB", "BHP": "XLB", "VALE": "XLB", "GGB": "XLB",
-    # Industria
-    "BA": "XLI", "CAT": "XLI", "MMM": "XLI", "GE": "XLI",
-    "HON": "XLI", "RTX": "XLI", "LMT": "XLI", "DE": "XLI",
-    "UNP": "XLI", "FDX": "XLI", "HWM": "XLI",
+    "ABBV": "XLV", "AMGN": "XLV", "BIIB": "XLV", "BMY": "XLV",
+    "CVS": "XLV", "DHR": "XLV", "GILD": "XLV", "HIMS": "XLV",
+    "ISRG": "XLV", "JNJ": "XLV", "LLY": "XLV", "MDT": "XLV",
+    "MRK": "XLV", "MRNA": "XLV", "PFE": "XLV", "TEM": "XLV",
+    "TMO": "XLV", "UNH": "XLV", "VRTX": "XLV",
+
+    # Energia
+    "BKR": "XLE", "COP": "XLE", "CVX": "XLE", "HAL": "XLE",
+    "OXY": "XLE", "PSX": "XLE", "SLB": "XLE", "VIST": "XLE",
+    "XOM": "XLE", "YPF": "XLE",
+
     # Consumo discrecional
-    "AMZN": "XLY", "TSLA": "XLY", "MCD": "XLY", "NKE": "XLY",
-    "SBUX": "XLY", "HD": "XLY", "TGT": "XLY", "BKNG": "XLY",
-    "ABNB": "XLY", "GM": "XLY", "F": "XLY", "HOG": "XLY",
-    "RACE": "XLY", "TJX": "XLY", "ROST": "XLY",
-    # Consumo básico
-    "KO": "XLP", "PEP": "XLP", "WMT": "XLP", "COST": "XLP",
-    "PG": "XLP", "CL": "XLP", "KMB": "XLP", "UL": "XLP",
-    "PM": "XLP", "MO": "XLP", "HSY": "XLP", "MDLZ": "XLP",
+    "ABNB": "XLY", "AMZN": "XLY", "ANF": "XLY", "ARCO": "XLY",
+    "BKNG": "XLY", "DECK": "XLY", "EBAY": "XLY", "ETSY": "XLY",
+    "F": "XLY", "GM": "XLY", "HD": "XLY", "HOG": "XLY",
+    "MCD": "XLY", "MELI": "XLY", "NKE": "XLY", "ROST": "XLY",
+    "SBUX": "XLY", "TJX": "XLY", "TSLA": "XLY", "URBN": "XLY",
+
+    # Consumo basico
+    "CL": "XLP", "COST": "XLP", "HSY": "XLP", "KMB": "XLP",
+    "KO": "XLP", "MDLZ": "XLP", "MO": "XLP", "PEP": "XLP",
+    "PG": "XLP", "PM": "XLP", "SYY": "XLP", "TGT": "XLP",
+    "WBA": "XLP", "WMT": "XLP",
+
+    # Industriales
+    "AAL": "XLI", "ADP": "XLI", "BA": "XLI", "CAAP": "XLI",
+    "CAT": "XLI", "DAL": "XLI", "DE": "XLI", "EMR": "XLI",
+    "FDX": "XLI", "GE": "XLI", "HON": "XLI", "HWM": "XLI",
+    "JCI": "XLI", "LMT": "XLI", "MMM": "XLI", "PCAR": "XLI",
+    "RTX": "XLI", "UAL": "XLI", "UBER": "XLI", "UNP": "XLI",
+
+    # Materiales
+    "AVY": "XLB", "BIOX": "XLB", "DOW": "XLB", "ECL": "XLB",
+    "FCX": "XLB", "IFF": "XLB", "IP": "XLB", "LOMA": "XLB",
+    "MOS": "XLB", "MP": "XLB", "NEM": "XLB", "NUE": "XLB",
+    "SCCO": "XLB",
+
     # Comunicaciones
-    "GOOGL": "XLC", "META": "XLC", "NFLX": "XLC", "DIS": "XLC",
-    "T": "XLC", "TMUS": "XLC", "VZ": "XLC", "SPOT": "XLC",
-    # Latam
-    "MELI": "EWZ", "GLOB": "EWZ", "VALE": "EWZ", "PBR": "EWZ",
-    "ITUB": "EWZ", "BBD": "EWZ", "ABEV": "EWZ", "XP": "EWZ",
-    "PAGS": "EWZ", "STNE": "EWZ",
+    "DIS": "XLC", "GOOGL": "XLC", "META": "XLC", "NFLX": "XLC",
+    "PINS": "XLC", "RBLX": "XLC", "ROKU": "XLC", "SNAP": "XLC",
+    "SPOT": "XLC", "T": "XLC", "TMUS": "XLC", "VZ": "XLC",
+
+    # Utilities
+    "CEG": "XLU", "CEPU": "XLU", "NEE": "XLU", "PAM": "XLU",
+    "TGS": "XLU",
+
+    # Real Estate
+    "IRS": "XLRE", "O": "XLRE",
+
+    # Brasil / Latam
+    "ABEV": "EWZ", "BAK": "EWZ", "BBD": "EWZ", "BSBR": "EWZ",
+    "GGB": "EWZ", "ITUB": "EWZ", "LND": "EWZ", "PAGS": "EWZ",
+    "PBR": "EWZ", "SBS": "EWZ", "SID": "EWZ", "STNE": "EWZ",
+    "SUZ": "EWZ", "UGP": "EWZ", "VALE": "EWZ", "XP": "EWZ",
+
+    # China
+    "BABA": "FXI", "BIDU": "FXI", "JD": "FXI", "NTES": "FXI",
+    "PDD": "FXI", "TCOM": "FXI",
+
+    # Japon
+    "HMC": "EWJ", "MFG": "EWJ", "MUFG": "EWJ", "NMR": "EWJ",
+    "SONY": "EWJ", "TM": "EWJ",
+
+    # Desarrollados ex-US (Europa/UK/otros)
+    "ASML": "EFA", "AZN": "EFA", "BHP": "EFA", "BP": "EFA",
+    "DEO": "EFA", "GLNG": "EFA", "GSK": "EFA", "HSBC": "EFA",
+    "ING": "EFA", "MBG": "EFA", "NGG": "EFA", "NVS": "EFA",
+    "PHG": "EFA", "RACE": "EFA", "RIO": "EFA", "SAN": "EFA",
+    "SAP": "EFA", "SHEL": "EFA", "STLA": "EFA", "TTE": "EFA",
+    "UL": "EFA", "VOD": "EFA",
+
+    # Emergentes ex-China/Brasil/Japon (India, Taiwan, Corea, Singapur)
+    "HDB": "EEM", "IBN": "EEM", "INFY": "EEM", "KB": "EEM",
+    "NU": "EEM", "SE": "EEM", "TSM": "EEM",
+
+    # Mexico / Latam amplio
+    "CX": "ILF",
+
+    # Mineras de oro y plata (sin sectorial propio en la spec)
+    "AEM": "GDX", "AUY": "GDX", "CDE": "GDX", "GFI": "GDX",
+    "GOLD": "GDX", "HL": "GDX", "HMY": "GDX", "KGC": "GDX",
+    "MUX": "GDX", "NG": "GDX", "PAAS": "GDX",
+
+    # Uranio / nuclear (sin sectorial propio en la spec)
+    "CCJ": "URA", "OKLO": "URA",
+
+    # Aeroespacial / space (sin sectorial propio en la spec, incluye small caps de nicho)
+    "ASTS": "ITA", "RKLB": "ITA", "SATL": "ITA"
 }
 
 import yfinance as yf
