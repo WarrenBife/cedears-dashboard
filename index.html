@@ -8370,6 +8370,7 @@ try {
 
 <!-- ═══════════════════════════════════════════════════════════════
      WB UPGRADE V16 — Click en ETF del cuadro de rotación filtra el dashboard
+     + dropdown manual para filtrar por uno o varios ETFs a la vez
      Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V16"
      (además hay que revertir las 2 líneas marcadas "WB UPGRADE V16"
      dentro de WB UPGRADE V7 -- son las que disparan el evento que este
@@ -8384,57 +8385,114 @@ try {
      "ETF Sector" que ya viene calculado por el pipeline en cada ticker,
      no una tabla nueva.
 
+     NUEVO en esta revisión: además del click en el gráfico (que sigue
+     funcionando igual, y sigue siendo single-select), se agrega un
+     dropdown ("🎯 Filtrar por ETF") arriba del cuadro de rotación donde
+     se pueden tildar varios ETFs a la vez -- el filtro final es la unión
+     de todos los seleccionados. El estado interno pasó de un string
+     (_etfFiltro = 'XLK' | null) a un array (_etfFiltro = ['XLK','XLF']),
+     compartido por ambos mecanismos.
+
      Mecanismo: getDatosFiltrados() (función global original, usada por
      TODOS los paneles vía filtrados()) se envuelve para sumar este
      filtro extra al final, sin tocar sus condiciones existentes.
-     actualizarBadges() se envuelve para agregar una chip visible con el
-     ETF activo y una X para sacarlo -- clickear la X vuelve a llamar a
-     wbRrgLectClick() con el mismo sector, que lo des-selecciona en el
-     propio cuadro de rotación también (mismo toggle que ya usa V7).
+     actualizarBadges() se envuelve para agregar una chip por cada ETF
+     activo, cada una con su propia X para sacarla.
 
-     Bug encontrado y corregido en vivo: llamar a renderTodo() en cada
-     click también dispara wbRenderRRG() (el chart de modo "Acciones"
-     del MISMO panel), que recrea su instancia de Chart.js sobre
-     #wbRrgChart -- y Chart.js, al reconstruirse, fuerza ese canvas a
-     display:block, pisando el display:none que puso wbRrgModo('etfs').
-     Resultado: los dos canvases (Acciones y ETFs) quedaban visibles a
-     la vez, superpuestos, aunque el modo interno de V7 seguía siendo
-     'etfs' (por eso el toggle no cambiaba, pero visualmente parecía que
-     sí). Fix: después de cada renderTodo() disparado por este bloque,
-     se reafirma el display correcto de ambos canvases -- si llegó este
-     evento es porque se está en modo ETFs (el click en burbuja sólo se
-     procesa en ese modo, y la Lectura sólo es clickeable visible ahí).
+     Bug encontrado y corregido en vivo (heredado de la versión anterior):
+     llamar a renderTodo() en cada cambio de filtro también dispara
+     wbRenderRRG() (recrea el chart de modo "Acciones" con Chart.js), y
+     Chart.js fuerza su canvas a display:block al reconstruirse, pisando
+     el display:none del modo ETFs si estaba activo. La versión anterior
+     asumía que este evento SIEMPRE pasaba en modo ETFs (válido cuando el
+     único disparador era el click en burbuja); con el dropdown ahora se
+     puede filtrar estando en CUALQUIER modo, así que el fix se generalizó:
+     se lee getComputedStyle del canvas de ETFs ANTES de renderTodo() y
+     sólo se restaura el modo ETFs después si ya estaba así.
+
+     Segundo bug encontrado y corregido en vivo: al remover del dropdown
+     el ÚNICO ETF seleccionado (vía checkbox o botón "Limpiar"), si ese
+     ETF había sido tildado por el dropdown (no por un click real en la
+     burbuja), reusar wbRrgLectClick(etf) para "sacarlo" lo prendía en el
+     gráfico en lugar de apagarlo -- porque el selSector interno de V7
+     (privado a su closure) nunca había sido tocado por esa selección, y
+     wbRrgLectClick hace un toggle puro (null→sector). Fix: se agregó un
+     flag _origenBurbuja que sólo es true cuando la selección actual (de
+     un solo ETF) vino de un click real en el gráfico; sólo en ese caso
+     se llama a wbRrgLectClick al sacarlo, para des-aislar también la
+     estela en el propio cuadro de rotación. Verificado en vivo: con el
+     fix, "Limpiar" con 1 ETF tildado por dropdown vuelve a 309/309 filas
+     (antes quedaba trabado en el subconjunto filtrado).
      ═══════════════════════════════════════════════════════════════ -->
 <script id="wb-v16-js">
 (function(){
 'use strict';
 try {
 
-  var _etfFiltro = null;
+  var _etfFiltro = []; // array de tickers de ETF seleccionados (vacío = sin filtro)
+  var _origenBurbuja = false; // true SOLO si el único item de _etfFiltro vino de un click real en el gráfico (no del dropdown)
 
+  /* Re-renderiza el dashboard preservando qué canvas del cuadro de
+     rotación estaba visible (ver nota sobre Chart.js en el comentario
+     de arriba). */
+  function _rerender(){
+    var cvA = document.getElementById('wbRrgChart');
+    var cvS = document.getElementById('wbRrgSectores');
+    var modoEtfsAntes = !!(cvS && getComputedStyle(cvS).display !== 'none');
+    if (typeof window.renderTodo === 'function') window.renderTodo();
+    try {
+      if (modoEtfsAntes) {
+        if (cvA) cvA.style.display = 'none';
+        if (cvS) cvS.style.display = 'block';
+      }
+    } catch(err) {}
+    _syncDropdownUI();
+  }
+
+  function _quitarEtf(etf){
+    var idx = _etfFiltro.indexOf(etf);
+    if (idx === -1) return;
+    // Sólo se des-aísla en el gráfico si el único item ERA justo el que
+    // había quedado ahí por un click real en la burbuja -- si el único
+    // item vino del dropdown, wbRrgLectClick(etf) lo prendería en el
+    // gráfico en vez de apagarlo (ver nota arriba).
+    var debeDesaislarEnGrafico = _origenBurbuja && _etfFiltro.length === 1 && _etfFiltro[0] === etf;
+    _etfFiltro.splice(idx, 1);
+    _origenBurbuja = false;
+    if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
+      window.wbRrgLectClick(etf); // dispara wbRrgSelSector con sector:null; el listener de abajo ve _etfFiltro ya vacío y no hace nada de más
+    } else {
+      _rerender();
+    }
+  }
+
+  function _agregarEtf(etf){
+    if (_etfFiltro.indexOf(etf) === -1) _etfFiltro.push(etf);
+    _origenBurbuja = false; // esta selección vino del dropdown, no de un click en el gráfico
+    _rerender();
+  }
+
+  /* ── Click en burbuja / línea de Lectura (comportamiento existente) ── */
   document.addEventListener('wbRrgSelSector', function(e){
     var sector = (e && e.detail) ? e.detail.sector : null;
-    if (_etfFiltro === sector) return; // sin cambio real, no re-renderizar de más
-    _etfFiltro = sector; // ticker del ETF (ej. 'XLK') o null si se deseleccionó
-    if (typeof window.renderTodo === 'function') window.renderTodo();
-    // renderTodo() re-dispara wbRenderRRG() (chart de Acciones del mismo
-    // panel), y Chart.js fuerza su canvas a display:block al recrearse --
-    // pisa el display:none que puso el modo ETFs. Se reafirma el estado
-    // correcto (si llegó este evento, estamos en modo ETFs).
-    try {
-      var cvA = document.getElementById('wbRrgChart');
-      var cvS = document.getElementById('wbRrgSectores');
-      if (cvA) cvA.style.display = 'none';
-      if (cvS) cvS.style.display = 'block';
-    } catch(err) {}
+    if (sector === null) {
+      _origenBurbuja = false;
+      if (_etfFiltro.length === 0) return;
+      _etfFiltro = [];
+    } else {
+      if (_etfFiltro.length === 1 && _etfFiltro[0] === sector && _origenBurbuja) return; // sin cambio real
+      _etfFiltro = [sector]; // el click de burbuja siempre reemplaza la selección
+      _origenBurbuja = true;
+    }
+    _rerender();
   });
 
   var _origGetDatosFiltrados = window.getDatosFiltrados;
   if (typeof _origGetDatosFiltrados === 'function') {
     window.getDatosFiltrados = function(){
       var base = _origGetDatosFiltrados.apply(this, arguments);
-      if (!_etfFiltro) return base;
-      return base.filter(function(d){ return d['ETF Sector'] === _etfFiltro; });
+      if (!_etfFiltro.length) return base;
+      return base.filter(function(d){ return _etfFiltro.indexOf(d['ETF Sector']) !== -1; });
     };
   }
 
@@ -8442,26 +8500,152 @@ try {
   if (typeof _origActualizarBadges === 'function') {
     window.actualizarBadges = function(){
       _origActualizarBadges.apply(this, arguments);
-      if (!_etfFiltro) return;
+      if (!_etfFiltro.length) return;
       try {
         var cont = document.getElementById('active-filters');
         if (!cont) return;
-        var badge = document.createElement('span');
-        badge.style.cssText = 'background:rgba(34,201,138,0.12);border:1px solid rgba(34,201,138,0.4);' +
-          'color:var(--green);padding:2px 7px;border-radius:4px;font-size:10px;cursor:pointer;' +
-          'display:inline-flex;align-items:center;gap:5px;';
-        badge.title = 'Click para sacar el filtro por ETF';
-        badge.innerHTML = '🔄 Sector de ' + _etfFiltro + ' <b style="font-size:11px">✕</b>';
-        badge.onclick = function(){
-          // mismo toggle que ya usa V7 -- des-selecciona en el propio cuadro
-          // de rotación (dispara wbRrgSelSector con sector:null, que este
-          // bloque escucha y limpia el filtro).
-          if (typeof window.wbRrgLectClick === 'function') window.wbRrgLectClick(_etfFiltro);
-        };
-        cont.appendChild(badge);
+        _etfFiltro.forEach(function(etf){
+          var badge = document.createElement('span');
+          badge.style.cssText = 'background:rgba(34,201,138,0.12);border:1px solid rgba(34,201,138,0.4);' +
+            'color:var(--green);padding:2px 7px;border-radius:4px;font-size:10px;cursor:pointer;' +
+            'display:inline-flex;align-items:center;gap:5px;margin-right:4px;';
+          badge.title = 'Click para sacar el filtro de ' + etf;
+          badge.innerHTML = '🔄 Sector de ' + etf + ' <b style="font-size:11px">✕</b>';
+          badge.onclick = function(){ _quitarEtf(etf); };
+          cont.appendChild(badge);
+        });
       } catch(err) {}
     };
   }
+
+  /* ── NUEVO: dropdown multi-select arriba del gráfico ── */
+  function _etfsDisponibles(){
+    var conteo = {};
+    /* DATOS está declarado con let/const en el script original -- nunca
+       se expone como window.DATOS (a diferencia de var/funciones), hay
+       que usar la referencia bare. */
+    var _datos = (typeof DATOS !== 'undefined' && DATOS) ? DATOS : [];
+    _datos.forEach(function(d){
+      var etf = d['ETF Sector'];
+      if (etf) conteo[etf] = (conteo[etf] || 0) + 1;
+    });
+    return Object.keys(conteo).sort().map(function(etf){ return { etf: etf, n: conteo[etf] }; });
+  }
+
+  function _buildDropdown(){
+    if (document.getElementById('wb-etf-filter-wrap')) return; // ya existe
+    var legend = document.querySelector('#wb-rrg-panel .wb-rrg-legend');
+    if (!legend || !legend.parentNode) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'wb-etf-filter-wrap';
+    wrap.style.cssText = 'position:relative;margin:0 0 10px;';
+    wrap.innerHTML =
+      '<button id="wb-etf-filter-btn" type="button" style="background:var(--bg2);border:1px solid var(--border2);' +
+        'color:var(--text);font-size:11px;padding:5px 10px;border-radius:7px;cursor:pointer;display:inline-flex;' +
+        'align-items:center;gap:6px;">' +
+        '<span>🎯 Filtrar por ETF</span>' +
+        '<span id="wb-etf-filter-count" style="display:none;background:var(--green-bg);color:var(--green);' +
+          'border-radius:10px;padding:0 6px;font-family:\'DM Mono\',monospace;font-size:10px;"></span>' +
+        '<span style="color:var(--muted);font-size:9px;">▾</span>' +
+      '</button>' +
+      '<div id="wb-etf-filter-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:50;' +
+        'background:var(--bg2);border:1px solid var(--border2);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,0.4);' +
+        'width:240px;max-height:320px;display:flex;flex-direction:column;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;' +
+          'border-bottom:1px solid var(--border2);flex-shrink:0;">' +
+          '<span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Elegí uno o más</span>' +
+          '<button id="wb-etf-filter-limpiar" type="button" style="background:none;border:none;color:var(--red);' +
+            'font-size:10px;cursor:pointer;padding:0;">Limpiar</button>' +
+        '</div>' +
+        '<div id="wb-etf-filter-list" style="overflow-y:auto;padding:4px 0;"></div>' +
+      '</div>';
+    legend.parentNode.insertBefore(wrap, legend.nextSibling);
+
+    var btn = document.getElementById('wb-etf-filter-btn');
+    var panel = document.getElementById('wb-etf-filter-panel');
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    });
+    document.addEventListener('click', function(ev){
+      if (panel.style.display !== 'none' && !wrap.contains(ev.target)) panel.style.display = 'none';
+    });
+    document.getElementById('wb-etf-filter-limpiar').addEventListener('click', function(ev){
+      ev.stopPropagation();
+      if (!_etfFiltro.length) return;
+      var debeDesaislarEnGrafico = _origenBurbuja && _etfFiltro.length === 1;
+      var elBurbuja = _etfFiltro[0];
+      _etfFiltro = [];
+      _origenBurbuja = false;
+      // sólo des-aísla en el gráfico si el único item venía de un click
+      // real en la burbuja (mismo criterio que _quitarEtf -- ver nota ahí).
+      if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
+        window.wbRrgLectClick(elBurbuja);
+      } else {
+        _rerender();
+      }
+    });
+
+    _poblarLista();
+  }
+
+  function _poblarLista(){
+    var list = document.getElementById('wb-etf-filter-list');
+    if (!list) return;
+    var disponibles = _etfsDisponibles();
+    if (!disponibles.length) {
+      list.innerHTML = '<div style="padding:10px;font-size:11px;color:var(--muted);">Sin datos todavía</div>';
+      return;
+    }
+    list.innerHTML = disponibles.map(function(item){
+      var checked = _etfFiltro.indexOf(item.etf) !== -1 ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 10px;font-size:11.5px;' +
+        'cursor:pointer;color:var(--text);" onmouseover="this.style.background=\'rgba(255,255,255,0.04)\'" ' +
+        'onmouseout="this.style.background=\'\'">' +
+        '<input type="checkbox" data-etf="' + item.etf + '" ' + checked +
+          ' style="accent-color:var(--green);cursor:pointer;margin:0;">' +
+        '<span style="flex:1;font-family:\'DM Mono\',monospace;">' + item.etf + '</span>' +
+        '<span style="color:var(--muted);font-size:10px;">' + item.n + '</span>' +
+      '</label>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('input[type=checkbox]'), function(cb){
+      cb.addEventListener('change', function(){
+        var etf = cb.getAttribute('data-etf');
+        if (cb.checked) _agregarEtf(etf); else _quitarEtf(etf);
+      });
+    });
+  }
+
+  function _syncDropdownUI(){
+    try {
+      var count = document.getElementById('wb-etf-filter-count');
+      if (count) {
+        if (_etfFiltro.length) { count.textContent = _etfFiltro.length; count.style.display = ''; }
+        else { count.style.display = 'none'; }
+      }
+      var list = document.getElementById('wb-etf-filter-list');
+      if (list) {
+        Array.prototype.forEach.call(list.querySelectorAll('input[type=checkbox]'), function(cb){
+          cb.checked = _etfFiltro.indexOf(cb.getAttribute('data-etf')) !== -1;
+        });
+        // si la lista de ETFs disponibles cambió (datos recién cargados
+        // la primera vez), repoblarla.
+        if (!list.children.length && _etfsDisponibles().length) _poblarLista();
+      }
+    } catch(err) {}
+  }
+
+  var _origRenderTodoV16 = window.renderTodo;
+  if (typeof _origRenderTodoV16 === 'function') {
+    window.renderTodo = function(){
+      var r = _origRenderTodoV16.apply(this, arguments);
+      _buildDropdown();
+      _syncDropdownUI();
+      return r;
+    };
+  }
+  try { if (typeof DATOS !== 'undefined' && DATOS && DATOS.length) { _buildDropdown(); _syncDropdownUI(); } } catch(e){}
 
 } catch(e){ console.error('WB V16 init error', e); }
 })();
