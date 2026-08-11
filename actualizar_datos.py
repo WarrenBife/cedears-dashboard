@@ -643,11 +643,20 @@ def detectar_base(df):
         posicion = (cierre - min_base) / (pivote_alto - min_base) * 100
         posicion = min(posicion, 130.0)  # clamp
 
-        # Volumen decreciente: último tercio vs primer tercio del tramo
-        tercio = max(5, len(tramo) // 3)
-        if 'volume' in df.columns:
-            vol_ini = float(tramo['volume'].iloc[:tercio].mean())
-            vol_fin = float(tramo['volume'].iloc[-tercio:].mean())
+        # Volumen decreciente: último tercio vs primer tercio del tramo,
+        # EXCLUYENDO las ruedas más recientes (ahí el volumen sube por
+        # definición si el papel está rompiendo o a punto de romper --
+        # mismo bug de ventana contaminada ya corregido en verticalidad
+        # reciente y en el detector de sacudón, Warren Score Pilar D
+        # ajuste de VENTANA_EXCLUIDA/2026-08). Se usa MEDIANA en vez de
+        # promedio: un earnings dentro de la base no debe distorsionar
+        # el ratio con 1-2 outliers.
+        VENTANA_EXCLUIDA_VOLTREND = 8  # calibrable 5-8
+        tramo_voltrend = tramo.iloc[:-VENTANA_EXCLUIDA_VOLTREND] if len(tramo) > VENTANA_EXCLUIDA_VOLTREND else tramo.iloc[0:0]
+        if 'volume' in df.columns and len(tramo_voltrend) >= 15:
+            tercio_vt = max(5, len(tramo_voltrend) // 3)
+            vol_ini = float(tramo_voltrend['volume'].iloc[:tercio_vt].median())
+            vol_fin = float(tramo_voltrend['volume'].iloc[-tercio_vt:].median())
             voltrend = round(vol_fin / vol_ini, 2) if vol_ini > 0 else None
         else:
             voltrend = None
