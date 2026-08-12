@@ -699,6 +699,36 @@ def vol_trend_bloques(volume_series):
     return round(reciente / prom_b, 4)
 
 
+def contraccion_volatilidad(hist):
+    """Contracción de volatilidad de precio (Warren Score Pilar C, 2026-08).
+    True range de la última semana vs el último mes, en mediana (inmune a
+    1-2 outliers como un día de earnings dentro de la ventana -- mismo
+    criterio ya usado en vol_trend_bloques). Ratio, no valor absoluto:
+    mide ESTADO (¿está más quieto que de costumbre?), no temperamento --
+    funciona igual para un papel con ATR 6% que uno con 1.5%. True range
+    (no rango H-L simple) porque captura los gaps de apertura, donde vive
+    buena parte de la volatilidad real."""
+    if hist is None or len(hist) < 20:
+        return None
+    try:
+        high, low, close = hist['High'], hist['Low'], hist['Close']
+        prev = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev).abs(),
+            (low - prev).abs()
+        ], axis=1).max(axis=1).dropna()
+        if len(tr) < 20:
+            return None
+        corto = float(tr.tail(5).median())
+        largo = float(tr.tail(20).median())
+        if largo <= 0:
+            return None
+        return round(corto / largo, 4)
+    except Exception:
+        return None
+
+
 def detectar_sacudon(hist, base, atr14_pct_valor):
     """Modificador de sacudon (shakeout) -- Warren Score v3.1.
 
@@ -717,7 +747,7 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
     """
     NULO = {'activo': False, 'ruedas': None, 'magnitud_atrs': None,
             'vol_relativa_pre': None, 'vol_5d40d_pre': None,
-            'vol_trend_pre_sacudon': None}
+            'vol_trend_pre_sacudon': None, 'contraccion_vol_pre_sacudon': None}
     try:
         # 1) Compresion previa valida (prerrequisito absoluto) -----------
         # El voltrend de detectar_base() mide el ultimo tercio del tramo
@@ -951,10 +981,18 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         # papel venia comprimiendo antes de la sacudida.
         vol_trend_pre_sacudon = vol_trend_bloques(pd.Series(volume[:idx_inicio]))
 
+        # Contraccion de volatilidad pre-sacudon (Pilar C, 2026-08) --
+        # mismo criterio: el TR de la sacudida infla el ratio en vivo por
+        # encima del sweet spot (rango violento = "expandiendose", 0 pts)
+        # justo cuando se quiere premiar la compresion que ya se habia
+        # ganado antes del evento. Se corta la serie antes de idx_inicio.
+        contraccion_vol_pre_sacudon = contraccion_volatilidad(hist.iloc[:idx_inicio])
+
         return {
             'activo': True, 'ruedas': ruedas_desde, 'magnitud_atrs': magnitud_atrs,
             'vol_relativa_pre': vol_relativa_pre, 'vol_5d40d_pre': vol_5d40d_pre,
             'vol_trend_pre_sacudon': vol_trend_pre_sacudon,
+            'contraccion_vol_pre_sacudon': contraccion_vol_pre_sacudon,
         }
     except Exception:
         return NULO
@@ -1563,6 +1601,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         # resuelta en el frontend usando vol_trend_pre_sacudon.
         vol_trend_vivo = vol_trend_bloques(volume)
 
+        # Contracción de volatilidad de precio -- EN VIVO (Warren Score
+        # Pilar C, 2026-08). True range mediana(5)/mediana(20): reemplaza a
+        # Vol Relativa y Vol 5d/40d como componente que puntúa (ninguno de
+        # los dos discriminaba en el backtest); mide rango de PRECIO, no
+        # volumen (eso ya lo cubre Vol Trend en el Pilar D).
+        contraccion_vol_vivo = contraccion_volatilidad(hist)
+
         # Choppiness + Eficiencia — volatilidad sin dirección (Warren Score v2.3)
         chop = choppiness_eficiencia(hist)
 
@@ -1640,6 +1685,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Sacudon Vol 5d40d Pre":   sacudon['vol_5d40d_pre'],
             "Vol Trend":               vol_trend_vivo,
             "Vol Trend Pre Sacudon":   sacudon['vol_trend_pre_sacudon'],
+            "Contraccion Volatilidad": contraccion_vol_vivo,
+            "Contraccion Vol Pre Sacudon": sacudon['contraccion_vol_pre_sacudon'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
             "Choppiness":              chop['Choppiness'],
