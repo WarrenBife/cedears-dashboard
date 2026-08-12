@@ -673,6 +673,32 @@ def detectar_base(df):
         return NULL
 
 
+def vol_trend_bloques(volume_series):
+    """Vol Trend por bloques de 5 ruedas (Warren Score Pilar D, 2026-08).
+    A diferencia del Vol Trend de detectar_base() (excluye la ventana
+    reciente, mide si la BASE se secó), este mide el volumen EN VIVO,
+    incluyendo la rueda actual -- para eso existe, para captar la
+    expansion de volumen de un breakout real en curso.
+
+    Ultimas 20 ruedas de volume_series (la ULTIMA fila es la rueda de
+    referencia), partidas en 4 bloques de 5: 'reciente' (ultimas 5,
+    incluye la rueda actual) vs el promedio de los 3 bloques anteriores
+    (b1 mas cercano, b3 mas lejano). Mediana DENTRO de cada bloque (un
+    dia raro no lo distorsiona), promedio ENTRE los 3 bloques de
+    referencia (los tres pesan igual)."""
+    if volume_series is None or len(volume_series) < 20:
+        return None
+    v = volume_series.tail(20)
+    reciente = float(v.iloc[-5:].median())
+    b1 = float(v.iloc[-10:-5].median())
+    b2 = float(v.iloc[-15:-10].median())
+    b3 = float(v.iloc[-20:-15].median())
+    prom_b = (b1 + b2 + b3) / 3
+    if prom_b <= 0:
+        return None
+    return round(reciente / prom_b, 4)
+
+
 def detectar_sacudon(hist, base, atr14_pct_valor):
     """Modificador de sacudon (shakeout) -- Warren Score v3.1.
 
@@ -690,7 +716,8 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
     borre la compresion que el papel ya se habia ganado.
     """
     NULO = {'activo': False, 'ruedas': None, 'magnitud_atrs': None,
-            'vol_relativa_pre': None, 'vol_5d40d_pre': None}
+            'vol_relativa_pre': None, 'vol_5d40d_pre': None,
+            'vol_trend_pre_sacudon': None}
     try:
         # 1) Compresion previa valida (prerrequisito absoluto) -----------
         # El voltrend de detectar_base() mide el ultimo tercio del tramo
@@ -728,14 +755,24 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         if atr_dolares <= 0:
             return NULO
 
-        VENTANA_RECIENTE = min(8, n - 1)
+        # Condicion 1 (compresion previa) y Condicion 5 (antiguedad de la
+        # sacudida) usan ventanas DISTINTAS y no deben compartir constante:
+        # la exclusion para el gate de compresion sigue siendo de 8 ruedas
+        # (SIN CAMBIOS); la ventana de ESCANEO de candidatos se angosta a 4
+        # (permite ruedas_desde hasta 3, el nuevo limite de Condicion 5) --
+        # si se dejara en 8, el loop podria "romper" (break) en un
+        # candidato viejo (ej. 7 ruedas atras) antes de llegar a uno mas
+        # reciente y valido, y Condicion 5 lo descartaria sin haber
+        # evaluado el candidato correcto.
+        VENTANA_EXCLUSION_COMPRESION = min(8, n - 1)
+        VENTANA_ESCANEO_SACUDIDA = min(4, n - 1)
 
         # Tramo de referencia DE LA BASE -- mismo tramo que uso
         # detectar_base, pero excluyendo la ventana reciente (donde se
         # busca la sacudida) para no contaminar el calculo con la propia
         # vela que se esta evaluando.
         tramo_base = hist.loc[base['tramo_inicio']:]
-        tramo_base_ref = tramo_base.iloc[:-VENTANA_RECIENTE] if len(tramo_base) > VENTANA_RECIENTE else tramo_base.iloc[:0]
+        tramo_base_ref = tramo_base.iloc[:-VENTANA_EXCLUSION_COMPRESION] if len(tramo_base) > VENTANA_EXCLUSION_COMPRESION else tramo_base.iloc[:0]
         if len(tramo_base_ref) < 5:
             return NULO
 
@@ -762,14 +799,7 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         if vol_prom_20 <= 0:
             return NULO
 
-        # 2) Retroceso violento del ULTIMO TRAMO ALCISTA + 4) Volumen alto +
-        # 5) Reciente -- no es un spring que perfora un piso historico: en
-        # una base larga en pleno rally (ej. MRVL) el low de la sacudida
-        # puede seguir por ENCIMA de minimos de solo 1-2 semanas antes, asi
-        # que "perforar el piso" no aplica. Lo que si pasa es que se devuelve
-        # de un saque una porcion grande de la ultima pata alcista dentro de
-        # la base, y el papel aguanta -- eso es lo que se mide aca.
-        #
+        # 2) Retroceso violento PERO CONTENIDO + 4) Volumen alto + 5) Reciente.
         # Para cada candidato (vela o par) dentro de la ventana de escaneo:
         #   a) se ubica el ULTIMO MINIMO LOCAL CONFIRMADO (pivote con margen,
         #      no cualquier vela) y el maximo posterior a ese minimo -- eso
@@ -777,10 +807,17 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         #   b) ese tramo tiene que valer al menos 1.5 ATR en dolares -- un
         #      retroceso del 50% de un movimiento insignificante no es nada.
         #   c) el retroceso de la sacudida contra ese tramo tiene que ser
-        #      >=50%.
-        #   d) INNEGOCIABLE: el low del evento no puede perforar el minimo
-        #      de la base -- si lo perfora, es ruptura real, no sacudon, sin
-        #      importar cuan violento haya sido el movimiento.
+        #      >=50% (violento).
+        #   d) CONTENIDO -- tres limites, TODOS obligatorios: la caida
+        #      medida con el LOW no supera el 10% desde el cierre previo al
+        #      evento (una mecha que perfora y recupera cuenta); el CIERRE
+        #      del evento no perfora el minimo de las ultimas 2 semanas (10
+        #      ruedas) previas; y el LOW del evento tampoco perfora el
+        #      minimo de TODA la base (chequeo viejo, se mantiene como
+        #      filtro adicional -- probado en vivo que sacarlo dejaba pasar
+        #      falsos positivos en CVX/EQNR/ABNB, papeles con bases largas
+        #      donde el minimo de 2 semanas por si solo es mucho mas laxo
+        #      que el de la base entera).
         LOOKBACK_TRAMO = 30
         MARGEN_PIVOTE = 3
         idx_base_inicio = n - len(tramo_base)
@@ -804,22 +841,42 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
             tramo_dolares = float(high[pico_idx] - low[minimo_local_idx])
             return tramo_dolares, high[pico_idx]
 
+        def _contenido(idx_inicio_cand, low_evento):
+            """Condicion 2, partes (b) y (c): caida<10% desde el cierre previo
+            (medida con el low, una mecha cuenta) y cierre del evento no
+            perfora el minimo de las ultimas 2 semanas (10 ruedas) previas
+            al inicio del evento. Devuelve (ok, minimo_2sem) o (False, None)."""
+            if idx_inicio_cand < 1:
+                return False, None
+            cierre_previo = close[idx_inicio_cand - 1]
+            if cierre_previo <= 0:
+                return False, None
+            caida_pct = (cierre_previo - low_evento) / cierre_previo * 100
+            if caida_pct >= 10.0:
+                return False, None
+            ini_2sem = max(0, idx_inicio_cand - 10)
+            if idx_inicio_cand <= ini_2sem:
+                return False, None
+            minimo_2sem = float(low[ini_2sem:idx_inicio_cand].min())
+            return True, minimo_2sem
+
         sacudida_idx = None   # dia de referencia para "ruedas desde" (el mas reciente del evento)
         idx_inicio    = None   # dia en que arranca el evento (para truncar las series "pre")
         magnitud_bruta = None
-        for i in range(n - VENTANA_RECIENTE, n):
+        for i in range(n - VENTANA_ESCANEO_SACUDIDA, n):
             if i < 1:
                 continue
 
             # -- vela individual --
             low_evento_vela = low[i]
-            if low_evento_vela > base['minimo']:  # (d) innegociable
+            ok_contenido, minimo_2sem = _contenido(i, low_evento_vela)
+            if ok_contenido and close[i] >= minimo_2sem and low_evento_vela > base['minimo']:
                 r = _ultimo_tramo_alcista(i)
                 if r is not None:
                     tramo_dolares, pico_valor = r
                     if tramo_dolares >= 1.5 * atr_dolares:  # (b)
                         retroceso = (pico_valor - low_evento_vela) / tramo_dolares
-                        vol_vela_ok = volume[i] >= 1.3 * vol_prom_20
+                        vol_vela_ok = volume[i] >= 1.3 * vol_prom_20  # Condicion 4 -- SIN CAMBIOS
                         if retroceso >= 0.5 and vol_vela_ok:  # (c) + volumen
                             sacudida_idx = i
                             idx_inicio = i
@@ -829,13 +886,14 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
             # -- par de 2 ruedas consecutivas --
             if i >= 2:
                 low_evento_par = min(low[i - 1], low[i])
-                if low_evento_par > base['minimo']:  # (d) innegociable
+                ok_contenido, minimo_2sem = _contenido(i - 1, low_evento_par)
+                if ok_contenido and close[i] >= minimo_2sem and low_evento_par > base['minimo']:
                     r = _ultimo_tramo_alcista(i - 1)
                     if r is not None:
                         tramo_dolares, pico_valor = r
                         if tramo_dolares >= 1.5 * atr_dolares:  # (b)
                             retroceso = (pico_valor - low_evento_par) / tramo_dolares
-                            vol_par_ok = (volume[i - 1] + volume[i]) / 2 >= 1.3 * vol_prom_20
+                            vol_par_ok = (volume[i - 1] + volume[i]) / 2 >= 1.3 * vol_prom_20  # Condicion 4 -- SIN CAMBIOS
                             if retroceso >= 0.5 and vol_par_ok:  # (c) + volumen
                                 sacudida_idx = i
                                 idx_inicio = i - 1
@@ -848,11 +906,21 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         if sacudida_idx is None:
             return NULO
 
+        # 5) Antiguedad y confirmacion alcista -- la sacudida tiene que ser
+        # de hace <=3 ruedas; si pasaron exactamente 3 sin una vela alcista
+        # (cierre>apertura) posterior, no califica (si el papel no
+        # reacciona en 3 dias, no era el paso previo al despegue). Con
+        # ruedas_desde<3 todavia hay margen, no se exige la vela alcista.
         ruedas_desde = (n - 1) - sacudida_idx
-        if ruedas_desde > 8:
+        if ruedas_desde > 3:
             return NULO
+        if ruedas_desde >= 3:
+            open_ = hist['Open'].values
+            hubo_alcista = any(close[j] > open_[j] for j in range(sacudida_idx + 1, n))
+            if not hubo_alcista:
+                return NULO
 
-        # 3) Recuperacion -- condicion critica, NO negociable. El cierre
+        # Recuperacion -- condicion critica, NO negociable. El cierre
         # de hoy tiene que estar en o por encima del minimo de la base;
         # si no, es ruptura bajista real, no sacudon.
         if close[-1] < base['minimo']:
@@ -876,9 +944,17 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
             if v40 > 0:
                 vol_5d40d_pre = round(float(v5 / v40), 2)
 
+        # Vol Trend pre-sacudon (por bloques, Parte 1 del spec) -- misma
+        # formula que vol_trend_bloques() pero con la serie de volumen
+        # cortada justo antes de que arranque el evento (idx_inicio), para
+        # que el frontend pueda dar el bono completo de Pilar D cuando el
+        # papel venia comprimiendo antes de la sacudida.
+        vol_trend_pre_sacudon = vol_trend_bloques(pd.Series(volume[:idx_inicio]))
+
         return {
             'activo': True, 'ruedas': ruedas_desde, 'magnitud_atrs': magnitud_atrs,
             'vol_relativa_pre': vol_relativa_pre, 'vol_5d40d_pre': vol_5d40d_pre,
+            'vol_trend_pre_sacudon': vol_trend_pre_sacudon,
         }
     except Exception:
         return NULO
@@ -1480,6 +1556,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         # Modificador de sacudon / shakeout (Warren Score v3.1)
         sacudon = detectar_sacudon(hist, base, atr14_p)
 
+        # Vol Trend por bloques -- EN VIVO, incluye la rueda actual (Warren
+        # Score Pilar D, 2026-08). Distinto de "Base Vol Trend" (que excluye
+        # la ventana reciente para medir si la BASE se secó): este mide si
+        # el volumen se está expandiendo AHORA, con la excepción de sacudón
+        # resuelta en el frontend usando vol_trend_pre_sacudon.
+        vol_trend_vivo = vol_trend_bloques(volume)
+
         # Choppiness + Eficiencia — volatilidad sin dirección (Warren Score v2.3)
         chop = choppiness_eficiencia(hist)
 
@@ -1555,6 +1638,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Sacudon Magnitud ATRs":   sacudon['magnitud_atrs'],
             "Sacudon Vol Relativa Pre": sacudon['vol_relativa_pre'],
             "Sacudon Vol 5d40d Pre":   sacudon['vol_5d40d_pre'],
+            "Vol Trend":               vol_trend_vivo,
+            "Vol Trend Pre Sacudon":   sacudon['vol_trend_pre_sacudon'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
             "Choppiness":              chop['Choppiness'],
