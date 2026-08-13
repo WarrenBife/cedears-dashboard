@@ -699,15 +699,31 @@ def vol_trend_bloques(volume_series):
     return round(reciente / prom_b, 4)
 
 
+def _promedio_sin_outlier(valores):
+    """Promedio de un bloque de 5 True Range, descartando el que más se
+    desvía del promedio del propio bloque antes de promediar. Reacciona
+    más rápido que la mediana (usa 4 de los 5 valores, no solo el del
+    medio) sin que un único día de earnings/gap arruine el número --
+    ese día es justamente el que más se desvía, y queda afuera."""
+    m = sum(valores) / len(valores)
+    idx_out = max(range(len(valores)), key=lambda i: abs(valores[i] - m))
+    restantes = [v for i, v in enumerate(valores) if i != idx_out]
+    return sum(restantes) / len(restantes)
+
+
 def contraccion_volatilidad(hist):
     """Contracción de volatilidad de precio (Warren Score Pilar C, 2026-08).
-    True range de la última semana vs el último mes, en mediana (inmune a
-    1-2 outliers como un día de earnings dentro de la ventana -- mismo
-    criterio ya usado en vol_trend_bloques). Ratio, no valor absoluto:
-    mide ESTADO (¿está más quieto que de costumbre?), no temperamento --
-    funciona igual para un papel con ATR 6% que uno con 1.5%. True range
-    (no rango H-L simple) porque captura los gaps de apertura, donde vive
-    buena parte de la volatilidad real."""
+    True range de cada rueda individual (con gaps) sobre las últimas 20
+    ruedas, partidas en 4 bloques de 5 días -- mismo esqueleto que
+    vol_trend_bloques (bloque reciente vs promedio de los 3 bloques
+    anteriores), pero aplicado a True Range de precio en vez de volumen.
+    Cada bloque se promedia con _promedio_sin_outlier (ver arriba) para
+    que el promedio no quede a merced de un solo día de earnings/gap
+    dentro del bloque. Ratio, no valor absoluto: mide ESTADO (¿está más
+    quieto que de costumbre?), no temperamento -- funciona igual para un
+    papel con ATR 6% que uno con 1.5%. True range (no rango H-L simple)
+    porque captura los gaps de apertura, donde vive buena parte de la
+    volatilidad real."""
     if hist is None or len(hist) < 20:
         return None
     try:
@@ -720,11 +736,15 @@ def contraccion_volatilidad(hist):
         ], axis=1).max(axis=1).dropna()
         if len(tr) < 20:
             return None
-        corto = float(tr.tail(5).median())
-        largo = float(tr.tail(20).median())
-        if largo <= 0:
+        t = tr.tail(20).tolist()
+        reciente     = _promedio_sin_outlier(t[-5:])
+        bloque_1     = _promedio_sin_outlier(t[-10:-5])
+        bloque_2     = _promedio_sin_outlier(t[-15:-10])
+        bloque_3     = _promedio_sin_outlier(t[-20:-15])
+        referencia   = (bloque_1 + bloque_2 + bloque_3) / 3
+        if referencia <= 0:
             return None
-        return round(corto / largo, 4)
+        return round(reciente / referencia, 4)
     except Exception:
         return None
 
