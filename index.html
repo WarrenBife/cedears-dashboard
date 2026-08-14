@@ -8423,6 +8423,25 @@ try {
      estela en el propio cuadro de rotación. Verificado en vivo: con el
      fix, "Limpiar" con 1 ETF tildado por dropdown vuelve a 309/309 filas
      (antes quedaba trabado en el subconjunto filtrado).
+
+     Tercer bug encontrado y corregido en vivo (reportado como "en el
+     celular aparece desplegada de una"): el <div> del panel tenía
+     "display:none" al principio del atributo style y "display:flex" más
+     adelante en el mismo string -- en CSS gana la última declaración de
+     la misma propiedad, así que el panel arrancaba SIEMPRE visible (no
+     es un bug de mobile, pasaba en cualquier tamaño de pantalla; en
+     mobile se nota más porque tapa el gráfico). El toggle funcionaba
+     bien (por eso tocar el botón lo cerraba correctamente) -- lo que
+     estaba mal era el estado inicial. Fix: se sacó el "display:flex;"
+     redundante del HTML inicial, el panel ahora arranca oculto de
+     verdad y solo pasa a "flex" cuando el JS lo abre.
+
+     Cuarto bug corregido: _etfsDisponibles() armaba la lista solo con
+     los ETFs que son "ETF Sector" de alguna acción (20 sectoriales) --
+     los 10 ETFs restantes que también son burbujas clickeables en el
+     modo "ETFs" del gráfico (QQQ, GLD, GDX, SLV, EWZ, FXI, ARGT, TLT,
+     IWM, DIA) nunca aparecían en el dropdown. Fix: la lista ahora sale
+     de ETFS_RRG completo (los 30, mismo array que plotea el gráfico).
      ═══════════════════════════════════════════════════════════════ -->
 <script id="wb-v16-js">
 (function(){
@@ -8529,7 +8548,17 @@ try {
       var etf = d['ETF Sector'];
       if (etf) conteo[etf] = (conteo[etf] || 0) + 1;
     });
-    return Object.keys(conteo).sort().map(function(etf){ return { etf: etf, n: conteo[etf] }; });
+    /* Lista completa de los 30 ETFs que se plotean en el modo "ETFs" del
+       cuadro de rotación (ETFS_RRG, declarado más arriba en WB UPGRADE
+       V7 -- bare reference, mismo criterio que DATOS). Antes solo se
+       listaban los que además son "ETF Sector" de alguna acción (los 20
+       sectoriales) -- los 10 restantes (QQQ, GLD, GDX, SLV, EWZ, FXI,
+       ARGT, TLT, IWM, DIA) nunca aparecían en este dropdown aunque sí
+       son burbujas clickeables en el gráfico. n=0 para los que no son
+       "ETF Sector" de ninguna acción (el filtro igual funciona por
+       burbuja/click en el gráfico, este conteo es solo informativo). */
+    var lista = (typeof ETFS_RRG !== 'undefined' && ETFS_RRG.length) ? ETFS_RRG : Object.keys(conteo);
+    return lista.slice().sort().map(function(etf){ return { etf: etf, n: conteo[etf] || 0 }; });
   }
 
   function _buildDropdown(){
@@ -8551,7 +8580,7 @@ try {
       '</button>' +
       '<div id="wb-etf-filter-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:50;' +
         'background:var(--bg2);border:1px solid var(--border2);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,0.4);' +
-        'width:240px;max-height:320px;display:flex;flex-direction:column;overflow:hidden;">' +
+        'width:240px;max-height:320px;flex-direction:column;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;' +
           'border-bottom:1px solid var(--border2);flex-shrink:0;">' +
           '<span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Elegí uno o más</span>' +
