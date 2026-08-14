@@ -3401,6 +3401,17 @@ if ('serviceWorker' in navigator) {
     #view-dashboard .main{padding-bottom:82px;}
     #view-planilla{padding-bottom:82px;}
     #tg-fab{bottom:86px !important;width:46px !important;height:46px !important;}
+
+    /* iOS/Android hacen zoom automático al enfocar un input con
+       font-size < 16px (para que el texto sea "legible") y después no
+       vuelven a alejar solos -- pasa con la búsqueda de ticker y
+       cualquier otro input de texto. 16px es el piso que evita el
+       zoom sin tocar el viewport ni desactivar el pinch-zoom general
+       (eso rompería poder hacer zoom en tablas/gráficos). Los inputs
+       mantienen su tamaño chico en desktop, esto solo pega en mobile. */
+    input[type="text"],input[type="number"],input[type="email"],input:not([type]),
+    .wb-search-input,#ws-search,.pl-add-input,.pago-email-input,
+    .wb-risk-form input,.wb-risk-form select{font-size:16px !important;}
   }
 
   /* ── Bottom navigation (solo mobile) ── */
