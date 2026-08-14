@@ -749,6 +749,78 @@ def contraccion_volatilidad(hist):
         return None
 
 
+def direccionalidad_5r(df):
+    """Direccionalidad 5r -- Warren Score v4.0, Paso 1/2. Eficiencia de
+    Kaufman (adimensional, 0-1) sobre el bloque de 5 cierres previos a la
+    rueda actual (la excluye a proposito): 1.0 = las 5 velas se movieron
+    todas para el mismo lado (recorrido sin retrocesos), 0.0 =
+    alternancia pura (vaiven en el mismo lugar). Usada como condicion de
+    la penalizacion "Churning en resistencia" (Paso 2) -- el factor de
+    direccionalidad que reduce el componente de Contraccion (Paso 1) usa
+    una metrica distinta, ver avance_neto_bloque_5r_atrs()."""
+    if df is None or len(df) < 6:
+        return None
+    try:
+        bloque = df['Close'].iloc[-6:-1].tolist()
+        cambios = [bloque[i] - bloque[i - 1] for i in range(1, len(bloque))]
+        suma_abs = sum(abs(c) for c in cambios)
+        if suma_abs == 0:
+            return 0.0
+        return round(abs(sum(cambios)) / suma_abs, 4)
+    except Exception:
+        return None
+
+
+def avance_neto_bloque_5r_atrs(df, atr14_pct_valor, precio_actual):
+    """Avance Neto Bloque 5r ATRs -- Warren Score v4.0, Paso 1 (v2, corrige
+    el factor de direccionalidad original). El efficiency ratio de
+    direccionalidad_5r() es adimensional: no distingue "marchar decidido"
+    de "derivar apenas" (un papel que hace +-0.2 ATR de ida y vuelta puede
+    dar el mismo ratio que uno que se movio 3 ATR derecho, si el camino
+    fue igual de parejo). Esta metrica mide MAGNITUD, no forma: cuanto se
+    movio el precio en limpio (extremo a extremo del bloque de 5 ruedas
+    previas a hoy) medido en ATRs. Una pausa real casi no neto-avanza en
+    ATRs aunque el camino haya sido derecho; un avance real si."""
+    if df is None or len(df) < 6 or atr14_pct_valor is None or atr14_pct_valor <= 0 or precio_actual is None:
+        return None
+    try:
+        atr_dolares = atr14_pct_valor / 100 * precio_actual
+        if atr_dolares <= 0:
+            return None
+        close = df['Close']
+        c_reciente = float(close.iloc[-2])
+        c_viejo    = float(close.iloc[-6])
+        return round(abs(c_reciente - c_viejo) / atr_dolares, 4)
+    except Exception:
+        return None
+
+
+def resistencia_y_amplitud(df, atr14_pct_valor, precio_actual):
+    """Dist Resistencia ATRs y Amplitud Bloque 5r ATRs -- Warren Score
+    v4.0, Paso 2 (insumos de la penalizacion "Churning en resistencia").
+    Resistencia = maximo de High de las 60 ruedas previas a la ventana
+    reciente (excluye las ultimas 10 para no confundir el techo que el
+    propio papel viene formando ahora con la resistencia contra la que
+    choca). Amplitud = que tan ancho vino el bloque de 5 ruedas previas a
+    hoy (excluye hoy, mismo criterio que direccionalidad_5r)."""
+    NULO = {'Dist Resistencia ATRs': None, 'Amplitud Bloque 5r ATRs': None}
+    if df is None or len(df) < 70 or atr14_pct_valor is None or atr14_pct_valor <= 0 or precio_actual is None:
+        return NULO
+    try:
+        atr_dolares = atr14_pct_valor / 100 * precio_actual
+        if atr_dolares <= 0:
+            return NULO
+        high, low = df['High'], df['Low']
+        resistencia = float(high.iloc[-70:-10].max())
+        dist_resistencia_atrs = round((resistencia - precio_actual) / atr_dolares, 2)
+        bloque_high = high.iloc[-6:-1]
+        bloque_low  = low.iloc[-6:-1]
+        amplitud_atrs = round((float(bloque_high.max()) - float(bloque_low.min())) / atr_dolares, 2)
+        return {'Dist Resistencia ATRs': dist_resistencia_atrs, 'Amplitud Bloque 5r ATRs': amplitud_atrs}
+    except Exception:
+        return NULO
+
+
 def detectar_sacudon(hist, base, atr14_pct_valor):
     """Modificador de sacudon (shakeout) -- Warren Score v3.1.
 
@@ -1526,6 +1598,81 @@ def _procesar_breakout_log(breakouts_log, ticker, hist, brk, hoy_str):
         print(f"    ⚠️ Error procesando breakout log de {ticker}: {e}")
 
 
+# ── Rebote en la SMA10 -- maquina de estados (Warren Score v4.0, Paso 3) ──
+# Suspende/agrava la penalizacion "Churning en resistencia" cuando el papel
+# esta buscando la SMA10 como soporte. Persistida entre corridas en
+# rebote_sma10_state.json (mismo patron que breakouts_log.json), un solo
+# registro activo por ticker (no una lista -- no hace falta historial).
+#
+# Idempotencia por FECHA DE RUEDA, no por numero de corrida: "dias" se
+# calcula ubicando 'fecha' dentro de hist.index (igual que
+# _procesar_breakout_log con 'fecha_ruptura'), asi que correr el pipeline
+# dos veces el mismo dia no avanza el estado, y saltear una jornada no lo
+# atrasa -- el conteo siempre refleja ruedas reales transcurridas.
+REBOTE_SMA10_MAX_DIAS = 2   # dias 1 y 2 son la ventana de veredicto
+
+def procesar_rebote_sma10(rebote_state, ticker, hist, sma10, sma10_slope, precio_actual, hoy_str):
+    """Devuelve dict {estado, dias, fecha, low, cierre} para HOY, y muta
+    rebote_state[ticker] in-place (lo agrega, lo deja igual, o lo borra).
+    estado in (None, 'observacion', 'confirmado', 'falso'). El frontend
+    solo necesita leer 'estado' (para suspender/agravar la penalizacion
+    "Churning en resistencia" y mostrar el badge 👀) y 'dias' (para el
+    texto "dia N de 2") -- no hace falta que reconstruya nada de fechas."""
+    resultado = {'estado': None, 'dias': None, 'fecha': None, 'low': None, 'cierre': None}
+    try:
+        entry = rebote_state.get(ticker)
+
+        if entry:
+            fechas_str = [d.strftime('%Y-%m-%d') for d in hist.index]
+            try:
+                pos = fechas_str.index(entry['fecha'])
+                dias = (len(fechas_str) - 1) - pos
+            except ValueError:
+                dias = None  # la fecha guardada ya no esta en la ventana descargada
+
+            if dias is None or dias > REBOTE_SMA10_MAX_DIAS:
+                # No localizable, o dias >= 3: se resuelve como NO confirmado -- se limpia
+                del rebote_state[ticker]
+                entry = None
+            elif dias == 0:
+                # Mismo dia en que se detecto (incluye una segunda corrida del mismo dia:
+                # idempotente, no vuelve a evaluar rebote_valido ni reescribe el estado)
+                return {'estado': 'observacion', 'dias': 0, 'fecha': entry['fecha'],
+                        'low': entry['low'], 'cierre': entry['cierre']}
+            else:  # dias in (1, 2): veredicto
+                if precio_actual > entry['cierre']:
+                    resultado = {'estado': 'confirmado', 'dias': dias, 'fecha': entry['fecha'],
+                                 'low': entry['low'], 'cierre': entry['cierre']}
+                    del rebote_state[ticker]
+                    return resultado
+                elif precio_actual < entry['low']:
+                    resultado = {'estado': 'falso', 'dias': dias, 'fecha': entry['fecha'],
+                                 'low': entry['low'], 'cierre': entry['cierre']}
+                    del rebote_state[ticker]
+                    return resultado
+                else:
+                    return {'estado': 'observacion', 'dias': dias, 'fecha': entry['fecha'],
+                            'low': entry['low'], 'cierre': entry['cierre']}
+
+        # No hay estado activo (o se acaba de limpiar arriba): buscar un rebote nuevo HOY.
+        # Las tres condiciones juntas -- la de la pendiente es la critica: si la SMA10
+        # ya se dio vuelta hacia abajo no esta actuando de soporte, el precio la esta
+        # atravesando de camino al piso.
+        if sma10 is not None and sma10_slope is not None and len(hist) >= 1:
+            low_hoy    = float(hist['Low'].iloc[-1])
+            cierre_hoy = float(precio_actual)
+            rebote_valido = (low_hoy <= sma10 * 1.005) and (cierre_hoy > sma10) and (sma10_slope > 0)
+            if rebote_valido:
+                nuevo = {'fecha': hoy_str, 'low': round(low_hoy, 2), 'cierre': round(cierre_hoy, 2)}
+                rebote_state[ticker] = nuevo
+                resultado = {'estado': 'observacion', 'dias': 0, 'fecha': nuevo['fecha'],
+                             'low': nuevo['low'], 'cierre': nuevo['cierre']}
+        return resultado
+    except Exception as e:
+        print(f"    ⚠️ Error procesando rebote SMA10 de {ticker}: {e}")
+        return resultado
+
+
 def calcular_feedback_breakouts(breakouts_log):
     """tasa de supervivencia (0-1) y tamaño de muestra sobre la poblacion
     evaluable reciente. Devuelve (None, n) si la muestra es insuficiente."""
@@ -1542,7 +1689,7 @@ def calcular_feedback_breakouts(breakouts_log):
     return round(sobrevivieron / n, 3), n
 
 
-def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
+def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str):
     try:
         tk   = yf.Ticker(ticker_symbol)
         hist = tk.history(period="2y")
@@ -1564,6 +1711,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         sma50         = round(sma50_series.iloc[-1], 2)
         sma50_ref     = sma50_series.iloc[-10] if len(sma50_series.dropna()) >= 10 else sma50_series.dropna().iloc[0]
         sma50_slope   = round(sma50 - float(sma50_ref), 4)
+        # SMA10 -- Warren Score v4.0, Paso 3 (rebote en la SMA10). Mismo
+        # metodo de pendiente que EMA200/SMA50 (diferencia absoluta contra
+        # el valor de hace 10 ruedas, no %).
+        sma10_series  = close.rolling(window=10).mean()
+        sma10         = round(sma10_series.iloc[-1], 2)
+        sma10_ref     = sma10_series.iloc[-10] if len(sma10_series.dropna()) >= 10 else sma10_series.dropna().iloc[0]
+        sma10_slope   = round(sma10 - float(sma10_ref), 4)
         dist_ema200   = round((precio_actual - ema200) / ema200 * 100, 2)
         dist_sma50    = round((precio_actual - sma50)  / sma50  * 100, 2)
 
@@ -1628,6 +1782,14 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         # volumen (eso ya lo cubre Vol Trend en el Pilar D).
         contraccion_vol_vivo = contraccion_volatilidad(hist)
 
+        # Direccionalidad, avance neto y resistencia -- Warren Score v4.0
+        # (Pasos 1 y 2). direccionalidad5r alimenta la condición de
+        # "Churning en resistencia"; avance_neto_atrs alimenta el factor
+        # de direccionalidad que reduce el componente de Contracción.
+        direccionalidad5r = direccionalidad_5r(hist)
+        avance_neto_atrs  = avance_neto_bloque_5r_atrs(hist, atr14_p, precio_actual)
+        resist            = resistencia_y_amplitud(hist, atr14_p, precio_actual)
+
         # Choppiness + Eficiencia — volatilidad sin dirección (Warren Score v2.3)
         chop = choppiness_eficiencia(hist)
 
@@ -1649,6 +1811,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
         brk = detectar_breakout(hist, vcp_techo=vcp.get('VCP Techo'))
         _procesar_breakout_log(breakouts_log, ticker_symbol, hist, brk, hoy_str)
 
+        # Rebote en la SMA10 -- máquina de estados (Warren Score v4.0, Paso 3)
+        rebote = procesar_rebote_sma10(rebote_state, ticker_symbol, hist, sma10, sma10_slope, precio_actual, hoy_str)
+
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
@@ -1660,6 +1825,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "SMA50":           sma50,
             "SMA50 Slope":     sma50_slope,
             "Dist SMA50 %":    dist_sma50,
+            "SMA10":           sma10,
+            "SMA10 Slope":     sma10_slope,
             "Máx 52W":         max_52w,
             "Dist Máx52W %":   dist_max52,
             "Mín 52W":         min_52w,
@@ -1707,6 +1874,15 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, hoy_str):
             "Vol Trend Pre Sacudon":   sacudon['vol_trend_pre_sacudon'],
             "Contraccion Volatilidad": contraccion_vol_vivo,
             "Contraccion Vol Pre Sacudon": sacudon['contraccion_vol_pre_sacudon'],
+            "Direccionalidad 5r":      direccionalidad5r,
+            "Avance Neto Bloque 5r ATRs": avance_neto_atrs,
+            "Amplitud Bloque 5r ATRs": resist['Amplitud Bloque 5r ATRs'],
+            "Dist Resistencia ATRs":   resist['Dist Resistencia ATRs'],
+            "Rebote SMA10 Estado":     rebote['estado'],
+            "Rebote SMA10 Días":       rebote['dias'],
+            "Rebote SMA10 Fecha":      rebote['fecha'],
+            "Rebote SMA10 Low":        rebote['low'],
+            "Rebote SMA10 Cierre":     rebote['cierre'],
             "ATR14 %":                 atr14_p,
             "Volatilidad Anual %":     vol_anual,
             "Choppiness":              chop['Choppiness'],
@@ -1879,6 +2055,22 @@ try:
 except Exception as e:
     print(f"  ⚠️  Error cargando breakouts_log.json: {e}")
 
+# ── CARGAR REBOTE_SMA10_STATE.JSON (máquina de estados Warren Score v4.0, Paso 3) ──
+REBOTE_SMA10_STATE_FILE = "rebote_sma10_state.json"
+rebote_state = {}
+try:
+    resp_rb = requests.get(
+        f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{REBOTE_SMA10_STATE_FILE}",
+        headers=gh_headers,
+    )
+    if resp_rb.status_code == 200:
+        rebote_state = json.loads(base64.b64decode(resp_rb.json()["content"]).decode("utf-8"))
+        print(f"  ✅ rebote_sma10_state.json cargado: {len(rebote_state)} tickers en observación")
+    else:
+        print("  ℹ️  rebote_sma10_state.json no existe todavía, arranca vacío")
+except Exception as e:
+    print(f"  ⚠️  Error cargando rebote_sma10_state.json: {e}")
+
 hoy_str = datetime.now().strftime('%Y-%m-%d')
 
 # ── LOOP PRINCIPAL ────────────────────────────────────────────
@@ -1894,7 +2086,7 @@ for grupo, tickers in TICKERS.items():
         tickers_procesados.add(ticker)
         print(f"  → {ticker}")
 
-        datos = calcular_kpis(ticker, hist_spy, breakouts_log, hoy_str)
+        datos = calcular_kpis(ticker, hist_spy, breakouts_log, rebote_state, hoy_str)
         if not datos:
             continue
 
@@ -2040,6 +2232,21 @@ if resp_bl.status_code in [200, 201]:
     print(f"✅ breakouts_log.json actualizado ({len(breakouts_log)} entradas)")
 else:
     print(f"⚠️  Error subiendo breakouts_log.json: {resp_bl.status_code} — {resp_bl.json().get('message')}")
+
+# ── EXPORTAR REBOTE_SMA10_STATE.JSON A GITHUB (Warren Score v4.0, Paso 3) ──
+rebote_state_str = json.dumps(rebote_state, ensure_ascii=False)
+rebote_state_b64 = base64.b64encode(rebote_state_str.encode()).decode()
+url_rb = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{REBOTE_SMA10_STATE_FILE}"
+resp_rb = requests.get(url_rb, headers=headers)
+sha_rb  = resp_rb.json().get("sha") if resp_rb.status_code == 200 else None
+payload_rb = {"message": f"Auto-update rebote_sma10_state {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": rebote_state_b64}
+if sha_rb:
+    payload_rb["sha"] = sha_rb
+resp_rb = requests.put(url_rb, headers=headers, json=payload_rb)
+if resp_rb.status_code in [200, 201]:
+    print(f"✅ rebote_sma10_state.json actualizado ({len(rebote_state)} tickers en observación)")
+else:
+    print(f"⚠️  Error subiendo rebote_sma10_state.json: {resp_rb.status_code} — {resp_rb.json().get('message')}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',

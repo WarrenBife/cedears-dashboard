@@ -12540,6 +12540,559 @@ try {
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V25 ═══════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V26 — Warren Score v4.0: direccionalidad, churning en
+     resistencia y rebote en SMA10
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V26"
+
+     Tres cambios, todos dentro del Pilar C (o como penalización aparte),
+     sin tocar los pesos de ningún pilar (20/30/25/25 sin cambios) ni el
+     gate, los caps de seguridad, el detector de sacudón, ni las demás
+     penalizaciones:
+
+     PASO 1 — Factor de direccionalidad sobre Contracción de volatilidad.
+     El componente medía tamaño de vela (True Range) pero no distinguía
+     un avance ordenado de una pausa real -- ambos pueden dar el mismo
+     ratio bajo. Corrección v2 (la primera versión, basada en Kaufman
+     Efficiency Ratio del bloque de 5 cierres, resultó adimensional y no
+     distinguía "marchar decidido" de "derivar apenas"): ahora mide
+     MAGNITUD neta en ATRs.
+
+         Avance Neto Bloque 5r ATRs = |cierre[-2] - cierre[-6]| / ATR14$
+         factor_direccion = 1 - 0.5 * clamp((neto_ATRs - 0.8)/1.7, 0, 1)
+         Contraccion = triangular(ratio,...) * 11.25 * factor_direccion
+
+     neto_ATRs <= 0.8 -> factor 1.0 (pausa real, sin reducción).
+     neto_ATRs >= 2.5 -> factor 0.5 (avance neto grande, mitad de puntos).
+     Sin dato (pipeline: <6 ruedas o ATR inválido) -> factor 1.0 (no
+     penaliza por falta de datos). Campo pipeline: 'Avance Neto Bloque 5r
+     ATRs' (actualizar_datos.py, avance_neto_bloque_5r_atrs()).
+
+     PASO 2 — Penalización nueva "Churning en resistencia" 🧊 (-6), fuera
+     del Pilar C (va junto a las demás penalizaciones). Dispara cuando
+     las CUATRO condiciones se cumplen a la vez:
+
+         0 < Dist Resistencia ATRs < 4        (pegado bajo la resistencia)
+         Amplitud Bloque 5r ATRs > 2.5        (rango ancho, no descansando)
+         Direccionalidad 5r < 0.35            (velas alternadas, sin rumbo)
+         Avance Pico 15r % / ATR14 % > 3      (venía estirado)
+
+     'Direccionalidad 5r' acá es el Kaufman Efficiency Ratio original
+     (pipeline: direccionalidad_5r()) -- NO se tocó, sigue siendo la
+     métrica de forma/alternancia. Es distinta de 'Avance Neto Bloque 5r
+     ATRs' del Paso 1 (métrica de magnitud). Sin ATR14 válido o sin
+     alguno de los cuatro datos, la condición no se evalúa y la
+     penalización no dispara (falta de dato no castiga).
+
+     PASO 3 — Rebote en la SMA10: máquina de estados con memoria entre
+     corridas del pipeline (rebote_sma10_state.json, idempotente por
+     fecha de rueda -- ver actualizar_datos.py, procesar_rebote_sma10()).
+     El pipeline resuelve el veredicto completo cada corrida (tiene el
+     calendario de ruedas real; el frontend no) y expone 'Rebote SMA10
+     Estado' ∈ {null, 'observacion', 'confirmado', 'falso'} + 'Rebote
+     SMA10 Días' + Fecha/Low/Cierre de referencia. El frontend solo lee
+     el resultado:
+
+         'falso'                       -> -8 (agravada, reemplaza al -6)
+         'observacion' | 'confirmado'  -> 0 (churning suspendido/anulado)
+         null                          -> aplica el chequeo normal del Paso 2
+
+     Badge propio 👀 en la tabla y línea explicativa en la ficha cuando
+     el estado es 'observacion' (día N de 2).
+
+     Pilares A, B, D, gates, restas y penalizaciones existentes: SIN
+     CAMBIOS, copias verbatim de WB UPGRADE V25.
+
+     Versionado: WB_SCORE_VERSION pasa de '3.9' a '4.0' (agrega
+     componente + penalización nueva, misma vara que V23/V24 -- nueva
+     serie de ranking, wsRankSnapSave y renderWarrenScore actualizados).
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="wb-v26-js">
+(function(){
+'use strict';
+try {
+
+var WB_SCORE_VERSION_43 = '4.0';
+
+/* ── Gates -- SIN CAMBIOS, copia verbatim de V25 ── */
+function _evalGatesV43(d) {
+  const fallas = [];
+  const precio = d['Precio'], ema200 = d['EMA200'];
+  if (precio === null || ema200 === null || precio <= ema200) fallas.push('Precio ≤ EMA200');
+  return fallas;
+}
+
+/* ── Pilar A -- SIN CAMBIOS, copia verbatim de V25 ── */
+function _pilarAv4V43(d){
+  let pts = 0;
+  const atr14 = d['ATR14 %'];
+  const atrValido = atr14 !== null && atr14 !== undefined && atr14 > 0;
+  const distSma50 = d['Dist SMA50 %'];
+
+  if (distSma50 !== null && distSma50 !== undefined) {
+    if (atrValido) {
+      const distSma50ATRs = distSma50 / atr14;
+      pts += _tri(distSma50ATRs, -5, -2, 4, 8) * 10;
+    } else if (distSma50 >= -5 && distSma50 <= 20) {
+      pts += 10;
+    } else {
+      const exceso = distSma50 < -5 ? (-5 - distSma50) : (distSma50 - 20);
+      pts += Math.max(0, 10 - exceso);
+    }
+  }
+
+  if (atrValido) {
+    const distATRs = d['Dist EMA200 %'] / atr14;
+    pts += _tri(distATRs, 0, 0, 8, 14) * 5.8333;
+  } else {
+    pts += _tri(d['Dist EMA200 %'], 0, 10, 50, 70) * 5.8333;
+  }
+
+  pts += _lineal(d['EMA200 Slope'], 0, 0.15, 0, 4.1667);
+  return Math.min(pts, 20);
+}
+
+/* ── Pilar B -- SIN CAMBIOS, copia verbatim de V25 ── */
+function _fuerzaUnificadaV43(rs, rsSemana){
+  const viaNivel = _lineal(rs, 45, 75, 0, 25);
+  let viaDelta = 0;
+  if (rsSemana !== null && rsSemana !== undefined) {
+    const deltaSemanal = rs - rsSemana;
+    const destino = _lineal(rs, 40, 65, 0.30, 1.0);
+    viaDelta = _lineal(deltaSemanal, 0, 25, 0, 25) * destino;
+  }
+  return { viaNivel, viaDelta, pts: Math.max(viaNivel, viaDelta) };
+}
+function _pilarBv5V43(d){
+  const rs = d['RS Score'];
+  const ptsFR = _bool(d['FR > SMA50']) ? 5 : 0;
+  if (rs === null || rs === undefined) {
+    return Math.min(ptsFR * (30 / 5), 30);
+  }
+  const { pts: ptsFuerza } = _fuerzaUnificadaV43(rs, d['RS Semana ant.']);
+  return Math.min(ptsFuerza + ptsFR, 30);
+}
+
+/* ── Pilar C — Setup Corto (25 pts) — Contracción de volatilidad ahora
+   multiplicada por factor_direccion (Paso 1). RSI y VCP sin cambios. ── */
+function _pilarCv43(d){
+  const sacudon = _bool(d['Sacudon Activo']);
+  const actual = d['Contraccion Volatilidad'];
+  const pre = d['Contraccion Vol Pre Sacudon'];
+  let ratio;
+  if (sacudon && pre !== null && pre !== undefined) {
+    ratio = (actual !== null && actual !== undefined) ? Math.min(actual, pre) : pre;
+  } else {
+    ratio = actual;
+  }
+
+  const netoAtrs = d['Avance Neto Bloque 5r ATRs'];
+  const factorDireccion = (netoAtrs === null || netoAtrs === undefined)
+    ? 1.0
+    : 1 - 0.5 * Math.max(0, Math.min(1, (netoAtrs - 0.8) / 1.7));
+
+  const ptsContraccion = (ratio === null || ratio === undefined)
+    ? null
+    : _tri(ratio, 0.30, 0.45, 0.80, 1.15) * 11.25 * factorDireccion;
+
+  const ptsRSI = _tri(d['RSI 14'], 30, 45, 60, 70) * 8.25;
+
+  let ptsVcp = 0;
+  if (_bool(d['VCP Detected'])) {
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 4.4);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 1.1;
+    ptsVcp = Math.min(pv, 5.5);
+  }
+
+  const disponibleSinContraccion = ptsRSI + ptsVcp;
+  if (ptsContraccion === null) {
+    /* Contraccion Volatilidad no computable -- reponderar sobre los
+       puntos disponibles (RSI + VCP detectado, techo 13.75) al techo
+       del pilar (25), no cero duro. Sin cambios respecto de V24/V25. */
+    return Math.min(disponibleSinContraccion * (25 / 13.75), 25);
+  }
+  return Math.min(ptsContraccion + disponibleSinContraccion, 25);
+}
+
+/* ── Pilar D -- SIN CAMBIOS, copia verbatim de V25 ── */
+function _pilarDv6V43(d){
+  const distMin = d['Dist Mín52W %'];
+  const volA = d['Volatilidad Anual %'];
+  let ptsExt;
+  if (distMin !== null && distMin !== undefined && volA !== null && volA !== undefined && volA > 0) {
+    const ext = distMin / volA;
+    ptsExt = _tri(ext, 0.3, 0.5, 1.8, 3.2) * 5;
+  } else {
+    ptsExt = _tri(distMin, 25, 35, 110, 220) * 5;
+  }
+
+  const semanas = d['Base Semanas'];
+  const ptsSemanas = (semanas !== null && semanas !== undefined) ? _tri(semanas, 4, 7, 26, 55) * 10.5 : 0;
+
+  const pos = d['Base Posición %'];
+  const ptsPos = (pos !== null && pos !== undefined) ? _lineal(pos, 20, 50, 0, 6.5) : 0;
+
+  const disponibleSinVT = ptsExt + ptsSemanas + ptsPos;
+
+  const sacudon = _bool(d['Sacudon Activo']);
+  const vtrendPre = d['Vol Trend Pre Sacudon'];
+  if (sacudon && vtrendPre !== null && vtrendPre !== undefined && vtrendPre < 1.2) {
+    return Math.min(disponibleSinVT + 3, 25);
+  }
+
+  const vtrend = d['Vol Trend'];
+  if (vtrend === null || vtrend === undefined) {
+    return Math.min(disponibleSinVT * (25 / 22), 25);
+  }
+  const ptsVT = _lineal(vtrend, 0.8, 1.2, 3, 0);
+  return Math.min(disponibleSinVT + ptsVT, 25);
+}
+
+/* ── Verticalidad reciente y Volatilidad sin dirección -- SIN CAMBIOS,
+   copias verbatim de V25 ── */
+function _restaVerticalidadV43(d){
+  const atrP = d['ATR14 %'], avPico = d['Avance Pico 15r %'];
+  if (atrP === null || atrP === undefined || atrP <= 0 ||
+      avPico === null || avPico === undefined) {
+    return { resta: 0, velocidadAtrs: null };
+  }
+  const velocidadAtrs = avPico / atrP;
+  return { resta: _lineal(velocidadAtrs, 5, 11, 0, 8), velocidadAtrs };
+}
+function _restaVolatilidadSinDireccionV43(d){
+  const chop = d['Choppiness'], efi = d['Eficiencia 10d'];
+  if (chop === null || chop === undefined || efi === null || efi === undefined) {
+    return { resta: 0, chop: null, efi: null, activa: false };
+  }
+  if (!(chop > 1.3 && efi < 0.35)) return { resta: 0, chop, efi, activa: false };
+  const fChop = _lineal(chop, 1.3, 2.0, 0, 1);
+  const fEfi  = _lineal(efi, 0.35, 0, 0, 1);
+  const severidad = (fChop + fEfi) / 2;
+  return { resta: severidad * 5, chop, efi, activa: true };
+}
+
+/* ── Churning en resistencia (Paso 2) -- las cuatro condiciones deben
+   cumplirse a la vez. Ninguno de los cuatro datos disponible -> false
+   (falta de dato no castiga). ── */
+function _churningResistenciaV43(d){
+  const distRes  = d['Dist Resistencia ATRs'];
+  const amplitud = d['Amplitud Bloque 5r ATRs'];
+  const direc    = d['Direccionalidad 5r'];
+  const atrP     = d['ATR14 %'];
+  const avPico   = d['Avance Pico 15r %'];
+  if (distRes === null || distRes === undefined ||
+      amplitud === null || amplitud === undefined ||
+      direc === null || direc === undefined ||
+      atrP === null || atrP === undefined || atrP <= 0 ||
+      avPico === null || avPico === undefined) {
+    return false;
+  }
+  const velocidadAtrs = avPico / atrP;
+  return (distRes > 0 && distRes < 4) &&
+         (amplitud > 2.5) &&
+         (direc < 0.35) &&
+         (velocidadAtrs > 3);
+}
+
+/* ── Penalizaciones -- copia de V25 + Churning en resistencia (Paso 2)
+   con el override de la máquina de estados del rebote en SMA10 (Paso 3).
+   El resto de las condiciones: SIN CAMBIOS. ── */
+function _penalizacionesV43(d){
+  let pen = 0; const flags = [];
+  const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
+  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
+  const atrP = d['ATR14 %'];
+
+  const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
+    ? (d50 !== null && d50 / atrP > 7)
+    : (d50 !== null && d50 > 25);
+  if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('🎈'); }
+
+  const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
+  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('🩸'); }
+
+  const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
+  if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('💥'); }
+
+  const boDays = d['Breakout Days Ago'];
+  if (!_bool(d['Breakout Fresh']) && boDays !== null && boDays > 5 && boDays <= 15) {
+    if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
+  }
+
+  if (!_vcpAlto(d)) {
+    const distMin = d['Dist Mín52W %'];
+    if (distMin !== null && distMin !== undefined && distMin < 20) {
+      const resta52 = _lineal(distMin, 0, 20, 20, 0);
+      if (resta52 > 0) { pen -= resta52; flags.push('🔻'); }
+    }
+  }
+
+  const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
+  const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
+  if (nAgot >= 1) {
+    pen -= nAgot === 1 ? 4 : 10;
+    if (divRsi) flags.push('📉');
+    if (divObv) flags.push('🪫');
+    if (churn)  flags.push('🐘');
+  }
+
+  /* 🧊 Churning en resistencia + máquina de estados del rebote en SMA10
+     (Warren Score v4.0, Pasos 2 y 3). El pipeline ya resolvió el
+     veredicto del rebote (tiene el calendario de ruedas real) -- acá
+     solo se lee el resultado. */
+  const rebEstado = d['Rebote SMA10 Estado'];
+  if (rebEstado === 'falso') {
+    pen -= 8; flags.push('🧊');
+  } else if (rebEstado === 'observacion') {
+    flags.push('👀');
+  } else if (rebEstado === 'confirmado') {
+    /* rebote confirmado: churning anulado, sin flag (la barrida ya quedó atrás) */
+  } else if (_churningResistenciaV43(d)) {
+    pen -= 6; flags.push('🧊');
+  }
+
+  return { pen, flags };
+}
+
+/* ── calcWarrenDetalleV43 -- misma firma, Pilar C con factor de
+   direccionalidad + penalización de churning/rebote, todo lo demás
+   IDÉNTICO a WB UPGRADE V25 ── */
+window.calcWarrenDetalleV43 = function(d){
+  const fallas = _evalGatesV43(d);
+  const sacudon = _bool(d['Sacudon Activo']);
+
+  const pa = _pilarAv4V43(d);
+  const pb = _pilarBv5V43(d);
+  const { resta: restaVertRaw, velocidadAtrs } = _restaVerticalidadV43(d);
+  const { resta: restaChopRaw, activa: chopActiva } = _restaVolatilidadSinDireccionV43(d);
+  const restaVert = sacudon ? 0 : restaVertRaw;
+  const restaChop = sacudon ? 0 : restaChopRaw;
+  const pc = Math.max(0, _pilarCv43(d) - restaVert - restaChop);
+  const pd = _pilarDv6V43(d);
+  const { pen, flags } = _penalizacionesV43(d);
+  if (chopActiva && !sacudon) flags.push('🌪️');
+  if (sacudon) flags.push('🫨');
+
+  const sumRaw = pa + pb + pc + pd + pen;
+  let score = Math.round(Math.max(0, Math.min(100, sumRaw)) * 10) / 10;
+  if (fallas.length > 0) score = Math.min(score, 40);
+
+  if (d['Dist Máx52W %'] === null || d['Dist Máx52W %'] === undefined ||
+      d['Dist Mín52W %'] === null || d['Dist Mín52W %'] === undefined) {
+    score = Math.min(score, 40);
+  }
+
+  const UMBRAL_ATR = 6;
+  const _atr14g = d['ATR14 %'], _d50g = d['Dist SMA50 %'];
+  if (_atr14g !== null && _atr14g !== undefined && _atr14g > 0 &&
+      _d50g  !== null && _d50g  !== undefined) {
+    const _estirado   = _d50g / _atr14g > UMBRAL_ATR;
+    const _sinPausa   = d['Base Semanas'] === null || d['Base Semanas'] === undefined || +d['Base Semanas'] < 2;
+    const _agotandose = _bool(d['Div RSI']) || _bool(d['Div OBV']) || _bool(d['Churn Máximos']);
+    if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
+  }
+
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, version: WB_SCORE_VERSION_43 };
+};
+
+window.calcWarrenDetalle = window.calcWarrenDetalleV43;
+
+/* ── wsRankSnapSave -- copia verbatim de V25, version '4.0' ── */
+window.wsRankSnapSave = function() {
+  if (!DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return;
+  const hoy = new Date().toISOString().slice(0, 10);
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null'); } catch(e) {}
+  if (snap && snap.date === hoy && snap.version === WB_SCORE_VERSION_43) return;
+  const ranks = {};
+  DATOS
+    .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .forEach((x, i) => { ranks[x.t] = i + 1; });
+  const prevValido = !!(snap && snap.version === WB_SCORE_VERSION_43);
+  try {
+    localStorage.setItem('wb_ws_ranks', JSON.stringify({
+      date: hoy, version: WB_SCORE_VERSION_43, ranks, prev: prevValido ? (snap.ranks || {}) : {}
+    }));
+  } catch(e) {}
+};
+
+/* ── renderWarrenScore -- copia verbatim de WB UPGRADE V25 (mantiene el
+   buscador de ticker), cambios: version '3.9' -> '4.0', + tooltips de
+   🧊 y 👀 en el mapa de flags. Techos de pilar sin cambios (20/30/25/25),
+   no hace falta tocar el resto de la tabla. ── */
+window.renderWarrenScore = function() {
+  const filtro = document.getElementById('ws-min').value;
+  const topN   = parseInt(document.getElementById('ws-n').value);
+  const searchEl = document.getElementById('ws-search');
+  const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+
+  let data = getDatosFiltrados()
+    .map(d => ({ d, ...calcWarrenDetalle(d) }))
+    .filter(x => x.score > 0)
+    .filter(x => {
+      if (filtro === 'gates') return x.fallas.length === 0;
+      if (filtro === '50')    return x.score >= 50;
+      if (filtro === '60')    return x.score >= 60;
+      return true;
+    });
+
+  if (searchTerm) {
+    data = data.filter(x => (x.d['Ticker'] || '').toLowerCase().indexOf(searchTerm) !== -1);
+  }
+
+  data = data.sort((a, b) => b.score - a.score);
+  if (!searchTerm) data = data.slice(0, topN);
+
+  const scoreBadge = s => {
+    const cls = s >= 70 ? 'pill-green' : s >= 50 ? 'pill-blue' : 'pill-amber';
+    return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
+  };
+  const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+  const pilarBadge = (v, max, ckId) => {
+    if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
+    const pct = v / max;
+    const cls = pct >= 0.7 ? 'pill-green' : pct >= 0.4 ? 'pill-amber' : 'pill-red';
+    return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
+  };
+
+  const _allRanks = {};
+  if (DATOS && DATOS.length) {
+    DATOS
+      .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .forEach((x, i) => { _allRanks[x.t] = i + 1; });
+  }
+  let _prevRanks = {};
+  try {
+    const _snap = JSON.parse(localStorage.getItem('wb_ws_ranks') || 'null');
+    if (_snap && _snap.version === '4.0') _prevRanks = _snap.prev || {};
+  } catch(e) {}
+
+  const body = document.getElementById('warren-body');
+  body.innerHTML = data.length === 0
+    ? `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">${searchTerm ? 'Ningún ticker coincide con "' + searchEl.value.trim() + '"' : 'Sin resultados'}</td></tr>`
+    : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags }) => {
+        const ticker   = d['Ticker'];
+        const globalPos = _allRanks[ticker] || null;
+        const prevPos   = _prevRanks[ticker];
+        let deltaHtml = '';
+        if (prevPos && globalPos) {
+          const delta = prevPos - globalPos;
+          if (delta > 0)      deltaHtml = `<span style="color:var(--green);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▲${delta}</span>`;
+          else if (delta < 0) deltaHtml = `<span style="color:var(--red);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▼${Math.abs(delta)}</span>`;
+          else                deltaHtml = `<span style="color:var(--muted);font-size:9px;line-height:1">—</span>`;
+        }
+        const gatesOk  = fallas.length === 0;
+        const gatesHtml = gatesOk
+          ? `<span style="color:var(--green);font-size:12px">✓</span>`
+          : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
+        const penHtml  = pen < 0
+          ? `<span style="color:var(--red);font-size:11px" title="${flags.join(', ')}">${pen}</span>`
+          : `<span style="color:var(--muted);font-size:11px">—</span>`;
+        const isBrk   = isValidBreakout(d);
+        const trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
+        const brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
+        return `<tr ${trStyle}>
+          <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
+          <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
+          <td style="text-align:center">${gatesHtml}</td>
+          <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
+          <td style="text-align:center">${pilarBadge(pb, 30, 'ws-pb')}</td>
+          <td style="text-align:center">${pilarBadge(pc, 25, 'ws-pc')}</td>
+          <td style="text-align:center">${pilarBadge(pd, 25, 'ws-pd')}</td>
+          <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+          <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🔻':'Cerca del mínimo de 52 semanas','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana'}[f]||f;
+            const esPositivo = f === '🫨' || f === '👀';
+            const flagStyle = esPositivo
+              ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
+              : 'font-size:13px;cursor:default';
+            return `<span title="${tip}" style="${flagStyle}">${f}</span>`;
+          }).join('') : ''}</td>
+        </tr>`;
+      }).join('');
+};
+
+/* ── Ficha -- envuelve _buildFicha de nuevo (mismo patrón que V12/V17/
+   V19/V23/V24) para: (a) actualizar la línea de "Contracción de
+   volatilidad" con el factor de direccionalidad, (b) agregar una línea
+   con el estado del rebote en SMA10 cuando está en observación. ── */
+var _buildFichaPreV26 = (typeof window._buildFicha === 'function') ? window._buildFicha : _buildFicha;
+window._buildFicha = function(d){
+  var h = _buildFichaPreV26(d);
+  try {
+    var sacudon = _bool(d['Sacudon Activo']);
+    var actual = d['Contraccion Volatilidad'];
+    var pre = d['Contraccion Vol Pre Sacudon'];
+    var ratio, viaPre = false;
+    if (sacudon && pre !== null && pre !== undefined) {
+      if (actual !== null && actual !== undefined && actual <= pre) {
+        ratio = actual;
+      } else {
+        ratio = pre;
+        viaPre = true;
+      }
+    } else {
+      ratio = actual;
+    }
+
+    var netoAtrs = d['Avance Neto Bloque 5r ATRs'];
+    var factorDireccion = (netoAtrs === null || netoAtrs === undefined)
+      ? 1.0
+      : 1 - 0.5 * Math.max(0, Math.min(1, (netoAtrs - 0.8) / 1.7));
+
+    var linea;
+    if (ratio === null || ratio === undefined) {
+      linea = '<div style="margin-top:3px;font-size:10px;color:#737d8f;">Contracción de volatilidad: sin dato (&lt;20 ruedas) — Pilar C reponderado</div>';
+    } else {
+      var pts = Math.min(_tri(ratio, 0.30, 0.45, 0.80, 1.15) * 11.25 * factorDireccion, 11.25);
+      var color = pts >= 8.44 ? '#22c98a' : (pts <= 1.41 ? '#f0645c' : '#737d8f');
+      var descripcion;
+      if (netoAtrs === null || netoAtrs === undefined) {
+        descripcion = 'sin dato de avance neto';
+      } else if (factorDireccion >= 0.999) {
+        descripcion = 'pausa real, avance neto ' + netoAtrs.toFixed(2) + ' ATR';
+      } else {
+        descripcion = 'avance direccional, no pausa (' + netoAtrs.toFixed(2) + ' ATR netos)';
+      }
+      linea = '<div style="margin-top:3px;font-size:10px;color:' + color + ';">Contracción: '
+        + pts.toFixed(2) + '/11.25 (ratio ' + ratio.toFixed(2) + ' × factor ' + factorDireccion.toFixed(2)
+        + ' — ' + descripcion + ')'
+        + (viaPre ? ' (medido pre-sacudón)' : '') + '</div>';
+    }
+    h = h.replace(/<div style="margin-top:3px;font-size:10px;color:[^"]*;">Contracci[oó]n[^<]*:[\s\S]*?<\/div>/, linea);
+
+    if (d['Rebote SMA10 Estado'] === 'observacion') {
+      var dias = d['Rebote SMA10 Días'];
+      var lineaRebote = '<div style="margin-top:3px;font-size:10px;color:#f5c842;">👀 Rebotó en la SMA10 el '
+        + d['Rebote SMA10 Fecha'] + ' — en observación (día ' + dias + ' de 2)</div>';
+      var idxContr = h.indexOf('Contracción:');
+      if (idxContr !== -1) {
+        var idxCierre = h.indexOf('</div>', idxContr) + '</div>'.length;
+        h = h.slice(0, idxCierre) + lineaRebote + h.slice(idxCierre);
+      } else {
+        h = h + lineaRebote;
+      }
+    }
+  } catch(e) { console.error('WB V26 ficha error', e); }
+  return h;
+};
+
+try {
+  if (typeof DATOS !== 'undefined' && DATOS && DATOS.length && typeof renderWarrenScore === 'function') {
+    renderWarrenScore();
+  }
+} catch(e){}
+
+} catch(e){ console.error('WB V26 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V26 ═══════════════ -->
+
 
 </body>
 </html>
