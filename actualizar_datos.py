@@ -418,21 +418,41 @@ def avance_pico_15r(df):
 
 
 def choppiness_eficiencia(df):
-    """Choppiness (ATR14% actual vs hace 20 ruedas) y Eficiencia (Kaufman ER, 10 ruedas).
-    Detecta 'volatilidad sin dirección' — velas grandes sin avance neto, firma de
-    posible distribución (Warren Score v2.3, caso VOD)."""
-    if df is None or len(df) < 35:
+    """Choppiness (ventana corta, Warren Score v4.1) y Eficiencia (Kaufman
+    ER, 10 ruedas, SIN CAMBIOS). Detecta 'volatilidad sin dirección' --
+    velas grandes sin avance neto, firma de posible distribución (Warren
+    Score v2.3, caso VOD).
+
+    Choppiness: mediana del True Range de las últimas 4 ruedas vs mediana
+    del TR de las 20 ruedas previas a esas, sin solapamiento. La
+    definición anterior (ATR14% de hoy vs ATR14% de hace 20 ruedas, ambos
+    promedios de 14 ruedas) estaba estructuralmente incapacitada para
+    detectar una expansión de volatilidad de 3-5 ruedas -- hacían falta
+    ~13 velas consecutivas grandes para mover el promedio de 14 lo
+    suficiente; para entonces la corrección ya había ocurrido. La
+    ventana corta reacciona en 3-4 ruedas. Medianas (no promedios) en
+    ambos lados para que un solo día extremo no dispare la señal ni
+    distorsione la referencia -- mismo criterio que
+    contraccion_volatilidad(). Ratio entre dos medianas del mismo TR en
+    USD: no hace falta normalizar por precio, se cancela."""
+    if df is None or len(df) < 24:
         return {'Choppiness': None, 'Eficiencia 10d': None}
     try:
         close = df['Close']
-        atr14_abs = _atr14_series(df)
-        if atr14_abs is None:
-            return {'Choppiness': None, 'Eficiencia 10d': None}
-        atr14_pct_ser = atr14_abs / close * 100
-        atr_hoy = atr14_pct_ser.iloc[-1]
-        atr_20r = atr14_pct_ser.iloc[-21]
-        choppiness = (round(float(atr_hoy / atr_20r), 4)
-                      if pd.notna(atr_hoy) and pd.notna(atr_20r) and atr_20r > 0 else None)
+        high, low = df['High'], df['Low']
+        prev = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev).abs(),
+            (low  - prev).abs()
+        ], axis=1).max(axis=1).dropna()
+        if len(tr) < 24:
+            choppiness = None
+        else:
+            t = tr.tail(24).tolist()
+            reciente   = float(pd.Series(t[-4:]).median())
+            referencia = float(pd.Series(t[-24:-4]).median())
+            choppiness = round(reciente / referencia, 4) if referencia > 0 else None
 
         cambio_neto = abs(close.iloc[-1] - close.iloc[-11])
         recorrido   = close.tail(11).diff().abs().sum()
@@ -1555,6 +1575,291 @@ def detectar_breakout(hist, vcp_techo=None, lookback=20, vol_factor=1.5, frescur
                 'Breakout Vol OK': False, 'Breakout Vol Ratio': None, 'Pivot': None}
 
 
+# ── Reintento a un máximo previo -- bono ER + penalización Caso B ────
+# (Warren Score v4.1). Metodología completa, validación a escala (255
+# tickers, 2 años) y el detalle de las líneas descartadas están en
+# wb_research/analisis_mu_fcx_bhp/INFORME_eficiencia_kaufman_dia_maximo.md
+# -- NO tocar los umbrales sin revisar ese informe primero.
+#
+# Dos ramas, con DOS definiciones distintas de "día de referencia" -- cada
+# una se validó a escala con su propia construcción exacta, no son
+# intercambiables:
+#   - BONO: "día del máximo" = primer día causal, dentro de los 15 días de
+#     entrar en zona, con nuevo cierre máximo del intento + RVOL10>1 +
+#     RSI>60 A LA VEZ. Validado con ER de Kaufman creciente (día 4-10).
+#   - CASO B: "día 1" = el ÚLTIMO día causal (no el primero) dentro de esa
+#     misma ventana de 15 días que hace nuevo máximo del intento CON
+#     RVOL10>=1 (sin exigir RSI). Desde ahí, hasta 7 días (con tope
+#     adicional de zona_idx+20): si hace un nuevo cierre por encima del
+#     día 1 en ese lapso, es Caso A (no penaliza); si no, es Caso B, y el
+#     promedio de RVOL10 de esos días sin progreso decide si es sano
+#     (<1, no penaliza) o riesgoso (>=1, penaliza).
+REINTENTO_PICO_LOOKBACK   = 60
+REINTENTO_CORRECCION_MIN  = 0.15
+REINTENTO_BANDA           = 0.10
+REINTENTO_MAX_DIAS        = 150
+REINTENTO_TAZA_MIN_DIAS   = 10    # validado para el bono (5-8d) y para Caso B (72.4% fracaso a este mínimo)
+REINTENTO_PROFUNDIDAD_MAX = 0.50
+REINTENTO_BUSQUEDA_MAX    = 15    # ruedas para encontrar el día de referencia desde que entra en zona
+REINTENTO_ER_DIA_INICIO   = 4     # el bono empieza a valorizar desde el día 4 posterior al día del máximo
+REINTENTO_ER_DIA_TOPE     = 10    # ventana más larga validada con señal real -- se congela después
+REINTENTO_ER_PISO         = 0.65  # ER por debajo de esto: 0 puntos de bono
+REINTENTO_ER_TECHO        = 0.90  # ER a partir de esto: bono máximo
+REINTENTO_ER_BONO_MAX     = 10.0
+REINTENTO_BOMBA_FRESCURA  = 7     # días que una "bomba" se muestra en el panel Episodic Pivots & Bombs
+REINTENTO_BOMBA_MIN_VENTANA = 5   # ventana mínima de pausa (ruedas) para confirmar una bomba -- con menos, el ER es ruidoso (caso real: PLTR dio 1.0000 con solo 3 ruedas)
+REINTENTO_CAIDA_ZONA      = REINTENTO_BANDA + 0.05  # si el High cae más de esto del máximo previo, el evento se invalida
+REINTENTO_CASOB_EVAL_DIAS = 7      # ruedas desde "día 1" para ver si progresa (Caso A) o no (Caso B)
+REINTENTO_CASOB_TOPE_EXTRA = 5     # tope adicional: zona_idx + BUSQUEDA_MAX + este valor
+REINTENTO_CASOB_PEN_MIN_DIAS = 10  # duración de taza a la que empieza la penalización mínima
+REINTENTO_CASOB_PEN_MAX_DIAS = 25  # duración de taza a la que llega a la penalización máxima
+REINTENTO_CASOB_PEN_MIN      = 15.0  # penalización (puntos, positivo) a REINTENTO_CASOB_PEN_MIN_DIAS
+REINTENTO_CASOB_PEN_MAX      = 25.0  # penalización (puntos, positivo) a REINTENTO_CASOB_PEN_MAX_DIAS
+
+
+def _rsi14_serie_completa(close):
+    """RSI14 (Wilder) de TODA la serie -- calcular_rsi() sólo devuelve el
+    valor de hoy; el detector de reintento necesita el histórico completo
+    para encontrar causalmente el "día del máximo" dentro de la zona de
+    reintento."""
+    delta    = close.diff()
+    ganancia = delta.clip(lower=0)
+    perdida  = (-delta.clip(upper=0))
+    alpha    = 1 / 14
+    avg_gan  = ganancia.ewm(alpha=alpha, min_periods=14, adjust=False).mean()
+    avg_per  = perdida.ewm(alpha=alpha, min_periods=14, adjust=False).mean()
+    rs = avg_gan / avg_per
+    return (100 - (100 / (1 + rs)))
+
+
+def _picos_causales_reintento(high, lookback=REINTENTO_PICO_LOOKBACK):
+    """Máximo local 100% causal (sin mirar datos futuros): agrupa rachas
+    de "nuevo máximo de N ruedas" consecutivas y se queda con el día más
+    alto de cada racha. Misma lógica validada en wb_research (fix del bug
+    de detección de picos con ventana centrada -- ver informe)."""
+    n = len(high)
+    es_nuevo_max = np.zeros(n, dtype=bool)
+    for i in range(lookback, n):
+        prev_max = high[max(0, i - lookback):i].max()
+        if high[i] >= prev_max:
+            es_nuevo_max[i] = True
+    picos = []
+    i = 0
+    while i < n:
+        if es_nuevo_max[i]:
+            j = i
+            while j + 1 < n and es_nuevo_max[j + 1]:
+                j += 1
+            racha = range(i, j + 1)
+            picos.append(max(racha, key=lambda k: high[k]))
+            i = j + 1
+        else:
+            i += 1
+    return picos
+
+
+def _er_estandar_kaufman(close_block):
+    """Eficiencia de Kaufman estándar: |cambio neto de cierre| / recorrido
+    total de cierre a cierre. Sin cuerpo, sin mechas, sin gaps -- la única
+    versión que se sostuvo validada a escala (ver informe)."""
+    n = len(close_block)
+    if n < 2:
+        return None
+    cambio_neto = abs(close_block[-1] - close_block[0])
+    recorrido = sum(abs(close_block[i] - close_block[i - 1]) for i in range(1, n))
+    return cambio_neto / recorrido if recorrido > 0 else None
+
+
+def _penalizacion_casob_pts(duracion_taza):
+    """Magnitud de la penalización (positiva, se resta en el pilar de
+    penalizaciones), lineal entre REINTENTO_CASOB_PEN_MIN_DIAS (15 pts) y
+    REINTENTO_CASOB_PEN_MAX_DIAS (25 pts) según la duración de la taza."""
+    d0, d1 = REINTENTO_CASOB_PEN_MIN_DIAS, REINTENTO_CASOB_PEN_MAX_DIAS
+    p0, p1 = REINTENTO_CASOB_PEN_MIN, REINTENTO_CASOB_PEN_MAX
+    if duracion_taza <= d0:
+        return p0
+    if duracion_taza >= d1:
+        return p1
+    t = (duracion_taza - d0) / (d1 - d0)
+    return p0 + t * (p1 - p0)
+
+
+def detectar_reintento_maximo(hist):
+    """
+    Bono de eficiencia (ER de Kaufman) + penalización Caso B para el
+    patrón "reintento a un máximo previo" -- Warren Score v4.1.
+
+    Devuelve:
+      'Bono ER Pts'       -- 0-10: puntos de bono si HOY está en la ventana
+                              creciente (día 4-10 desde el "día del máximo")
+                              sin haber roto el máximo previo todavía.
+      'Bomba Hoy'          -- True si HOY es el día que rompió el máximo
+                              previo con el bono ER activo (ER>=piso ese día).
+      'Bomba Dias Ago'     -- días desde la última "bomba" (0-7, o None) --
+                              para el panel Episodic Pivots & Bombs.
+      'Caso B Penalizado'  -- True si HOY el papel está en Caso B riesgoso
+                              (deambulando sin confirmar, con volumen que
+                              no bajó) -- ver metodología arriba.
+      'Caso B Pts'          -- magnitud de la penalización (positiva, 15-25)
+                              si 'Caso B Penalizado' es True; si no, 0.0.
+    """
+    resultado = {'Bono ER Pts': 0.0, 'Bomba Hoy': False, 'Bomba Dias Ago': None,
+                 'Caso B Penalizado': False, 'Caso B Pts': 0.0}
+    try:
+        high  = hist['High'].values
+        low   = hist['Low'].values
+        close = hist['Close'].values
+        vol   = hist['Volume'].values
+        n = len(close)
+        piso_min = REINTENTO_PICO_LOOKBACK + REINTENTO_TAZA_MIN_DIAS + REINTENTO_BUSQUEDA_MAX + REINTENTO_ER_DIA_INICIO
+        if n < piso_min:
+            return resultado
+
+        rsi = _rsi14_serie_completa(hist['Close']).values
+        vol_sma10_prior = pd.Series(vol).shift(1).rolling(10).mean().values
+        rvol10 = vol / vol_sma10_prior
+
+        picos = _picos_causales_reintento(high)
+        hoy = n - 1
+        mejor_bomba_dias_ago = None
+
+        for p in picos:
+            pico_high = high[p]
+
+            fin_corr = min(p + 90, n)
+            if fin_corr <= p + 1:
+                continue
+            ventana_corr = low[p + 1:fin_corr]
+            if len(ventana_corr) == 0:
+                continue
+            min_low = ventana_corr.min()
+            min_low_idx = p + 1 + int(np.argmin(ventana_corr))
+            drawdown = (pico_high - min_low) / pico_high
+            if drawdown < REINTENTO_CORRECCION_MIN or drawdown > REINTENTO_PROFUNDIDAD_MAX:
+                continue
+
+            fin_reap = min(p + REINTENTO_MAX_DIAS, n)
+            zona_idx = None
+            for j in range(min_low_idx + 1, fin_reap):
+                if high[j] >= pico_high * (1 - REINTENTO_BANDA):
+                    zona_idx = j
+                    break
+            if zona_idx is None:
+                continue
+            duracion_taza = zona_idx - p
+            if duracion_taza < REINTENTO_TAZA_MIN_DIAS:
+                continue
+
+            fin_busq = min(zona_idx + REINTENTO_BUSQUEDA_MAX, n)
+
+            # ── Rama CASO B: "día 1" = el ÚLTIMO día causal (sin cortar el
+            # loop) dentro de la ventana que hace nuevo máximo del intento
+            # CON RVOL10>=1 (sin exigir RSI). Acá SÍ exige taza genuina
+            # (piso redondeado, no en V) -- sin este chequeo la señal se
+            # diluye de 25.1 a 6.0 pts de spread (validado en wb_research).
+            # La rama del bono, más abajo, NO lo necesita (se probó sin
+            # cambios en su correlación) -- por eso el chequeo vive acá
+            # adentro y no en el nivel de arriba, compartido.
+            ventana_correccion_low = low[p + 1:zona_idx]
+            taza_genuina = int(np.sum(ventana_correccion_low <= min_low * 1.08)) >= 3
+
+            dia1_idx = None
+            run_max = -np.inf
+            for k in range(zona_idx, fin_busq):
+                if close[k] > run_max:
+                    if not np.isnan(rvol10[k]) and rvol10[k] >= 1.0:
+                        dia1_idx = k
+                    run_max = close[k]
+
+            if taza_genuina and dia1_idx is not None:
+                fin_eval = min(dia1_idx + REINTENTO_CASOB_EVAL_DIAS, n, fin_busq + REINTENTO_CASOB_TOPE_EXTRA)
+                if hoy > dia1_idx and hoy < fin_eval:
+                    close_dia1 = close[dia1_idx]
+                    ya_progreso = bool((close[dia1_idx + 1:hoy + 1] > close_dia1).any())
+                    if not ya_progreso:
+                        rvol_sin_progreso = rvol10[dia1_idx + 1:hoy + 1]
+                        rvol_sin_progreso = rvol_sin_progreso[~np.isnan(rvol_sin_progreso)]
+                        if len(rvol_sin_progreso) >= 2 and float(np.mean(rvol_sin_progreso)) >= 1.0:
+                            resultado['Caso B Penalizado'] = True
+                            resultado['Caso B Pts'] = round(_penalizacion_casob_pts(duracion_taza), 2)
+                        else:
+                            resultado['Caso B Penalizado'] = False
+                            resultado['Caso B Pts'] = 0.0
+
+            # ── Rama BONO: "día del máximo" = primer día causal con nuevo
+            # cierre máximo del intento + RVOL10>1 + RSI>60 a la vez ──
+            dia_max_idx = None
+            max_so_far = -np.inf
+            for k in range(zona_idx, fin_busq):
+                if close[k] > max_so_far:
+                    max_so_far = close[k]
+                    if (not np.isnan(rsi[k]) and not np.isnan(rvol10[k])
+                            and rsi[k] > 60 and rvol10[k] > 1.0):
+                        dia_max_idx = k
+                        break
+
+            if dia_max_idx is None:
+                continue
+
+            # ¿Ya rompió el máximo previo en algún momento desde el día del máximo?
+            rotura_idx = None
+            for k in range(dia_max_idx, n):
+                if close[k] > pico_high:
+                    rotura_idx = k
+                    break
+
+            if rotura_idx is not None:
+                # El ER de "fue bomba" mide la eficiencia de la PAUSA previa
+                # a la ruptura (día del máximo hasta el día ANTERIOR a
+                # romper, tope día 10) -- NO el bloque que incluye el día
+                # de la ruptura, porque ese salto explosivo arruina el
+                # cálculo de eficiencia (probado: da 0.37 en vez de 0.81
+                # en el caso MU real si se incluye el día de ruptura).
+                # Ventana mínima de 5 ruedas: si rompe demasiado rápido
+                # (ej. PLTR, 3 ruedas), el ER sale ruidoso y poco confiable
+                # (caso real: dio 1.0000 exacto con solo 3 ruedas) -- no se
+                # activa la bomba aunque el ER esté por encima del piso.
+                idx_fin_pausa = min(dia_max_idx + REINTENTO_ER_DIA_TOPE, rotura_idx - 1)
+                ventana_pausa_dias = idx_fin_pausa - dia_max_idx + 1
+                if ventana_pausa_dias >= REINTENTO_BOMBA_MIN_VENTANA:
+                    bloque_pausa = close[dia_max_idx:idx_fin_pausa + 1]
+                    er_pausa = _er_estandar_kaufman(bloque_pausa)
+                else:
+                    er_pausa = None  # ventana demasiado corta para medir una pausa confiable
+                fue_bomba = er_pausa is not None and er_pausa >= REINTENTO_ER_PISO
+                dias_desde_rotura = hoy - rotura_idx
+                if fue_bomba and 0 <= dias_desde_rotura <= REINTENTO_BOMBA_FRESCURA:
+                    if dias_desde_rotura == 0:
+                        resultado['Bomba Hoy'] = True
+                        bono_congelado = (er_pausa - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
+                        resultado['Bono ER Pts'] = round(max(0.0, min(REINTENTO_ER_BONO_MAX, bono_congelado)), 2)
+                    if mejor_bomba_dias_ago is None or dias_desde_rotura < mejor_bomba_dias_ago:
+                        mejor_bomba_dias_ago = dias_desde_rotura
+                continue  # evento ya resuelto -- no aporta más bono en los días siguientes
+
+            # Todavía no rompió -- ¿se cayó de la zona (evento invalidado)?
+            if high[hoy] < pico_high * (1 - REINTENTO_CAIDA_ZONA):
+                continue
+
+            dias_desde_max = hoy - dia_max_idx
+            if dias_desde_max < REINTENTO_ER_DIA_INICIO:
+                continue  # todavía no llega al día 4
+
+            idx_fin_ventana = min(dia_max_idx + REINTENTO_ER_DIA_TOPE, hoy)
+            bloque = close[dia_max_idx:idx_fin_ventana + 1]
+            er_hoy = _er_estandar_kaufman(bloque)
+            if er_hoy is not None:
+                bono = (er_hoy - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
+                bono = max(0.0, min(REINTENTO_ER_BONO_MAX, bono))
+                resultado['Bono ER Pts'] = round(bono, 2)
+
+        resultado['Bomba Dias Ago'] = mejor_bomba_dias_ago
+        return resultado
+    except Exception:
+        return {'Bono ER Pts': 0.0, 'Bomba Hoy': False, 'Bomba Dias Ago': None,
+                'Caso B Penalizado': False, 'Caso B Pts': 0.0}
+
+
 # ── Feedback de breakouts (Capa 3 del Regimen de Mercado) ────────────
 # Reemplaza el viejo track record client-side (localStorage, sesgado a
 # quien haya abierto el dashboard) por un calculo objetivo sobre todo el
@@ -1814,6 +2119,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # Rebote en la SMA10 -- máquina de estados (Warren Score v4.0, Paso 3)
         rebote = procesar_rebote_sma10(rebote_state, ticker_symbol, hist, sma10, sma10_slope, precio_actual, hoy_str)
 
+        # Reintento a un máximo previo: bono ER + penalización Caso B
+        # (Warren Score v4.1) -- ver informe en wb_research/
+        reintento = detectar_reintento_maximo(hist)
+
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
@@ -1900,6 +2209,11 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Climax Pos Cierre":       reversal['climax_pos_cierre']   if reversal else None,
             "RS En Contacto":          reversal['rs_en_contacto']      if reversal else None,
             "Precio Sobre Climax":     reversal['precio_sobre_climax'] if reversal else False,
+            "Bono ER Pts":             reintento['Bono ER Pts'],
+            "Bomba Hoy":               reintento['Bomba Hoy'],
+            "Bomba Dias Ago":          reintento['Bomba Dias Ago'],
+            "Caso B Penalizado":       reintento['Caso B Penalizado'],
+            "Caso B Pts":              reintento['Caso B Pts'],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
