@@ -1198,6 +1198,106 @@ def div_obv(hist, R=3, L=20):
         return False
 
 
+# ── Agotamiento OBV v2 -- penalizaciones nuevas, separadas del bloque
+# "Agotamiento" original (Warren Score v4.2). Investigación completa y
+# validación a escala documentadas en
+# wb_research/analisis_mu_fcx_bhp/INFORME_eficiencia_kaufman_dia_maximo.md
+# -- NO tocar sin revisar ese informe primero.
+#
+# div_obv_v2 es una variante de div_obv (arriba) con 3 cambios pedidos y
+# validados por separado: ventana del impulso más corta (10 en vez de 20
+# ruedas), banda "cerca del pico" más ancha (5% en vez de 3%) y la
+# condición 1 exige avance reciente estrictamente >=0 (solo "sigue
+# subiendo tibio", no "está corrigiendo con volumen seco" -- eso se
+# considera descanso sano, no agotamiento). div_obv (la original) NO se
+# toca -- sigue alimentando el bloque "Agotamiento" existente tal cual.
+def div_obv_v2(hist, R=3, L=10, banda_pico=0.05, techo_avance=3.5):
+    try:
+        if hist is None or len(hist) < L + R + 2:
+            return False
+        c = hist['Close'].values
+        h = hist['High'].values
+        l = hist['Low'].values
+        v = hist['Volume'].values
+        n = len(hist)
+        ini = n - L
+        pico = ini + int(np.argmax(v[ini:]))
+        if pico > n - 1 - R:
+            return False
+        avance_reciente = (c[-1] - c[-1 - R]) / c[-1 - R] * 100
+        cond1 = (c[-1] >= h[pico] * (1 - banda_pico)) and (0 <= avance_reciente < techo_avance)
+        rango = h - l
+        rango_reciente = rango[-R:].mean()
+        rango_impulso = rango[pico - R + 1: pico + 1].mean()
+        cond2 = rango_impulso > 0 and (rango_reciente / rango_impulso) < 0.65
+        vol_reciente = v[-R:].mean()
+        vol_impulso = v[pico - R + 1: pico + 1].mean()
+        cond3 = vol_impulso > 0 and (vol_reciente / vol_impulso) < 0.70
+        return bool(cond1 and cond2 and cond3)
+    except Exception:
+        return False
+
+
+OBV_PENALIZACION_DIAS = 10   # validado: efecto fuerte a 10 ruedas, se diluye para OBV sola a partir de 20
+OBV_LOOKBACK_EPISODIO = 15   # ruedas hacia atrás para encontrar el inicio del episodio actual
+
+
+def agotamiento_obv_v2(hist, close_col=None):
+    """
+    Determina si HOY corresponde penalizar por:
+      - 'obv_penaliza': Div OBV v2 sola, activa dentro de los últimos
+        OBV_PENALIZACION_DIAS desde que arrancó el episodio (primer día
+        causal en que pasó de False a True).
+      - 'combo_penaliza': Div OBV v2 Y Div RSI a la vez, misma lógica de
+        ventana de 10 ruedas desde que arrancó el solapamiento.
+    El episodio se define retrocediendo desde hoy hasta encontrar el
+    último día en que la condición era False -- el día siguiente a ese
+    es el inicio. Sin estado persistido entre corridas: se recalcula
+    desde el histórico completo cada vez (mismo patrón que
+    detectar_breakout / detectar_reintento_maximo).
+    """
+    try:
+        n = len(hist)
+        if n < 260 + OBV_LOOKBACK_EPISODIO:
+            return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+
+        obv_serie = []
+        rsi_serie = []
+        for back in range(OBV_LOOKBACK_EPISODIO - 1, -1, -1):
+            idx = n - 1 - back
+            if idx < 260:
+                continue
+            sub = hist.iloc[:idx + 1]
+            obv_serie.append(div_obv_v2(sub))
+            rsi_serie.append(bool(div_rsi(sub)))
+
+        if not obv_serie:
+            return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+
+        def _dias_desde_inicio(serie):
+            if not serie[-1]:
+                return None
+            k = len(serie) - 1
+            while k > 0 and serie[k - 1]:
+                k -= 1
+            return (len(serie) - 1) - k
+
+        obv_dias = _dias_desde_inicio(obv_serie)
+        combo_dias = None
+        if obv_serie[-1] and rsi_serie[-1]:
+            combo_serie = [a and b for a, b in zip(obv_serie, rsi_serie)]
+            combo_dias = _dias_desde_inicio(combo_serie)
+
+        return {
+            'obv_penaliza': bool(obv_dias is not None and obv_dias <= OBV_PENALIZACION_DIAS),
+            'obv_dias': obv_dias,
+            'combo_penaliza': bool(combo_dias is not None and combo_dias <= OBV_PENALIZACION_DIAS),
+            'combo_dias': combo_dias,
+        }
+    except Exception:
+        return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+
+
 def churn_maximos(hist):
     """Churning en máximos: ≥3 días en las últimas 10 ruedas con cierre en mitad inferior y volumen ≥50% sobre el promedio de esas 10 ruedas."""
     try:
@@ -2123,6 +2223,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # (Warren Score v4.1) -- ver informe en wb_research/
         reintento = detectar_reintento_maximo(hist)
 
+        # Agotamiento OBV v2: OBV sola / OBV+RSI combinadas (Warren Score
+        # v4.2) -- ver informe en wb_research/
+        agot_obv = agotamiento_obv_v2(hist)
+
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
@@ -2214,6 +2318,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Bomba Dias Ago":          reintento['Bomba Dias Ago'],
             "Caso B Penalizado":       reintento['Caso B Penalizado'],
             "Caso B Pts":              reintento['Caso B Pts'],
+            "OBV Penaliza":            agot_obv['obv_penaliza'],
+            "OBV Penaliza Dias":       agot_obv['obv_dias'],
+            "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
+            "OBV RSI Combo Dias":      agot_obv['combo_dias'],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
