@@ -3794,9 +3794,9 @@ if ('serviceWorker' in navigator) {
 
   /* — Retorno Top 10 — */
   var snapP = mkPanel('wb-snap-panel','Retorno Top 10 de la semana',
-    'Cómo rindieron las 10 mejores acciones del Warren Score desde el último viernes',
+    'Cómo rindieron las 10 mejores acciones del Warren Score desde el último lunes',
     '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
-    'Todos los viernes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último viernes.');
+    'Todos los lunes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último lunes.');
 
   /* — Rebotes en la EMA200 (reemplaza a Despegue Fresco / antes "Regreso a la EMA200") — */
   var ema200P = mkPanel('wb-ema200-panel','🎯 Rebotes en la EMA200',
@@ -4290,34 +4290,34 @@ if ('serviceWorker' in navigator) {
       box('% del capital', capital>0?fmt(posicion/capital*100,1)+'%':'—');
   };
 
-  /* ═══ 7. Retorno Top 10 semanal (snapshot fijo del cierre de viernes, vía pipeline) ═══ */
-  var CIERRE_VIERNES_URL = 'https://warrenbife.github.io/cedears-dashboard/datos_viernes_cierre.json';
-  var _wbCierreViernes = null; // {fecha, datos[]} cacheado tras el primer fetch exitoso
-  var _wbCierreViernesFetching = false;
+  /* ═══ 7. Retorno Top 10 semanal (snapshot fijo del cierre de lunes, vía pipeline) ═══ */
+  var CIERRE_LUNES_URL = 'https://warrenbife.github.io/cedears-dashboard/datos_lunes_cierre.json';
+  var _wbCierreLunes = null; // {fecha, datos[]} cacheado tras el primer fetch exitoso
+  var _wbCierreLunesFetching = false;
 
-  function wbFetchCierreViernes(cb){
-    if(_wbCierreViernes){ cb(); return; }
-    if(_wbCierreViernesFetching) return;
-    _wbCierreViernesFetching = true;
-    fetch(CIERRE_VIERNES_URL+'?_='+Date.now())
+  function wbFetchCierreLunes(cb){
+    if(_wbCierreLunes){ cb(); return; }
+    if(_wbCierreLunesFetching) return;
+    _wbCierreLunesFetching = true;
+    fetch(CIERRE_LUNES_URL+'?_='+Date.now())
       .then(function(r){ return r.ok?r.json():null; })
       .then(function(data){
-        _wbCierreViernesFetching = false;
-        if(data && data.fecha && Array.isArray(data.datos)){ _wbCierreViernes = data; cb(); }
+        _wbCierreLunesFetching = false;
+        if(data && data.fecha && Array.isArray(data.datos)){ _wbCierreLunes = data; cb(); }
       })
-      .catch(function(){ _wbCierreViernesFetching = false; });
+      .catch(function(){ _wbCierreLunesFetching = false; });
   }
 
   function wbRenderSnap(){
     var body = $('wb-snap-body'); if(!body) return;
-    if(!_wbCierreViernes){
-      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Cargando el Top 10 del último cierre de viernes…</div>';
-      wbFetchCierreViernes(function(){ try{ wbRenderSnap(); }catch(e){} });
+    if(!_wbCierreLunes){
+      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Cargando el Top 10 del último cierre de lunes…</div>';
+      wbFetchCierreLunes(function(){ try{ wbRenderSnap(); }catch(e){} });
       return;
     }
     if(typeof calcWarrenDetalle!=='function') return;
-    var snapKey = _wbCierreViernes.fecha;
-    var snap = _wbCierreViernes.datos
+    var snapKey = _wbCierreLunes.fecha;
+    var snap = _wbCierreLunes.datos
       .map(function(d){ var p=num(d['Precio']); return p>0 ? { t:d['Ticker'], p:p, s:Math.round(calcWarrenDetalle(d).score) } : null; })
       .filter(function(x){ return x; })
       .sort(function(a,b){ return b.s - a.s; })
