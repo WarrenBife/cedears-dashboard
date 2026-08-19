@@ -733,41 +733,39 @@ def _promedio_sin_outlier(valores):
 
 def contraccion_volatilidad(hist):
     """Contracción de volatilidad de precio (Warren Score Pilar C, 2026-08;
-    ventana "reciente" ampliada de 5 a 10 ruedas -- 2026-08-18, ver informe
-    en wb_research/).
-    True range de cada rueda individual (con gaps) sobre las últimas 20
-    ruedas: las 10 más recientes ("reciente") contra las 10 anteriores a
-    esas ("referencia", partida en 3 bloques de ~3-4 días). Mismo
-    esqueleto que vol_trend_bloques (bloque reciente vs promedio de los
-    bloques anteriores), pero aplicado a True Range de precio en vez de
-    volumen. Cada bloque de 4 o más días se promedia con
-    _promedio_sin_outlier (ver arriba) para que un solo día de
-    earnings/gap no arruine el promedio; los bloques de 3 días usan
-    promedio simple (con tan pocos puntos, descartar uno resta más
-    información de la que aporta robustez). Ratio, no valor absoluto:
-    mide ESTADO (¿está más quieto que de costumbre?), no temperamento --
-    funciona igual para un papel con ATR 6% que uno con 1.5%. True range
-    (no rango H-L simple) porque captura los gaps de apertura, donde
-    vive buena parte de la volatilidad real.
+    Bollinger BandWidth (length=10) reemplaza a True Range -- 2026-08-18,
+    ver informe en wb_research/).
 
-    Validado a escala (contexto: eventos de reintento a un máximo
-    previo, por encima de EMA200, medido el día del máximo): con
-    reciente=10 la correlación con el resultado (ÉXITO/FRACASO) casi se
-    duplica respecto a reciente=5 (Pearson -0.099 vs -0.064) y el spread
-    de quintiles crece de 4.2 a 11.8 puntos -- ver informe."""
-    if hist is None or len(hist) < 20:
+    BBW = (banda superior - banda inferior) / base * 100, con
+    base=SMA(10) y banda=+-2*stdev(10) -- mide la DISPERSIÓN de los
+    cierres respecto a su propia media móvil, no sólo el rango
+    intradía+gaps rueda por rueda (True Range, la métrica anterior).
+    Validado a escala (mismo contexto: reintento a un máximo previo, por
+    encima de EMA200, medido el día del máximo, n=695): BBW es ~2-3x más
+    fuerte que True Range en las 4 métricas de validación (Pearson
+    -0.113 vs -0.054, Spearman -0.128 vs -0.046, spread de quintiles
+    +3.96 vs +1.35 pts, spread zona-Tri +3.02 vs +2.31 pts) -- ver
+    informe. La mayor tasa de éxito viene junto con menor tasa de
+    fracaso (no es un promedio inflado por pocos ganadores grandes):
+    62.3%→64.6% éxito y 23.6%→21.5% fracaso al entrar en zona.
+
+    Mismo esqueleto reciente/referencia que la versión anterior (TR):
+    serie diaria de BBW sobre las últimas 20 ruedas, partida en
+    reciente=últimas 10 (vs) referencia=10 anteriores a esas (3 bloques
+    de ~3-4 días, el de 4 con _promedio_sin_outlier). Ratio, no valor
+    absoluto: mide ESTADO (¿más quieto que de costumbre?), no
+    temperamento."""
+    if hist is None or len(hist) < 30:
         return None
     try:
-        high, low, close = hist['High'], hist['Low'], hist['Close']
-        prev = close.shift(1)
-        tr = pd.concat([
-            high - low,
-            (high - prev).abs(),
-            (low - prev).abs()
-        ], axis=1).max(axis=1).dropna()
-        if len(tr) < 20:
+        close = hist['Close']
+        sma10 = close.rolling(10).mean()
+        std10 = close.rolling(10).std(ddof=0)
+        mult = 2.0
+        bbw = (2 * mult * std10 / sma10 * 100).dropna()
+        if len(bbw) < 20:
             return None
-        t = tr.tail(20).tolist()
+        t = bbw.tail(20).tolist()
         reciente = _promedio_sin_outlier(t[-10:])
         ref = t[:-10]  # las 10 ruedas anteriores a las "recientes"
         bloque_1 = sum(ref[0:3]) / 3
