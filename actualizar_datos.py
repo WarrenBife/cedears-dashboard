@@ -1238,64 +1238,111 @@ def div_obv_v2(hist, R=3, L=10, banda_pico=0.05, techo_avance=3.5):
         return False
 
 
-OBV_PENALIZACION_DIAS = 10   # validado: efecto fuerte a 10 ruedas, se diluye para OBV sola a partir de 20
-OBV_LOOKBACK_EPISODIO = 15   # ruedas hacia atrás para encontrar el inicio del episodio actual
+OBV_LOOKBACK_MAXIMO = 90   # ruedas hacia atrás para buscar el inicio del episodio actual --
+                           # límite práctico de búsqueda, NO un tope de duración: si el episodio
+                           # sigue sin resolverse dentro de esta ventana, se sigue penalizando.
 
 
-def agotamiento_obv_v2(hist, close_col=None):
+def agotamiento_obv_v2(hist, hist_spy):
     """
-    Determina si HOY corresponde penalizar por:
-      - 'obv_penaliza': Div OBV v2 sola, activa dentro de los últimos
-        OBV_PENALIZACION_DIAS desde que arrancó el episodio (primer día
-        causal en que pasó de False a True).
-      - 'combo_penaliza': Div OBV v2 Y Div RSI a la vez, misma lógica de
-        ventana de 10 ruedas desde que arrancó el solapamiento.
-    El episodio se define retrocediendo desde hoy hasta encontrar el
-    último día en que la condición era False -- el día siguiente a ese
-    es el inicio. Sin estado persistido entre corridas: se recalcula
-    desde el histórico completo cada vez (mismo patrón que
-    detectar_breakout / detectar_reintento_maximo).
+    Estado "pegajoso" (Warren Score v4.4): a diferencia de la versión
+    anterior (que se re-evaluaba día a día y se apagaba apenas UNA de las
+    3 condiciones originales dejaba de cumplirse -- visto en vivo con
+    NVDA: se apagó con solo 1 día de corrección, sin ninguna señal de
+    recuperación real), ahora una vez que arranca el episodio se
+    mantiene penalizando SIN TOPE DE DÍAS hasta que se confirma una
+    recuperación real -- las 5 condiciones siguientes a la vez, el mismo
+    día:
+      1. Al menos una de las 3 condiciones originales de Div OBV v2 ya
+         no se cumple (el patrón técnico se disolvió)
+      2. Cierre de hoy > cierre de ayer
+      3. RVOL10 >= 1 (volumen real, no seco)
+      4. RS Score de hoy > RS Score de ayer (fuerza relativa mejorando)
+      5. Cierre de hoy > SMA10
+    'combo_penaliza' (más severo) es el mismo episodio, pero marcado
+    como tal si Div RSI (divergencia RSI) TAMBIÉN estaba activa el día
+    que arrancó el episodio -- comparte el mismo día de inicio y la
+    misma condición de liberación que 'obv_penaliza', no es una máquina
+    de estados separada.
+    Sin estado persistido entre corridas: se recalcula desde el
+    histórico completo cada vez, simulando hacia adelante desde el
+    inicio del episodio más reciente encontrado dentro de
+    OBV_LOOKBACK_MAXIMO ruedas.
     """
+    resultado = {'obv_penaliza': False, 'obv_dias': None, 'obv_fecha_inicio': None,
+                 'combo_penaliza': False}
     try:
         n = len(hist)
-        if n < 260 + OBV_LOOKBACK_EPISODIO:
-            return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+        if n < 260 + OBV_LOOKBACK_MAXIMO:
+            return resultado
 
-        obv_serie = []
-        rsi_serie = []
-        for back in range(OBV_LOOKBACK_EPISODIO - 1, -1, -1):
-            idx = n - 1 - back
-            if idx < 260:
+        close = hist['Close'].values
+        vol = hist['Volume'].values
+        vol_sma10_prior = pd.Series(vol).shift(1).rolling(10).mean().values
+        rvol10 = vol / vol_sma10_prior
+        sma10_serie = hist['Close'].rolling(10).mean().values
+
+        idx_ini = n - OBV_LOOKBACK_MAXIMO
+        _cache_obv = {}
+        _cache_rsi = {}
+        _cache_rs = {}
+
+        def _obv(idx):
+            if idx not in _cache_obv:
+                _cache_obv[idx] = div_obv_v2(hist.iloc[:idx + 1])
+            return _cache_obv[idx]
+
+        def _rsi_div(idx):
+            if idx not in _cache_rsi:
+                _cache_rsi[idx] = bool(div_rsi(hist.iloc[:idx + 1]))
+            return _cache_rsi[idx]
+
+        def _rs_hoy_ayer(idx):
+            if idx not in _cache_rs:
+                sub_close = hist['Close'].iloc[:idx + 1]
+                sub_spy = hist_spy['Close'].loc[:hist.index[idx]]
+                r = calcular_rs_score(sub_close, sub_spy)
+                _cache_rs[idx] = (r[0], r[1])  # (score_actual, score_ayer)
+            return _cache_rs[idx]
+
+        activo = False
+        inicio_idx = None
+        combo = False
+
+        for idx in range(idx_ini, n):
+            if not activo:
+                if _obv(idx):
+                    activo = True
+                    inicio_idx = idx
+                    combo = _rsi_div(idx)
                 continue
-            sub = hist.iloc[:idx + 1]
-            obv_serie.append(div_obv_v2(sub))
-            rsi_serie.append(bool(div_rsi(sub)))
 
-        if not obv_serie:
-            return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+            # episodio activo -- chequear las 5 condiciones de recuperación
+            cond1 = not _obv(idx)
+            cierre_hoy = close[idx]
+            cierre_ayer = close[idx - 1] if idx > 0 else None
+            cond2 = cierre_ayer is not None and cierre_hoy > cierre_ayer
+            r10 = rvol10[idx]
+            cond3 = not np.isnan(r10) and r10 >= 1.0
+            sc_hoy, sc_ayer = _rs_hoy_ayer(idx)
+            cond4 = sc_hoy is not None and sc_ayer is not None and sc_hoy > sc_ayer
+            s10 = sma10_serie[idx]
+            cond5 = not np.isnan(s10) and cierre_hoy > s10
 
-        def _dias_desde_inicio(serie):
-            if not serie[-1]:
-                return None
-            k = len(serie) - 1
-            while k > 0 and serie[k - 1]:
-                k -= 1
-            return (len(serie) - 1) - k
+            if cond1 and cond2 and cond3 and cond4 and cond5:
+                activo = False
+                inicio_idx = None
+                combo = False
 
-        obv_dias = _dias_desde_inicio(obv_serie)
-        combo_dias = None
-        if obv_serie[-1] and rsi_serie[-1]:
-            combo_serie = [a and b for a, b in zip(obv_serie, rsi_serie)]
-            combo_dias = _dias_desde_inicio(combo_serie)
+        if activo and inicio_idx is not None:
+            resultado['obv_penaliza'] = True
+            resultado['obv_dias'] = (n - 1) - inicio_idx
+            resultado['obv_fecha_inicio'] = str(hist.index[inicio_idx].date())
+            resultado['combo_penaliza'] = bool(combo)
 
-        return {
-            'obv_penaliza': bool(obv_dias is not None and obv_dias <= OBV_PENALIZACION_DIAS),
-            'obv_dias': obv_dias,
-            'combo_penaliza': bool(combo_dias is not None and combo_dias <= OBV_PENALIZACION_DIAS),
-            'combo_dias': combo_dias,
-        }
+        return resultado
     except Exception:
-        return {'obv_penaliza': False, 'obv_dias': None, 'combo_penaliza': False, 'combo_dias': None}
+        return {'obv_penaliza': False, 'obv_dias': None, 'obv_fecha_inicio': None, 'combo_penaliza': False}
 
 
 def churn_maximos(hist):
@@ -2223,9 +2270,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # (Warren Score v4.1) -- ver informe en wb_research/
         reintento = detectar_reintento_maximo(hist)
 
-        # Agotamiento OBV v2: OBV sola / OBV+RSI combinadas (Warren Score
-        # v4.2) -- ver informe en wb_research/
-        agot_obv = agotamiento_obv_v2(hist)
+        # Agotamiento OBV v2: OBV sola / OBV+RSI combinadas, estado
+        # pegajoso sin tope de días (Warren Score v4.4) -- ver informe
+        # en wb_research/
+        agot_obv = agotamiento_obv_v2(hist, hist_spy)
 
         return {
             "Ticker":          ticker_symbol,
@@ -2320,8 +2368,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Caso B Pts":              reintento['Caso B Pts'],
             "OBV Penaliza":            agot_obv['obv_penaliza'],
             "OBV Penaliza Dias":       agot_obv['obv_dias'],
+            "OBV Penaliza Fecha Inicio": agot_obv['obv_fecha_inicio'],
             "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
-            "OBV RSI Combo Dias":      agot_obv['combo_dias'],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
