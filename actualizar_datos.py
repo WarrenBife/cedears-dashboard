@@ -732,18 +732,29 @@ def _promedio_sin_outlier(valores):
 
 
 def contraccion_volatilidad(hist):
-    """Contracción de volatilidad de precio (Warren Score Pilar C, 2026-08).
+    """Contracción de volatilidad de precio (Warren Score Pilar C, 2026-08;
+    ventana "reciente" ampliada de 5 a 10 ruedas -- 2026-08-18, ver informe
+    en wb_research/).
     True range de cada rueda individual (con gaps) sobre las últimas 20
-    ruedas, partidas en 4 bloques de 5 días -- mismo esqueleto que
-    vol_trend_bloques (bloque reciente vs promedio de los 3 bloques
-    anteriores), pero aplicado a True Range de precio en vez de volumen.
-    Cada bloque se promedia con _promedio_sin_outlier (ver arriba) para
-    que el promedio no quede a merced de un solo día de earnings/gap
-    dentro del bloque. Ratio, no valor absoluto: mide ESTADO (¿está más
-    quieto que de costumbre?), no temperamento -- funciona igual para un
-    papel con ATR 6% que uno con 1.5%. True range (no rango H-L simple)
-    porque captura los gaps de apertura, donde vive buena parte de la
-    volatilidad real."""
+    ruedas: las 10 más recientes ("reciente") contra las 10 anteriores a
+    esas ("referencia", partida en 3 bloques de ~3-4 días). Mismo
+    esqueleto que vol_trend_bloques (bloque reciente vs promedio de los
+    bloques anteriores), pero aplicado a True Range de precio en vez de
+    volumen. Cada bloque de 4 o más días se promedia con
+    _promedio_sin_outlier (ver arriba) para que un solo día de
+    earnings/gap no arruine el promedio; los bloques de 3 días usan
+    promedio simple (con tan pocos puntos, descartar uno resta más
+    información de la que aporta robustez). Ratio, no valor absoluto:
+    mide ESTADO (¿está más quieto que de costumbre?), no temperamento --
+    funciona igual para un papel con ATR 6% que uno con 1.5%. True range
+    (no rango H-L simple) porque captura los gaps de apertura, donde
+    vive buena parte de la volatilidad real.
+
+    Validado a escala (contexto: eventos de reintento a un máximo
+    previo, por encima de EMA200, medido el día del máximo): con
+    reciente=10 la correlación con el resultado (ÉXITO/FRACASO) casi se
+    duplica respecto a reciente=5 (Pearson -0.099 vs -0.064) y el spread
+    de quintiles crece de 4.2 a 11.8 puntos -- ver informe."""
     if hist is None or len(hist) < 20:
         return None
     try:
@@ -757,11 +768,12 @@ def contraccion_volatilidad(hist):
         if len(tr) < 20:
             return None
         t = tr.tail(20).tolist()
-        reciente     = _promedio_sin_outlier(t[-5:])
-        bloque_1     = _promedio_sin_outlier(t[-10:-5])
-        bloque_2     = _promedio_sin_outlier(t[-15:-10])
-        bloque_3     = _promedio_sin_outlier(t[-20:-15])
-        referencia   = (bloque_1 + bloque_2 + bloque_3) / 3
+        reciente = _promedio_sin_outlier(t[-10:])
+        ref = t[:-10]  # las 10 ruedas anteriores a las "recientes"
+        bloque_1 = sum(ref[0:3]) / 3
+        bloque_2 = sum(ref[3:6]) / 3
+        bloque_3 = _promedio_sin_outlier(ref[6:10])
+        referencia = (bloque_1 + bloque_2 + bloque_3) / 3
         if referencia <= 0:
             return None
         return round(reciente / referencia, 4)
