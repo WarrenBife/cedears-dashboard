@@ -15343,7 +15343,8 @@ try {
     text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .wbm-ch-wrap{white-space:normal;line-height:1.15;}
 
-  .wbm-list-scroll{max-height:500px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);}
+  .wbm-list-scroll{max-height:500px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);
+    overscroll-behavior-y:contain;}
   .wbm-row{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
   .wbm-row:active{background:rgba(255,255,255,0.03);}
   .wbm-rank{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;}
@@ -15365,7 +15366,11 @@ try {
   /* ── Detalle: overlay a pantalla completa ── */
   #wbm-detail{position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;
     transform:translateX(100%);transition:transform .32s cubic-bezier(.22,.9,.3,1);}
-  body.wbm-detail-open{overflow:hidden;}
+  /* overflow:hidden solo no alcanza en iOS Safari para evitar que la
+     página de atrás "se cuele" con el gesto de scroll -- se fija la
+     posición del body a top:-scrollY vía JS (wbmOpenDetail/wbmCloseDetail)
+     y se restaura el scroll al cerrar. */
+  body.wbm-detail-open{overflow:hidden;position:fixed;left:0;right:0;}
   body.wbm-detail-open #wbm-detail{transform:translateX(0);}
   @media(prefers-reduced-motion:reduce){#wbm-detail{transition:none;}}
 
@@ -15383,7 +15388,8 @@ try {
   .wbm-d-price{font-family:'DM Mono',monospace;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
   .wbm-d-var{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;}
 
-  .wbm-d-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px;}
+  .wbm-d-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px;
+    overscroll-behavior-y:contain;}
   .wbm-card{background:linear-gradient(180deg,rgba(255,255,255,0.025),transparent 55%),var(--bg2);
     border:1px solid var(--border);border-radius:14px;padding:14px;
     box-shadow:var(--shadow-panel);position:relative;}
@@ -15440,6 +15446,7 @@ try {
   .wbm-msub-label{font-size:10.5px;font-weight:600;color:var(--text);margin-bottom:8px;
     display:flex;align-items:center;gap:6px;}
   .wbm-msub-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .wbm-msub-caption{font-size:9.5px;color:var(--muted);margin-top:7px;line-height:1.5;}
 
   /* ── Tira de posición vs. rango de 52 semanas (debajo de las 4 barras
      de pilares, dentro de la card "Warren Score") ── */
@@ -15575,10 +15582,12 @@ function wbmMetricBox(label, val, color, span2){
   return '<div class="wbm-metric' + (span2?' wbm-metric-span2':'') + '"' + boxStyle + '><div class="wbm-metric-label">' + label + '</div>' +
     '<div class="wbm-metric-val" style="color:' + c + '">' + val + '</div></div>';
 }
-function wbmMetricSection(label, dotColor, boxesHtml){
+function wbmMetricSection(label, dotColor, boxesHtml, caption){
   if (!boxesHtml) return '';
   return '<div class="wbm-msub"><div class="wbm-msub-label"><span class="wbm-msub-dot" style="background:' + dotColor + '"></span>' + label + '</div>' +
-    '<div class="wbm-metrics-grid">' + boxesHtml + '</div></div>';
+    '<div class="wbm-metrics-grid">' + boxesHtml + '</div>' +
+    (caption ? '<div class="wbm-msub-caption">' + caption + '</div>' : '') +
+    '</div>';
 }
 function wbmBuildMetricsSections(d){
   var boxes;
@@ -15593,17 +15602,33 @@ function wbmBuildMetricsSections(d){
   if (vsSector != null) boxes += wbmMetricBox('Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : ''), _wbmPct(vsSector,2), vsSector>=0?'var(--green)':'var(--red)', true);
   var sTendencia = wbmMetricSection('Tendencia', WBM_COLORS.pa, boxes);
 
-  // Fuerza Relativa (Pilar B)
+  // Fuerza Relativa (Pilar B) -- FR cruda (precio/SPY) no dice nada aislada
+  // (ej. BIIB ~0.29 es sólo su precio dividido el de SPY, no una "fuerza").
+  // Se indexa a 100 desde "hace 1 mes" -- mismo criterio que ya usa el
+  // Comparador de tickers en este archivo (indexFR/"FR vs SPY (base 100)"):
+  // >100 = ganando fuerza relativa desde entonces, <100 = perdiendo.
   boxes = '';
-  var frHoy = d['FR Hoy'];
-  if (frHoy != null) boxes += wbmMetricBox('FR', _wbmFmt(frHoy,4));
-  var frSemana = d['FR Semana ant.'];
-  if (frSemana != null) boxes += wbmMetricBox('FR semana pasada', _wbmFmt(frSemana,4));
-  var frMes = d['FR Mes ant.'];
-  if (frMes != null) boxes += wbmMetricBox('FR hace un mes', _wbmFmt(frMes,4));
+  var frMesBase = d['FR Mes ant.'];
+  var hasFR = frMesBase != null && frMesBase !== 0;
+  if (hasFR) {
+    var frSemanaIdx = d['FR Semana ant.'] != null ? (d['FR Semana ant.'] / frMesBase * 100) : null;
+    var frHoyIdx = d['FR Hoy'] != null ? (d['FR Hoy'] / frMesBase * 100) : null;
+    boxes += wbmMetricBox('FR hace un mes', '100,0', 'var(--text)');
+    if (frSemanaIdx != null) boxes += wbmMetricBox('FR semana pasada', _wbmFmt(frSemanaIdx,1), frSemanaIdx>=100?'var(--green)':'var(--red)');
+    if (frHoyIdx != null) boxes += wbmMetricBox('FR hoy', _wbmFmt(frHoyIdx,1), frHoyIdx>=100?'var(--green)':'var(--red)');
+  } else {
+    // Sin FR todavía: fallback al percentil de RS Score (0-100, ya interpretable de por sí)
+    var rsMes = d['RS Mes ant.'];
+    if (rsMes != null) boxes += wbmMetricBox('RS hace un mes', _wbmFmt(rsMes,1));
+    var rsSemana = d['RS Semana ant.'];
+    if (rsSemana != null) boxes += wbmMetricBox('RS semana pasada', _wbmFmt(rsSemana,1));
+    var rsHoy = d['RS Score'];
+    if (rsHoy != null) boxes += wbmMetricBox('RS hoy', _wbmFmt(rsHoy,1));
+  }
   var frSobreSma = d['FR > SMA50'];
-  if (frSobreSma != null) boxes += wbmMetricBox('FR &gt; SMA50', _wbmEsc(frSobreSma), String(frSobreSma).indexOf('Sí')!==-1?'var(--green)':'var(--red)');
-  var sFuerza = wbmMetricSection('Fuerza Relativa', WBM_COLORS.pb, boxes);
+  if (frSobreSma != null) boxes += wbmMetricBox('FR &gt; SMA50', _wbmEsc(frSobreSma), String(frSobreSma).indexOf('Sí')!==-1?'var(--green)':'var(--red)', true);
+  var sFuerza = wbmMetricSection('Fuerza Relativa', WBM_COLORS.pb, boxes,
+    hasFR ? 'Índice de fuerza (precio vs. SPY), base 100 = hace 1 mes. Por encima de 100: ganando fuerza relativa.' : '');
 
   // Contracción (Pilar C)
   boxes = '';
@@ -15808,6 +15833,10 @@ window.wbmOpenDetail = function(ticker){
 
   _wbmEl('wbm-metrics-body').innerHTML = wbmBuildMetricsSections(d);
 
+  if (!document.body.classList.contains('wbm-detail-open')) {
+    window._wbmSavedScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = '-' + window._wbmSavedScrollY + 'px';
+  }
   document.body.classList.add('wbm-detail-open');
   var dScroll = document.querySelector('.wbm-d-scroll');
   if (dScroll) dScroll.scrollTop = 0;
@@ -15815,6 +15844,8 @@ window.wbmOpenDetail = function(ticker){
 
 window.wbmCloseDetail = function(){
   document.body.classList.remove('wbm-detail-open');
+  document.body.style.top = '';
+  window.scrollTo(0, window._wbmSavedScrollY || 0);
 };
 
 /* ── Unificar la card de ticker: hoy CUALQUIER ticker del dashboard
