@@ -15575,6 +15575,10 @@ var WBM_BOX_GLOW = {
   'var(--blue)':  { border:'rgba(79,142,247,0.4)',  shadow:'0 0 12px -2px rgba(79,142,247,0.4)',  rgba:'rgba(79,142,247,0.85)'  },
   'var(--purple)':{ border:'rgba(167,139,250,0.4)', shadow:'0 0 12px -2px rgba(167,139,250,0.4)', rgba:'rgba(167,139,250,0.85)' }
 };
+/* Mismos umbrales que colorRS() (RS Score, percentil 0-100) usado en el resto del dashboard */
+function wbmRsColor(s){
+  return s == null ? 'var(--text)' : s > 70 ? 'var(--green)' : s > 40 ? 'var(--amber)' : 'var(--red)';
+}
 function wbmMetricBox(label, val, color, span2){
   var c = color || 'var(--text)';
   var glow = WBM_BOX_GLOW[c];
@@ -15602,33 +15606,20 @@ function wbmBuildMetricsSections(d){
   if (vsSector != null) boxes += wbmMetricBox('Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : ''), _wbmPct(vsSector,2), vsSector>=0?'var(--green)':'var(--red)', true);
   var sTendencia = wbmMetricSection('Tendencia', WBM_COLORS.pa, boxes);
 
-  // Fuerza Relativa (Pilar B) -- FR cruda (precio/SPY) no dice nada aislada
-  // (ej. BIIB ~0.29 es sólo su precio dividido el de SPY, no una "fuerza").
-  // Se indexa a 100 desde "hace 1 mes" -- mismo criterio que ya usa el
-  // Comparador de tickers en este archivo (indexFR/"FR vs SPY (base 100)"):
-  // >100 = ganando fuerza relativa desde entonces, <100 = perdiendo.
+  // Fuerza Relativa (Pilar B) -- RS Score (percentil 0-100 vs. todo el
+  // universo, lo que realmente puntúa el pilar), no el FR crudo
+  // (precio/SPY, ej. BIIB ~0.29: sólo su precio dividido el de SPY, sin
+  // sentido mostrado aislado).
   boxes = '';
-  var frMesBase = d['FR Mes ant.'];
-  var hasFR = frMesBase != null && frMesBase !== 0;
-  if (hasFR) {
-    var frSemanaIdx = d['FR Semana ant.'] != null ? (d['FR Semana ant.'] / frMesBase * 100) : null;
-    var frHoyIdx = d['FR Hoy'] != null ? (d['FR Hoy'] / frMesBase * 100) : null;
-    boxes += wbmMetricBox('FR hace un mes', '100,0', 'var(--text)');
-    if (frSemanaIdx != null) boxes += wbmMetricBox('FR semana pasada', _wbmFmt(frSemanaIdx,1), frSemanaIdx>=100?'var(--green)':'var(--red)');
-    if (frHoyIdx != null) boxes += wbmMetricBox('FR hoy', _wbmFmt(frHoyIdx,1), frHoyIdx>=100?'var(--green)':'var(--red)');
-  } else {
-    // Sin FR todavía: fallback al percentil de RS Score (0-100, ya interpretable de por sí)
-    var rsMes = d['RS Mes ant.'];
-    if (rsMes != null) boxes += wbmMetricBox('RS hace un mes', _wbmFmt(rsMes,1));
-    var rsSemana = d['RS Semana ant.'];
-    if (rsSemana != null) boxes += wbmMetricBox('RS semana pasada', _wbmFmt(rsSemana,1));
-    var rsHoy = d['RS Score'];
-    if (rsHoy != null) boxes += wbmMetricBox('RS hoy', _wbmFmt(rsHoy,1));
-  }
+  var rsHoy = d['RS Score'];
+  if (rsHoy != null) boxes += wbmMetricBox('RS Score', _wbmFmt(rsHoy,1), wbmRsColor(rsHoy));
+  var rsSemana = d['RS Semana ant.'];
+  if (rsSemana != null) boxes += wbmMetricBox('RS semana pasada', _wbmFmt(rsSemana,1), wbmRsColor(rsSemana));
+  var rsMes = d['RS Mes ant.'];
+  if (rsMes != null) boxes += wbmMetricBox('RS hace un mes', _wbmFmt(rsMes,1), wbmRsColor(rsMes));
   var frSobreSma = d['FR > SMA50'];
-  if (frSobreSma != null) boxes += wbmMetricBox('FR &gt; SMA50', _wbmEsc(frSobreSma), String(frSobreSma).indexOf('Sí')!==-1?'var(--green)':'var(--red)', true);
-  var sFuerza = wbmMetricSection('Fuerza Relativa', WBM_COLORS.pb, boxes,
-    hasFR ? 'Índice de fuerza (precio vs. SPY), base 100 = hace 1 mes. Por encima de 100: ganando fuerza relativa.' : '');
+  if (frSobreSma != null) boxes += wbmMetricBox('FR &gt; SMA50', _wbmEsc(frSobreSma), String(frSobreSma).indexOf('Sí')!==-1?'var(--green)':'var(--red)');
+  var sFuerza = wbmMetricSection('Fuerza Relativa', WBM_COLORS.pb, boxes);
 
   // Contracción (Pilar C)
   boxes = '';
