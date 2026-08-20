@@ -1426,10 +1426,11 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         h = hist['High'].values
         l = hist['Low'].values
         c = hist['Close'].values
+        o = hist['Open'].values
         v = hist['Volume'].values
         # Últimas 90 ruedas
         if len(c) > 90:
-            h = h[-90:]; l = l[-90:]; c = c[-90:]; v = v[-90:]
+            h = h[-90:]; l = l[-90:]; c = c[-90:]; o = o[-90:]; v = v[-90:]
         if len(c) < 30:
             return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
@@ -1581,6 +1582,34 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         if rango_base_abs > 0:
             contractions = [ct for ct in contractions
                              if (ct['high'] - ct['low']) / rango_base_abs >= 0.20]
+        if len(contractions) < 2:
+            return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
+                    'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
+                    'VCP Techo Toques': techo_toques, 'VCP Techo': round(techo, 2)}
+
+        # Cimas consistentes entre contracciones sucesivas (2026-08). Un VCP
+        # de verdad se contrae bajo (más o menos) EL MISMO techo -- cada
+        # cima puede quedar igual (±1%) o por debajo de la anterior, pero
+        # si una cima sube más de 1% respecto de la previa ya no es la
+        # misma base, es ruido de una tendencia más amplia con dos swings
+        # sin relación (caso real: ACN, T1 29/7 cuerpo $173.17, T2 13/8
+        # cuerpo $181.68 -- +4.9%, "inadmisible" según el usuario). Se
+        # compara CUERPO de vela (max open/close), no mecha (High), para
+        # no dejar que un gap de un solo día distorsione la comparación.
+        # Se camina de la más vieja a la más nueva y se trunca la lista en
+        # cuanto aparece una cima que sube demasiado -- se conserva el
+        # tramo consistente más reciente, se descarta lo posterior (ruido).
+        TOL_CIMA_SUBE = 0.01
+        cuerpos = np.maximum(o, c)
+        consistentes = [contractions[0]]
+        for ct in contractions[1:]:
+            cima_prev = cuerpos[consistentes[-1]['hi_idx']]
+            cima_act  = cuerpos[ct['hi_idx']]
+            if cima_act > cima_prev * (1 + TOL_CIMA_SUBE):
+                consistentes = [ct]  # arranca una base nueva desde acá
+            else:
+                consistentes.append(ct)
+        contractions = consistentes
         if len(contractions) < 2:
             return {'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': len(contractions),
                     'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
