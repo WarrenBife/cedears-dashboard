@@ -3675,6 +3675,84 @@ if ('serviceWorker' in navigator) {
   .wb-mini-table tr:hover td{background:rgba(255,255,255,0.02);}
   .wb-empty{color:var(--muted);font-size:11.5px;padding:22px 14px;text-align:center;line-height:1.6;}
 
+  /* ── Retorno Top 10 de la semana -- rediseño visual (2026-08), sobre
+     mockup del usuario: KPIs + barras divergentes en vez de tabla
+     plana. Todo scopeado a #wb-snap-panel/.wbs-* -- no toca la
+     estética general de otros paneles. ── */
+  :root{ --dim2:#5c6473; }
+  #wb-snap-panel{
+    border-color:rgba(34,201,138,0.22);
+    background:radial-gradient(780px 280px at 6% -35%, rgba(34,201,138,0.11), transparent 62%),
+               linear-gradient(180deg,rgba(255,255,255,0.025),transparent 45%),var(--bg2);
+    box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 24px 54px -26px rgba(0,0,0,0.9);
+  }
+  #wb-snap-panel::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;z-index:2;
+    background:linear-gradient(90deg,transparent,rgba(34,201,138,0.60) 12%,rgba(34,201,138,0.14) 58%,transparent);}
+  #wb-snap-panel .panel-title{font-size:15px;}
+  #wb-snap-panel .panel-head{padding:17px 18px 13px;align-items:center;}
+  #wb-snap-panel .panel-body{padding:0;}
+  #wb-snap-body{max-height:none;overflow:visible;}
+  .wbs-chip{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;color:var(--green);
+    background:var(--green-bg);border:1px solid rgba(34,201,138,0.30);border-radius:999px;padding:4px 11px;white-space:nowrap;}
+
+  .wbs-kpis{display:grid;grid-template-columns:1.3fr 1fr 1.25fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+  .wbs-kpi{background:linear-gradient(180deg,rgba(255,255,255,0.018),transparent 60%),var(--bg2);padding:16px 18px 17px;min-width:0;}
+  .wbs-kpi.pos{background:radial-gradient(460px 170px at 0% 120%, rgba(34,201,138,0.12), transparent 70%),var(--bg2);}
+  .wbs-kpi.neg{background:radial-gradient(460px 170px at 0% 120%, rgba(240,96,90,0.10), transparent 70%),var(--bg2);}
+  .wbs-k-label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:0.13em;color:var(--muted);}
+  .wbs-k-val{display:block;font-family:'DM Mono',monospace;font-size:40px;font-weight:500;line-height:1.02;
+    letter-spacing:-0.035em;margin-top:9px;font-variant-numeric:tabular-nums;}
+  .wbs-k-val.sm{font-size:30px;}
+  .wbs-k-foot{display:block;font-size:10.5px;color:var(--muted);margin-top:8px;}
+  .wbs-dots{display:flex;gap:4px;margin-top:12px;}
+  .wbs-dot{flex:1;height:6px;border-radius:2px;background:rgba(148,163,184,0.16);}
+  .wbs-dot.w{background:var(--green);box-shadow:0 0 9px rgba(34,201,138,0.45);}
+  .wbs-dot.l{background:var(--red);box-shadow:0 0 9px rgba(240,96,90,0.35);}
+  .wbs-xw{display:flex;flex-direction:column;gap:9px;margin-top:11px;}
+  .wbs-xw-row{display:flex;align-items:center;gap:9px;font-size:11.5px;}
+  .wbs-xw-tag{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim2);width:42px;flex-shrink:0;}
+  .wbs-xw-tick{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:500;}
+  .wbs-xw-val{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:500;margin-left:auto;font-variant-numeric:tabular-nums;}
+
+  .wbs-head,.wbs-row{display:grid;grid-template-columns:24px 130px 46px 112px minmax(120px,1fr) 74px;align-items:center;gap:10px;}
+  .wbs-head{padding:9px 18px;border-bottom:1px solid var(--border);font-size:9px;text-transform:uppercase;
+    letter-spacing:0.11em;color:var(--dim2);background:rgba(255,255,255,0.012);}
+  .wbs-head .r{text-align:right;}
+  .wbs-axis-lbl{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;letter-spacing:0;}
+  .wbs-row{padding:10px 18px;border-bottom:1px solid rgba(148,163,184,0.06);transition:background .16s var(--ease);}
+  .wbs-row:last-child{border-bottom:none;}
+  .wbs-row:hover{background:rgba(34,201,138,0.045);}
+  .wbs-row:hover .wbs-tick{color:var(--green);}
+  .wbs-row.lead{background:linear-gradient(90deg,rgba(34,201,138,0.07),transparent 42%);}
+  .wbs-rank{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--dim2);text-align:right;}
+  .wbs-name{display:flex;align-items:center;gap:9px;min-width:0;}
+  .wbs-logo{width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.07);flex-shrink:0;}
+  .wbs-tick{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:0.02em;transition:color .16s;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wbs-prices{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .wbs-prices b{color:var(--text);font-weight:500;}
+  .wbs-prices i{font-style:normal;color:var(--dim2);padding:0 3px;}
+  .wbs-bar{position:relative;height:22px;}
+  .wbs-bar::before{content:'';position:absolute;left:50%;top:1px;bottom:1px;width:1px;background:rgba(148,163,184,0.20);}
+  .wbs-fill{position:absolute;top:5px;height:12px;border-radius:3px;transition:width .8s var(--ease);width:0;}
+  .wbs-fill.pos{left:50%;background:linear-gradient(90deg,rgba(34,201,138,0.30),var(--green));box-shadow:0 0 16px -3px rgba(34,201,138,0.55);}
+  .wbs-fill.neg{right:50%;background:linear-gradient(270deg,rgba(240,96,90,0.30),var(--red));box-shadow:0 0 16px -3px rgba(240,96,90,0.45);}
+  .wbs-ret{font-family:'DM Mono',monospace;font-size:13.5px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums;}
+  .wbs-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:11px 18px 13px;border-top:1px solid var(--border);font-size:10.5px;color:var(--dim2);}
+
+  @media(max-width:820px){
+    .wbs-kpis{grid-template-columns:1fr 1fr;}
+    .wbs-kpi:first-child{grid-column:1 / -1;}
+    .wbs-head,.wbs-row{grid-template-columns:22px 1fr 42px minmax(80px,1fr) 66px;}
+    .wbs-prices,.wbs-head .h-prices{display:none;}
+  }
+  @media(max-width:600px){
+    .wbs-k-val{font-size:34px;}
+    .wbs-head,.wbs-row{padding-left:12px;padding-right:12px;}
+  }
+
   /* ── Calculadora de riesgo ── */
   .wb-risk-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:4px 0 12px;}
   .wb-risk-form label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
@@ -4308,8 +4386,24 @@ if ('serviceWorker' in navigator) {
       .catch(function(){ _wbCierreLunesFetching = false; });
   }
 
+  /* ── wbRenderSnap -- rediseño visual (2026-08): KPIs + barras
+     divergentes en vez de tabla plana. Mismo cálculo de siempre (snap,
+     preciosHoy, avgRet, wins), sólo cambia cómo se dibuja. Sobre un
+     mockup del usuario ("Retorno semanal.html"), reimplementado leyendo
+     los datos directo (no parseando el HTML ya renderizado como hacía
+     el mockup) -- más robusto, sin polling. ── */
+  function wbsLogoUrl(t){ return 'https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png'; }
+  function wbsSig(n,d){ return n==null?'—':(n>=0?'+':'−')+fmt(Math.abs(n),d)+'%'; }
+  function wbsCol(n){ return n==null?'var(--muted)':n>0?'var(--green)':n<0?'var(--red)':'var(--text)'; }
+  function wbsPill(s){ return s>=70?'pill-green':s>=50?'pill-blue':'pill-amber'; }
+  function wbsChip(){
+    var p=$('wb-snap-panel'); if(!p) return;
+    var h=p.querySelector('.panel-head');
+    if(h && !h.querySelector('.wbs-chip')) h.insertAdjacentHTML('beforeend','<span class="wbs-chip">actualiza cada lunes</span>');
+  }
   function wbRenderSnap(){
     var body = $('wb-snap-body'); if(!body) return;
+    wbsChip();
     if(!_wbCierreLunes){
       body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Cargando el Top 10 del último cierre de lunes…</div>';
       wbFetchCierreLunes(function(){ try{ wbRenderSnap(); }catch(e){} });
@@ -4325,32 +4419,89 @@ if ('serviceWorker' in navigator) {
     var diasAtras = Math.round((new Date().getTime() - new Date(snapKey).getTime()) / 86400000);
     var preciosHoy = {};
     if(datosOK()) DATOS.forEach(function(d){ var p=num(d['Precio']); if(p) preciosHoy[d['Ticker']]=p; });
+
     var wins=0, conRet=0, sumRet=0;
-    var filas = snap.map(function(item, idx){
+    var items = snap.map(function(item){
       var pHoy = preciosHoy[item.t] || 0;
       var ret = (pHoy>0 && item.p>0) ? (pHoy/item.p-1)*100 : null;
       if(ret!=null){ conRet++; sumRet+=ret; if(ret>0) wins++; }
-      var col = ret==null?'var(--muted)':ret>0?'var(--green)':ret<0?'var(--red)':'var(--text)';
-      var sBadge = item.s>=70?'var(--green)':item.s>=50?'var(--blue)':'var(--amber)';
-      return '<tr>'+
-        '<td style="color:var(--muted);font-size:10px">'+(idx+1)+'</td>'+
-        '<td style="font-weight:500">'+esc(item.t)+'</td>'+
-        '<td style="font-family:\'DM Mono\',monospace;color:'+sBadge+'">'+item.s+'</td>'+
-        '<td style="font-family:\'DM Mono\',monospace;font-variant-numeric:tabular-nums">$'+fmt(item.p,2)+'</td>'+
-        '<td style="font-family:\'DM Mono\',monospace;font-variant-numeric:tabular-nums">'+(pHoy>0?'$'+fmt(pHoy,2):'—')+'</td>'+
-        '<td style="color:'+col+';font-family:\'DM Mono\',monospace;font-weight:600;font-variant-numeric:tabular-nums">'+
-          (ret==null?'—':(ret>=0?'+':'')+ret.toFixed(1)+'%')+'</td>'+
-        '</tr>';
-    }).join('');
+      return { t:item.t, s:item.s, p0:item.p, p1:pHoy, ret:ret };
+    });
     var avgRet = conRet>0 ? sumRet/conRet : null;
-    var resumen = '<div style="display:flex;gap:16px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;flex-wrap:wrap;background:rgba(255,255,255,0.02)">'+
-      (avgRet!=null?'<span style="color:var(--muted)">Retorno medio: <b style="color:'+(avgRet>=0?'var(--green)':'var(--red)')+'">'+
-        (avgRet>=0?'+':'')+avgRet.toFixed(1)+'%</b></span>'+
-        '<span style="color:var(--muted)">Win rate: <b style="color:var(--text)">'+wins+'/'+conRet+'</b></span>':'')+
-      '<span style="color:var(--muted)">Hace <b style="color:var(--text)">'+diasAtras+' días</b> ('+snapKey+')</span>'+
+    var con = items.filter(function(r){ return r.ret!=null; });
+    var maxAbs = con.reduce(function(m,r){ return Math.max(m, Math.abs(r.ret)); }, 0) || 1;
+    var orden = con.slice().sort(function(a,b){ return b.ret-a.ret; });
+    var best = orden[0], worst = orden[orden.length-1];
+
+    if(!items.length){
+      body.innerHTML = '<div class="wb-empty" style="padding:24px 16px;font-size:11px">Sin datos en el snapshot del último lunes</div>';
+      return;
+    }
+
+    var kpis =
+      '<div class="wbs-kpis">'+
+        '<div class="wbs-kpi '+(avgRet!=null&&avgRet<0?'neg':'pos')+'">'+
+          '<span class="wbs-k-label">Retorno medio del Top 10</span>'+
+          '<span class="wbs-k-val" style="color:'+wbsCol(avgRet)+'">'+(avgRet==null?'—':wbsSig(avgRet,1))+'</span>'+
+          '<span class="wbs-k-foot">desde el cierre del lunes'+(snapKey?' '+esc(snapKey):'')+' · hace '+diasAtras+' días</span>'+
+        '</div>'+
+        '<div class="wbs-kpi">'+
+          '<span class="wbs-k-label">Terminaron en verde</span>'+
+          '<span class="wbs-k-val sm">'+wins+'<span style="color:var(--dim2);font-size:20px"> / '+conRet+'</span></span>'+
+          '<div class="wbs-dots">'+orden.map(function(r){ return '<span class="wbs-dot '+(r.ret>0?'w':r.ret<0?'l':'')+'"></span>'; }).join('')+'</div>'+
+        '</div>'+
+        '<div class="wbs-kpi">'+
+          '<span class="wbs-k-label">Extremos de la semana</span>'+
+          '<div class="wbs-xw">'+
+            (best?'<div class="wbs-xw-row"><span class="wbs-xw-tag">Mejor</span>'+
+              '<img class="wbs-logo" src="'+wbsLogoUrl(best.t)+'" onerror="this.style.display=\'none\'">'+
+              '<span class="wbs-xw-tick">'+esc(best.t)+'</span>'+
+              '<span class="wbs-xw-val" style="color:'+wbsCol(best.ret)+'">'+wbsSig(best.ret,1)+'</span></div>':'')+
+            (worst&&worst!==best?'<div class="wbs-xw-row"><span class="wbs-xw-tag">Peor</span>'+
+              '<img class="wbs-logo" src="'+wbsLogoUrl(worst.t)+'" onerror="this.style.display=\'none\'">'+
+              '<span class="wbs-xw-tick">'+esc(worst.t)+'</span>'+
+              '<span class="wbs-xw-val" style="color:'+wbsCol(worst.ret)+'">'+wbsSig(worst.ret,1)+'</span></div>':'')+
+          '</div>'+
+        '</div>'+
       '</div>';
-    body.innerHTML = resumen+
-      '<table class="wb-mini-table"><thead><tr><th>#</th><th>Ticker</th><th>Score</th><th>Precio entonces</th><th>Precio hoy</th><th>Retorno</th></tr></thead><tbody>'+filas+'</tbody></table>';
+
+    var head =
+      '<div class="wbs-head">'+
+        '<span class="r">#</span><span>Ticker</span><span class="r">Score</span>'+
+        '<span class="h-prices">Lunes → hoy</span>'+
+        '<span class="wbs-axis-lbl"><span>−</span><span>0</span><span>+</span></span>'+
+        '<span class="r">Retorno</span>'+
+      '</div>';
+
+    var filas = items.map(function(r, i){
+      var w = r.ret==null ? 0 : Math.max(1.5, Math.abs(r.ret)/maxAbs*50);
+      return '<div class="wbs-row'+(i===0?' lead':'')+'">'+
+        '<span class="wbs-rank">'+(i+1)+'</span>'+
+        '<span class="wbs-name">'+
+          '<img class="wbs-logo" src="'+wbsLogoUrl(r.t)+'" onerror="this.style.display=\'none\'">'+
+          '<span class="wbs-tick">'+esc(r.t)+'</span></span>'+
+        '<span style="text-align:right"><span class="score-pill '+wbsPill(r.s)+'">'+r.s+'</span></span>'+
+        '<span class="wbs-prices">$'+fmt(r.p0,2)+'<i>→</i><b>'+(r.p1>0?'$'+fmt(r.p1,2):'—')+'</b></span>'+
+        '<span class="wbs-bar">'+(r.ret==null?'':'<span class="wbs-fill '+(r.ret>=0?'pos':'neg')+'" data-w="'+w.toFixed(2)+'"></span>')+'</span>'+
+        '<span class="wbs-ret" style="color:'+wbsCol(r.ret)+'">'+(r.ret==null?'—':wbsSig(r.ret,1))+'</span>'+
+        '</div>';
+    }).join('');
+
+    var foot = '<div class="wbs-foot">'+
+      '<span>Todos los lunes se congela el Top 10 del Warren Score con su precio de cierre. Las barras comparan cada retorno contra el mayor movimiento de la semana.</span>'+
+      '<span style="font-family:\'DM Mono\',monospace">'+items.length+' papeles · snapshot '+esc(snapKey)+'</span>'+
+      '</div>';
+
+    body.style.maxHeight = 'none';
+    body.style.overflowY = 'visible';
+    body.innerHTML = kpis + head + '<div class="wbs-rows">' + filas + '</div>' + foot;
+
+    var fills = body.querySelectorAll('.wbs-fill');
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        for(var i=0;i<fills.length;i++) fills[i].style.width = fills[i].getAttribute('data-w')+'%';
+      });
+    });
   }
 
   /* ═══ 8. Cartelera: sin límite de altura + logos ═══ */
