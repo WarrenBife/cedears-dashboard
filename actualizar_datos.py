@@ -1862,6 +1862,15 @@ REINTENTO_BOMBA_MIN_VENTANA = 5   # ventana mínima de pausa (ruedas) para confi
 REINTENTO_CAIDA_ZONA      = REINTENTO_BANDA + 0.05  # si el High cae más de esto del máximo previo, el evento se invalida
 REINTENTO_CASOB_EVAL_DIAS = 7      # ruedas desde "día 1" para ver si progresa (Caso A) o no (Caso B)
 REINTENTO_CASOB_TOPE_EXTRA = 5     # tope adicional: zona_idx + BUSQUEDA_MAX + este valor
+REINTENTO_CASOB_MARGEN_PROGRESO = 0.01  # "ya_progreso" exige superar close_dia1 por este margen,
+                                          # no cualquier valor por encima -- ver informe: un progreso
+                                          # de +0.12% (caso real BKR) descalificaba Caso B para
+                                          # siempre aunque el papel revirtiera y volviera a caer.
+                                          # Validado a escala: los casos "rescatados" por el margen
+                                          # tienen 41.2% de fracaso (vs 22.8% de los que sí progresan
+                                          # de verdad) -- el grupo Caso B ampliado pasa de 108 a 142
+                                          # casos, fracaso 50.9%->48.6%, sigue siendo la señal más
+                                          # fuerte del sistema.
 REINTENTO_CASOB_PEN_MIN_DIAS = 10  # duración de taza a la que empieza la penalización mínima
 REINTENTO_CASOB_PEN_MAX_DIAS = 25  # duración de taza a la que llega a la penalización máxima
 REINTENTO_CASOB_PEN_MIN      = 15.0  # penalización (puntos, positivo) a REINTENTO_CASOB_PEN_MIN_DIAS
@@ -2026,7 +2035,8 @@ def detectar_reintento_maximo(hist):
                 fin_eval = min(dia1_idx + REINTENTO_CASOB_EVAL_DIAS, n, fin_busq + REINTENTO_CASOB_TOPE_EXTRA)
                 if hoy > dia1_idx and hoy < fin_eval:
                     close_dia1 = close[dia1_idx]
-                    ya_progreso = bool((close[dia1_idx + 1:hoy + 1] > close_dia1).any())
+                    umbral_progreso = close_dia1 * (1 + REINTENTO_CASOB_MARGEN_PROGRESO)
+                    ya_progreso = bool((close[dia1_idx + 1:hoy + 1] > umbral_progreso).any())
                     if not ya_progreso:
                         rvol_sin_progreso = rvol10[dia1_idx + 1:hoy + 1]
                         rvol_sin_progreso = rvol_sin_progreso[~np.isnan(rvol_sin_progreso)]
