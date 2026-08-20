@@ -15369,10 +15369,14 @@ try {
   body.wbm-detail-open #wbm-detail{transform:translateX(0);}
   @media(prefers-reduced-motion:reduce){#wbm-detail{transition:none;}}
 
-  .wbm-d-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .wbm-d-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;
+    background:linear-gradient(180deg,rgba(34,201,138,0.05),transparent 70%);}
   .wbm-back-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
     width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0;}
   .wbm-back-btn svg{width:15px;height:15px;stroke:var(--text);}
+  .wbm-d-logo{width:32px;height:32px;border-radius:50%;object-fit:contain;flex-shrink:0;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(34,201,138,0.3);
+    box-shadow:0 0 0 1px rgba(34,201,138,0.15),0 0 14px rgba(34,201,138,0.25);}
   .wbm-d-tick{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;}
   .wbm-d-name{font-size:10.5px;color:var(--muted);margin-top:1px;}
   .wbm-d-price-col{margin-left:auto;text-align:right;}
@@ -15380,8 +15384,14 @@ try {
   .wbm-d-var{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;}
 
   .wbm-d-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px;}
-  .wbm-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;}
-  .wbm-card-label{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .wbm-card{background:linear-gradient(180deg,rgba(255,255,255,0.025),transparent 55%),var(--bg2);
+    border:1px solid var(--border);border-radius:14px;padding:14px;
+    box-shadow:var(--shadow-panel);position:relative;}
+  .wbm-card-label{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+  .wbm-card-label::before{content:'';width:3px;height:12px;border-radius:2px;flex-shrink:0;
+    background:linear-gradient(180deg,var(--green),rgba(34,201,138,0.25));
+    box-shadow:0 0 8px rgba(34,201,138,0.6);}
 
   .wbm-ws-row{display:flex;align-items:center;gap:16px;}
   .wbm-gauge-wrap{position:relative;width:88px;height:88px;flex-shrink:0;}
@@ -15418,7 +15428,8 @@ try {
   .wbm-fr-caption{font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
 
   .wbm-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .wbm-metric{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 11px;}
+  .wbm-metric{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 11px;
+    transition:border-color .2s,box-shadow .2s;}
   .wbm-metric-label{font-size:9.5px;color:var(--muted);margin-bottom:3px;}
   .wbm-metric-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
   .wbm-metric-span2{grid-column:1/-1;}
@@ -15547,9 +15558,22 @@ function wbmSignalItems(d){
 /* ── Métricas del detalle, separadas por pilar (Tendencia / Fuerza RS /
    Contracción / Setup) -- mismo agrupamiento que los 4 pilares del
    Warren Score, con los campos crudos que alimentan a cada uno. ── */
+/* ── Borde + glow neon por caja de métrica, según el signo del valor
+   que contiene (mismo lenguaje visual que ya usa el resto de la app:
+   ver .brk-card.brk-valid / .pill-green / .pill-red). ── */
+var WBM_BOX_GLOW = {
+  'var(--green)': { border:'rgba(34,201,138,0.4)',  shadow:'0 0 12px -2px rgba(34,201,138,0.4)',  rgba:'rgba(34,201,138,0.85)'  },
+  'var(--red)':   { border:'rgba(240,96,90,0.4)',   shadow:'0 0 12px -2px rgba(240,96,90,0.4)',   rgba:'rgba(240,96,90,0.85)'   },
+  'var(--amber)': { border:'rgba(245,166,35,0.4)',  shadow:'0 0 12px -2px rgba(245,166,35,0.35)', rgba:'rgba(245,166,35,0.85)' },
+  'var(--blue)':  { border:'rgba(79,142,247,0.4)',  shadow:'0 0 12px -2px rgba(79,142,247,0.4)',  rgba:'rgba(79,142,247,0.85)'  },
+  'var(--purple)':{ border:'rgba(167,139,250,0.4)', shadow:'0 0 12px -2px rgba(167,139,250,0.4)', rgba:'rgba(167,139,250,0.85)' }
+};
 function wbmMetricBox(label, val, color, span2){
-  return '<div class="wbm-metric' + (span2?' wbm-metric-span2':'') + '"><div class="wbm-metric-label">' + label + '</div>' +
-    '<div class="wbm-metric-val" style="color:' + (color||'var(--text)') + '">' + val + '</div></div>';
+  var c = color || 'var(--text)';
+  var glow = WBM_BOX_GLOW[c];
+  var boxStyle = glow ? ' style="border-color:' + glow.border + ';box-shadow:' + glow.shadow + '"' : '';
+  return '<div class="wbm-metric' + (span2?' wbm-metric-span2':'') + '"' + boxStyle + '><div class="wbm-metric-label">' + label + '</div>' +
+    '<div class="wbm-metric-val" style="color:' + c + '">' + val + '</div></div>';
 }
 function wbmMetricSection(label, dotColor, boxesHtml){
   if (!boxesHtml) return '';
@@ -15706,6 +15730,9 @@ window.wbmOpenDetail = function(ticker){
   var score = det.score, fallas = det.fallas, pen = det.pen, flags = det.flags;
   var sColor = score>=70?'var(--green)':score>=50?'var(--blue)':'var(--amber)';
 
+  var dLogo = _wbmEl('wbm-d-logo');
+  dLogo.style.display = '';
+  dLogo.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(ticker) + '.png';
   _wbmEl('wbm-d-tick').textContent = ticker;
   _wbmEl('wbm-d-name').textContent = (typeof N === 'function' ? N(ticker) : ticker) + (d['Sector'] ? ' · ' + d['Sector'] : '');
   _wbmEl('wbm-d-price').textContent = d['Precio'] != null ? '$' + _wbmFmt(d['Precio'], 2) : '—';
@@ -15714,18 +15741,24 @@ window.wbmOpenDetail = function(ticker){
   dVarEl.textContent = _wbmPct(varDia, 2);
   dVarEl.style.color = varDia>0?'var(--green)':varDia<0?'var(--red)':'var(--muted)';
 
-  _wbmEl('wbm-gauge-num').textContent = Math.round(score);
-  _wbmEl('wbm-gauge-num').style.color = sColor;
+  var sGlow = WBM_BOX_GLOW[sColor];
+  var gaugeNumEl = _wbmEl('wbm-gauge-num');
+  gaugeNumEl.textContent = Math.round(score);
+  gaugeNumEl.style.color = sColor;
+  gaugeNumEl.style.textShadow = sGlow ? '0 0 16px ' + sGlow.rgba : 'none';
   var arc = _wbmEl('wbm-gauge-arc');
   var circ = 2*Math.PI*42;
   arc.style.strokeDasharray = circ;
   arc.style.strokeDashoffset = circ*(1 - Math.max(0,Math.min(100,score))/100);
   arc.setAttribute('stroke', sColor);
+  arc.style.filter = sGlow ? 'drop-shadow(0 0 8px ' + sGlow.rgba + ')' : 'none';
 
   _wbmEl('wbm-bars-col').innerHTML = ['pa','pb','pc','pd'].map(function(k){
     var val = det[k], cap = WBM_CAPS[k], pct = cap>0 ? val/cap : 0;
+    var kGlow = WBM_BOX_GLOW[WBM_COLORS[k]];
+    var fillShadow = kGlow ? ';box-shadow:0 0 8px -1px ' + kGlow.rgba : '';
     return '<div class="wbm-bar-item"><span class="wbm-bar-name">' + WBM_BAR_NAMES[k] + '</span>' +
-      '<div class="wbm-bar-track"><div class="wbm-bar-fill" style="width:' + Math.min(100,Math.round(pct*100)) + '%;background:' + WBM_COLORS[k] + '"></div></div>' +
+      '<div class="wbm-bar-track"><div class="wbm-bar-fill" style="width:' + Math.min(100,Math.round(pct*100)) + '%;background:' + WBM_COLORS[k] + fillShadow + '"></div></div>' +
       '<span class="wbm-bar-frac">' + _wbmFmt(val,1) + '/' + cap + '</span></div>';
   }).join('');
 
@@ -15830,6 +15863,7 @@ window.wbAbrirFicha = function(ticker){
       '<div id="wbm-detail">' +
         '<div class="wbm-d-head">' +
           '<button class="wbm-back-btn" onclick="wbmCloseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
+          '<img class="wbm-d-logo" id="wbm-d-logo" onerror="this.style.display=\'none\'">' +
           '<div><div class="wbm-d-tick" id="wbm-d-tick"></div><div class="wbm-d-name" id="wbm-d-name"></div></div>' +
           '<div class="wbm-d-price-col"><div class="wbm-d-price" id="wbm-d-price"></div><div class="wbm-d-var" id="wbm-d-var"></div></div>' +
         '</div>' +
