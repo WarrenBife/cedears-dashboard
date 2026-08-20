@@ -1597,6 +1597,31 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         last_pct   = pcts[-1]
         dist_pivot = (float(c[-1]) - techo) / techo * 100
 
+        # ── Base "ya rota" (2026-08) -- si el precio YA CERRÓ por encima
+        # del techo con margen desde la última contracción confirmada,
+        # aunque la ruptura (o la caída posterior) todavía no haya
+        # formado un pivote confirmado, la base está usada, no vigente.
+        # Sin esto, un papel que rompió, corrió lejos y volvió a bajar
+        # hasta cerca del techo viejo (por casualidad, no por contracción
+        # real) puntúa como si la base siguiera fresca -- el detector de
+        # pivotes (order=3) tiene un "punto ciego" de unos días donde el
+        # movimiento más reciente todavía no formó mínimo confirmado, y
+        # cae de vuelta en contracciones viejas y desactualizadas (caso
+        # real: CIBR, base jun-jul vigente hasta el 3/8, rompió y corrió
+        # +8.5% hasta el 14/8, volvió a bajar -- seguía puntuando 94 el
+        # 20/8 con el techo de junio). Margen 3%, medido desde el mínimo
+        # de la última contracción hasta hoy.
+        UMBRAL_YA_ROTA = 0.03
+        ultimo_li_idx = contractions[-1]['li_idx']
+        ya_rota = bool(np.any(c[ultimo_li_idx:] > techo * (1 + UMBRAL_YA_ROTA)))
+        if ya_rota:
+            return {
+                'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': n_c,
+                'VCP Tightness': round(last_pct, 2), 'VCP Dist Pivot %': round(dist_pivot, 2),
+                'VCP Vol Decreasing': vol_dec >= 0.5, 'VCP Techo Toques': techo_toques,
+                'VCP Techo': round(techo, 2),
+            }
+
         score = 0
         score += round(pct_dec * 35)
         score += round(vol_dec * 20)
