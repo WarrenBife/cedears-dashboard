@@ -2073,6 +2073,36 @@ def _procesar_breakout_log(breakouts_log, ticker, hist, brk, hoy_str):
 # atrasa -- el conteo siempre refleja ruedas reales transcurridas.
 REBOTE_SMA10_MAX_DIAS = 2   # dias 1 y 2 son la ventana de veredicto
 
+# ── Penalización "pendiente SMA50 pronunciada" (Warren Score v4.7,
+# 2026-08) -- ver informe en wb_research/. Caso de origen: AVGO
+# 4/8/2026, RS Score alto pero SMA50 con pendiente -3.03% (20 ruedas) --
+# reboto igual y volvio a caer. Validado a escala (255 tickers, ~25.800
+# observaciones, 2 años, contexto RS Score>60 + gates): pendiente igual
+# o mas pronunciada que la de AVGO da mediana de retorno NEGATIVA a 20
+# ruedas (-0.56% a -2.0%, vs +1.4% del resto) y tasa de fracaso (cae
+# >=5%) de 35-42% vs 25-26% del resto -- confirmado en split por ticker
+# (2 mitades, mismo signo en ambas). Sin el filtro de RS Score>60 NO hay
+# señal (probado y descartado: pendiente negativa sola no predice nada,
+# incluso con signo contrario en algunos cortes) -- no aplicar nunca sin
+# ese contexto.
+SMA50_PEND_RS_MIN   = 60.0   # RS Score minimo para que aplique -- sin esto, no hay señal
+SMA50_PEND_PISO     = -1.0   # pendiente % (20 ruedas) a partir de la cual empieza a penalizar
+SMA50_PEND_TECHO    = -6.0   # pendiente % a la que llega al castigo maximo
+SMA50_PEND_MAX      = 8.0    # puntos (positivo, se resta) en el techo
+
+def _penalizacion_sma50_pendiente(rs_score, sma50_slope_pct):
+    """Penalización graduada 0-8 pts: 0 en pendiente>=-1% (sana), lineal
+    hasta 8 pts en pendiente<=-6% (declive profundo) -- SOLO si RS Score
+    > 60 (contexto validado; sin él, la pendiente sola no predice nada)."""
+    if rs_score is None or rs_score <= SMA50_PEND_RS_MIN or sma50_slope_pct is None:
+        return 0.0
+    if sma50_slope_pct >= SMA50_PEND_PISO:
+        return 0.0
+    if sma50_slope_pct <= SMA50_PEND_TECHO:
+        return SMA50_PEND_MAX
+    t = (SMA50_PEND_PISO - sma50_slope_pct) / (SMA50_PEND_PISO - SMA50_PEND_TECHO)
+    return round(SMA50_PEND_MAX * t, 2)
+
 def procesar_rebote_sma10(rebote_state, ticker, hist, sma10, sma10_slope, precio_actual, hoy_str):
     """Devuelve dict {estado, dias, fecha, low, cierre} para HOY, y muta
     rebote_state[ticker] in-place (lo agrega, lo deja igual, o lo borra).
@@ -2173,6 +2203,20 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         sma50         = round(sma50_series.iloc[-1], 2)
         sma50_ref     = sma50_series.iloc[-10] if len(sma50_series.dropna()) >= 10 else sma50_series.dropna().iloc[0]
         sma50_slope   = round(sma50 - float(sma50_ref), 4)
+        # Pendiente SMA50 % (Warren Score v4.7, 2026-08) -- normalizada en
+        # % sobre 20 ruedas (a diferencia de sma50_slope, que es $ absoluto
+        # sobre 10 ruedas y no comparable entre tickers de distinto precio).
+        # Alimenta la penalización "pendiente pronunciada" -- ver informe en
+        # wb_research/: validado SOLO en contexto de RS Score>60 (caso de
+        # origen: AVGO 4/8/2026, pendiente -3.03% en esa ventana, reboto con
+        # buen score pero la SMA50 seguía cayendo y volvió a bajar). Sin ese
+        # contexto (cualquier pendiente negativa, cualquier RS Score) NO hay
+        # señal -- probado y descartado, no repetir sin el filtro de RS.
+        sma50_slope_pct20 = None
+        if len(sma50_series.dropna()) >= 21:
+            _sma50_ref20 = sma50_series.dropna().iloc[-21]
+            if _sma50_ref20 and _sma50_ref20 > 0:
+                sma50_slope_pct20 = round((sma50 / float(_sma50_ref20) - 1) * 100, 3)
         # SMA10 -- Warren Score v4.0, Paso 3 (rebote en la SMA10). Mismo
         # metodo de pendiente que EMA200/SMA50 (diferencia absoluta contra
         # el valor de hace 10 ruedas, no %).
@@ -2216,6 +2260,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         fr_hoy, fr_ayer, fr_semana, fr_mes = calcular_rs_score(
             close, hist_spy["Close"]
         )
+
+        # Penalización "pendiente SMA50 pronunciada" -- Warren Score v4.7
+        pend_sma50_pts = _penalizacion_sma50_pendiente(score_actual, sma50_slope_pct20)
 
         # VCP
         vcp = detectar_vcp(hist)
@@ -2295,6 +2342,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Dist EMA200 %":   dist_ema200,
             "SMA50":           sma50,
             "SMA50 Slope":     sma50_slope,
+            "SMA50 Slope Pct 20r": sma50_slope_pct20,
             "Dist SMA50 %":    dist_sma50,
             "SMA10":           sma10,
             "SMA10 Slope":     sma10_slope,
@@ -2380,6 +2428,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "OBV Penaliza Dias":       agot_obv['obv_dias'],
             "OBV Penaliza Fecha Inicio": agot_obv['obv_fecha_inicio'],
             "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
+            "Pend SMA50 Pts":          pend_sma50_pts,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
