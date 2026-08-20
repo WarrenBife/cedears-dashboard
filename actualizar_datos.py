@@ -2551,6 +2551,24 @@ try:
 except Exception as e:
     print(f"  ⚠️  Error cargando rebote_sma10_state.json: {e}")
 
+# ── CARGAR FR_HISTORIA.JSON (serie diaria de FR por ticker -- gráfico de
+# evolución de la FR en el detalle mobile del Warren Score, 2026-08) ──
+FR_HISTORIA_FILE = "fr_historia.json"
+FR_HISTORIA_DIAS = 200  # ~ algo más de 9 meses de ruedas, cubre la ventana de "6 meses" del mockup con margen
+fr_historia = []
+try:
+    resp_fh = requests.get(
+        f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{FR_HISTORIA_FILE}",
+        headers=gh_headers,
+    )
+    if resp_fh.status_code == 200:
+        fr_historia = json.loads(base64.b64decode(resp_fh.json()["content"]).decode("utf-8"))
+        print(f"  ✅ fr_historia.json cargado: {len(fr_historia)} filas")
+    else:
+        print("  ℹ️  fr_historia.json no existe todavía, arranca vacío")
+except Exception as e:
+    print(f"  ⚠️  Error cargando fr_historia.json: {e}")
+
 hoy_str = datetime.now().strftime('%Y-%m-%d')
 
 # ── LOOP PRINCIPAL ────────────────────────────────────────────
@@ -2569,6 +2587,13 @@ for grupo, tickers in TICKERS.items():
         datos = calcular_kpis(ticker, hist_spy, breakouts_log, rebote_state, hoy_str)
         if not datos:
             continue
+
+        # Serie diaria de FR (fr_historia.json) -- 1 punto por ticker por
+        # día, se pisa si el pipeline corre más de una vez el mismo día.
+        fr_hoy_val = datos.get("FR Hoy")
+        if fr_hoy_val is not None:
+            fr_historia = [e for e in fr_historia if not (e.get("ticker") == ticker and e.get("fecha") == hoy_str)]
+            fr_historia.append({"fecha": hoy_str, "ticker": ticker, "fr": round(float(fr_hoy_val), 6)})
 
         datos["Grupo"] = grupo
 
@@ -2729,6 +2754,26 @@ if resp_rb.status_code in [200, 201]:
     print(f"✅ rebote_sma10_state.json actualizado ({len(rebote_state)} tickers en observación)")
 else:
     print(f"⚠️  Error subiendo rebote_sma10_state.json: {resp_rb.status_code} — {resp_rb.json().get('message')}")
+
+# ── EXPORTAR FR_HISTORIA.JSON A GITHUB (gráfico de evolución de FR,
+# detalle mobile del Warren Score) ──
+fr_historia = [
+    e for e in fr_historia
+    if (datetime.now() - datetime.strptime(e["fecha"], "%Y-%m-%d")).days <= FR_HISTORIA_DIAS
+]
+fr_historia_str = json.dumps(fr_historia, ensure_ascii=False)
+fr_historia_b64 = base64.b64encode(fr_historia_str.encode()).decode()
+url_fh = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{FR_HISTORIA_FILE}"
+resp_fh = requests.get(url_fh, headers=headers)
+sha_fh  = resp_fh.json().get("sha") if resp_fh.status_code == 200 else None
+payload_fh = {"message": f"Auto-update fr_historia {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": fr_historia_b64}
+if sha_fh:
+    payload_fh["sha"] = sha_fh
+resp_fh = requests.put(url_fh, headers=headers, json=payload_fh)
+if resp_fh.status_code in [200, 201]:
+    print(f"✅ fr_historia.json actualizado ({len(fr_historia)} filas)")
+else:
+    print(f"⚠️  Error subiendo fr_historia.json: {resp_fh.status_code} — {resp_fh.json().get('message')}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',

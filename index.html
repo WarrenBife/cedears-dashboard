@@ -646,7 +646,7 @@
     </div>
     <div class="panel">
       <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.">Warren Score</div><div class="panel-sub">Score compuesto 0–100 · 4 pilares + gates Stage 2</div></div></div>
-      <div class="panel-filters">
+      <div class="panel-filters" id="ws-filters-row">
         <span class="pf-label">Filtro:</span>
         <select id="ws-min" onchange="renderWarrenScore()">
           <option value="all">Todos</option>
@@ -658,7 +658,7 @@
         <select id="ws-n" onchange="renderWarrenScore()"><option value="20">Top 20</option><option value="30">Top 30</option><option value="50">Top 50</option><option value="999">Todos</option></select>
       </div>
       <div class="panel-body" style="padding:0;">
-        <div style="max-height:500px;overflow-y:auto;">
+        <div style="max-height:500px;overflow-y:auto;" id="ws-table-wrap">
           <table class="scanner-table" id="warren-table">
             <thead><tr>
               <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
@@ -675,7 +675,7 @@
             <tbody id="warren-body"></tbody>
           </table>
         </div>
-        <div style="padding:8px 14px 10px;border-top:1px solid var(--border2);">
+        <div style="padding:8px 14px 10px;border-top:1px solid var(--border2);" id="ws-legend-wrap">
           <button onclick="var b=document.getElementById('ws-leg');b.style.display=b.style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;padding:0;font-family:inherit;letter-spacing:0.05em;text-transform:uppercase">¿Qué significan las advertencias? ▾</button>
           <div id="ws-leg" style="display:none;margin-top:6px;color:var(--muted);font-size:10px;line-height:2;">
             📉 <b>Divergencia RSI</b> — El precio hace máximos pero el impulso no los confirma<br>
@@ -15300,6 +15300,427 @@ try {
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V31 ═══════════════ -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V32 — Warren Score: vista mobile compacta (lista +
+     detalle a pantalla completa por ticker), sobre mockup del usuario
+     ("New WS.png"). Para remover: borrar todo desde esta línea hasta
+     "FIN WB UPGRADE V32".
+
+     Sólo UI/presentación -- no toca calcWarrenDetalle, pilares ni
+     penalizaciones (usa la versión vigente tal cual, hoy V48/v4.6).
+     En mobile (@media max-width:600px) se ocultan los filtros/tabla de
+     desktop (#ws-filters-row, #ws-table-wrap, #ws-legend-wrap) y se
+     muestra en su lugar #wbm-mobile-wrap: buscador + lista compacta
+     (rank, logo+ticker, Warren Score, 4 barritas de pilares con su
+     puntaje, penalización), con el MISMO max-height:500px que tiene
+     hoy #ws-table-wrap en desktop -- scroll interno, no crece la
+     página. Tocar una fila abre #wbm-detail a pantalla completa
+     (overlay fixed): gauge + 4 barras con fracción real, gates,
+     penalizaciones (desglosadas por ítem, ver wbmPenaltyItems),
+     evolución de la FR (fr_historia.json, serie nueva -- ver informe
+     en wb_research/), y métricas (RSI, distancias, vs. sector). ── -->
+<style id="wb-v32-css">
+  .wbm-mobile-wrap{display:none;}
+  @media(max-width:600px){
+    #ws-filters-row, #ws-table-wrap, #ws-legend-wrap{display:none!important;}
+    .wbm-mobile-wrap{display:block!important;}
+  }
+
+  .wbm-row-grid{display:grid;grid-template-columns:16px 58px 34px repeat(4,1fr) 34px;gap:6px;align-items:center;}
+
+  .wbm-search-row{padding:10px 14px;}
+  .wbm-search-wrap{position:relative;}
+  .wbm-search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--muted);}
+  .wbm-search-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+    padding:9px 12px 9px 34px;border-radius:10px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;}
+  .wbm-search-input::placeholder{color:var(--muted);}
+  .wbm-search-input:focus{border-color:rgba(34,201,138,0.4);}
+
+  .wbm-col-header{padding:2px 14px 7px;}
+  .wbm-col-header .wbm-row-grid{align-items:end;}
+  .wbm-ch-label{font-family:'DM Mono',monospace;font-size:7.6px;letter-spacing:0.03em;color:var(--muted);
+    text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .wbm-ch-wrap{white-space:normal;line-height:1.15;}
+
+  .wbm-list-scroll{max-height:500px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);}
+  .wbm-row{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+  .wbm-row:active{background:rgba(255,255,255,0.03);}
+  .wbm-rank{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;}
+  .wbm-tick-col{text-align:center;min-width:0;}
+  .wbm-tick-inner{display:flex;align-items:center;justify-content:center;gap:4px;}
+  .wbm-tick-logo{width:15px;height:15px;border-radius:50%;object-fit:contain;flex-shrink:0;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);}
+  .wbm-tick{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.01em;}
+  .wbm-tick-gate-fail{color:var(--red);font-size:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.01em;display:block;}
+
+  .wbm-pbar{border-radius:6px;padding:3px 0 4px;text-align:center;min-width:0;background:var(--bg3);border:1px solid var(--border);}
+  .wbm-pbar-fill{height:3px;border-radius:2px;background:var(--border2);margin:0 6px 3px;overflow:hidden;position:relative;}
+  .wbm-pbar-fill i{display:block;height:100%;border-radius:2px;}
+  .wbm-pbar-val{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;}
+
+  .wbm-score-col{text-align:center;}
+  .wbm-score-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+
+  /* ── Detalle: overlay a pantalla completa ── */
+  #wbm-detail{position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;
+    transform:translateX(100%);transition:transform .32s cubic-bezier(.22,.9,.3,1);}
+  body.wbm-detail-open{overflow:hidden;}
+  body.wbm-detail-open #wbm-detail{transform:translateX(0);}
+  @media(prefers-reduced-motion:reduce){#wbm-detail{transition:none;}}
+
+  .wbm-d-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .wbm-back-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+    width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0;}
+  .wbm-back-btn svg{width:15px;height:15px;stroke:var(--text);}
+  .wbm-d-tick{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;}
+  .wbm-d-name{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  .wbm-d-price-col{margin-left:auto;text-align:right;}
+  .wbm-d-price{font-family:'DM Mono',monospace;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .wbm-d-var{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;}
+
+  .wbm-d-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px;}
+  .wbm-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .wbm-card-label{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+
+  .wbm-ws-row{display:flex;align-items:center;gap:16px;}
+  .wbm-gauge-wrap{position:relative;width:88px;height:88px;flex-shrink:0;}
+  .wbm-gauge-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:26px;font-weight:700;}
+  .wbm-bars-col{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .wbm-bar-item{display:flex;align-items:center;gap:8px;}
+  .wbm-bar-name{font-size:11px;color:var(--text);width:74px;flex-shrink:0;}
+  .wbm-bar-track{flex:1;height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;}
+  .wbm-bar-fill{height:100%;border-radius:3px;}
+  .wbm-bar-frac{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);width:44px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
+
+  .wbm-gate-item{display:flex;align-items:center;gap:8px;padding:7px 0;}
+  .wbm-gate-check{width:16px;height:16px;border-radius:5px;background:var(--green-bg);border:1px solid rgba(34,201,138,0.4);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .wbm-gate-check svg{width:10px;height:10px;stroke:var(--green);}
+  .wbm-gate-text{flex:1;font-size:11.5px;}
+  .wbm-gate-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);font-weight:600;font-variant-numeric:tabular-nums;}
+
+  .wbm-pen-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+  .wbm-pen-item:last-of-type{border-bottom:none;}
+  .wbm-pen-emoji{font-size:14px;flex-shrink:0;width:20px;text-align:center;}
+  .wbm-pen-text{flex:1;font-size:11.5px;}
+  .wbm-pen-pts{font-family:'DM Mono',monospace;font-size:11px;color:var(--red);font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;}
+  .wbm-pen-total-row{display:flex;justify-content:space-between;margin-top:6px;padding-top:8px;border-top:1px solid var(--border2);font-size:10.5px;color:var(--muted);}
+  .wbm-pen-total-row b{color:var(--red);font-family:'DM Mono',monospace;font-weight:600;}
+  .wbm-pen-empty{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding:2px 0;}
+
+  .wbm-fr-svg{width:100%;height:90px;display:block;}
+  .wbm-fr-caption{font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+
+  .wbm-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .wbm-metric{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 11px;}
+  .wbm-metric-label{font-size:9.5px;color:var(--muted);margin-bottom:3px;}
+  .wbm-metric-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .wbm-metric-span2{grid-column:1/-1;}
+</style>
+<script id="wb-v32-js">
+(function(){
+'use strict';
+try {
+
+function _wbmEl(id){ return document.getElementById(id); }
+function _wbmEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function _wbmFmt(n,d){ return n==null ? '—' : n.toLocaleString('es-AR',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0}); }
+function _wbmPct(n,d){ return n==null ? '—' : (n>=0?'+':'')+_wbmFmt(n,d)+'%'; }
+
+var WBM_CAPS = {pa:20, pb:25, pc:35, pd:20};
+var WBM_COLORS = {pa:'var(--blue)', pb:'var(--green)', pc:'var(--purple)', pd:'var(--amber)'};
+var WBM_BAR_NAMES = {pa:'Tendencia', pb:'Fuerza RS', pc:'Contracción', pd:'Setup estr.'};
+
+function wbmScoreColor(pct){ return pct>=0.7?'var(--green)':pct>=0.4?'var(--amber)':'var(--red)'; }
+
+/* ── Fetch fr_historia.json (serie diaria de FR por ticker, para el
+   gráfico de evolución del detalle -- ver actualizar_datos.py) ── */
+var WBM_FR_URL = 'https://warrenbife.github.io/cedears-dashboard/fr_historia.json';
+window._wbmFrHistoria = [];
+fetch(WBM_FR_URL + '?_=' + Date.now())
+  .then(function(r){ return r.ok ? r.json() : []; })
+  .then(function(d){ window._wbmFrHistoria = Array.isArray(d) ? d : []; })
+  .catch(function(){ window._wbmFrHistoria = []; });
+
+function wbmComputeRanks(){
+  var ranks = {};
+  if (typeof DATOS === 'undefined' || !DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return ranks;
+  DATOS
+    .map(function(d){ return { t: d['Ticker'], s: calcWarrenDetalle(d).score }; })
+    .filter(function(x){ return x.s > 0; })
+    .sort(function(a,b){ return b.s - a.s; })
+    .forEach(function(x,i){ ranks[x.t] = i + 1; });
+  return ranks;
+}
+
+/* ── Desglose de penalizaciones para el detalle -- lee sólo 'flags' (ya
+   resuelto por calcWarrenDetalle) + un puñado de campos crudos sin
+   ambigüedad (Caso B Pts, Rebote SMA10 Estado, Div RSI/OBV/Churn) para
+   reconstruir puntos por ítem. NO recalcula ningún umbral/condición de
+   la fórmula real -- si el día de mañana cambia _penalizacionesVXX,
+   sólo hay que revisar esta función si cambian los puntos fijos de
+   cada flag (🎈6 🩸15 💥8 ⛔10 🧨12 🌫️5), no la lógica de disparo. ── */
+var WBM_PEN_LABEL = {
+  '🎈':'Sobreextensión', '🩸':'Distribución activa', '💥':'Reversión con volumen',
+  '⛔':'Breakout fallido', '🌊':'Caso B: deambulando sin romper el máximo',
+  '🧨':'Agotamiento OBV + Divergencia RSI', '🌫️':'Agotamiento OBV'
+};
+var WBM_PEN_PTS = {'🎈':6, '🩸':15, '💥':8, '⛔':10, '🧨':12, '🌫️':5};
+
+function wbmPenaltyItems(d, flags){
+  var items = [];
+  var agot = [];
+  (flags||[]).forEach(function(f){
+    if (f==='📉' || f==='🪫' || f==='🐘') { agot.push(f); return; }
+    if (f==='🧊'){
+      var esFallo = d['Rebote SMA10 Estado']==='falso';
+      items.push({emoji:'🧊', label: esFallo?'Rebote en SMA10 fallido':'Churning en resistencia', pts: esFallo?8:6});
+      return;
+    }
+    if (f==='🌊'){
+      items.push({emoji:'🌊', label:WBM_PEN_LABEL['🌊'], pts: Math.round((+d['Caso B Pts'])||0)});
+      return;
+    }
+    if (WBM_PEN_LABEL[f]) items.push({emoji:f, label:WBM_PEN_LABEL[f], pts:WBM_PEN_PTS[f]});
+  });
+  if (agot.length){
+    var lbl = {'📉':'Divergencia RSI','🪫':'Divergencia OBV','🐘':'Churning en máximos'};
+    items.push({
+      emoji: agot.join(''),
+      label: agot.map(function(f){ return lbl[f]; }).join(' + '),
+      pts: agot.length >= 2 ? 10 : 4
+    });
+  }
+  return items;
+}
+
+/* ── Lista compacta ── */
+function wbmRenderList(){
+  var listEl = _wbmEl('wbm-list-scroll');
+  if (!listEl || typeof calcWarrenDetalle !== 'function' || typeof getDatosFiltrados !== 'function') return;
+  var searchEl = _wbmEl('wbm-search');
+  var term = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  var ranks = wbmComputeRanks();
+
+  var data = getDatosFiltrados()
+    .map(function(d){ var det = calcWarrenDetalle(d); det.d = d; return det; })
+    .filter(function(x){ return x.score > 0; });
+
+  if (term) data = data.filter(function(x){ return (x.d['Ticker']||'').toLowerCase().indexOf(term) !== -1; });
+  data.sort(function(a,b){ return b.score - a.score; });
+
+  if (!data.length){
+    listEl.innerHTML = '<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:11px">' +
+      (term ? 'Ningún ticker coincide con "' + _wbmEsc(searchEl.value.trim()) + '"' : 'Sin resultados') + '</div>';
+    return;
+  }
+
+  listEl.innerHTML = data.map(function(x){
+    var d = x.d, ticker = d['Ticker'];
+    var score = Math.round(x.score);
+    var rank = ranks[ticker] || '—';
+    var sColor = score>=70?'var(--green)':score>=50?'var(--blue)':'var(--amber)';
+    var gateOk = x.fallas.length === 0;
+
+    var bars = ['pa','pb','pc','pd'].map(function(k){
+      var val = x[k], cap = WBM_CAPS[k], pct = cap>0 ? val/cap : 0;
+      var col = wbmScoreColor(pct);
+      return '<div class="wbm-pbar"><div class="wbm-pbar-fill"><i style="width:' + Math.round(Math.min(1,pct)*100) + '%;background:' + col + '"></i></div>' +
+        '<div class="wbm-pbar-val" style="color:' + col + '">' + Math.round(val) + '</div></div>';
+    }).join('');
+
+    var pen = x.pen || 0;
+    var penPct = pen < 0 ? Math.min((-pen)/25, 1) : 0;
+    var penBox = '<div class="wbm-pbar">' +
+      '<div class="wbm-pbar-fill"><i style="width:' + Math.round(penPct*100) + '%;background:var(--red)"></i></div>' +
+      '<div class="wbm-pbar-val" style="color:' + (pen<0?'var(--red)':'var(--muted)') + '">' + (pen<0?Math.round(pen):'—') + '</div></div>';
+
+    return '<div class="wbm-row" onclick="wbmOpenDetail(\'' + ticker.replace(/'/g,"\\'") + '\')"><div class="wbm-row-grid">' +
+      '<div class="wbm-rank">' + rank + '</div>' +
+      '<div class="wbm-tick-col"><div class="wbm-tick-inner">' +
+        '<img class="wbm-tick-logo" src="https://financialmodelingprep.com/image-stock/' + encodeURIComponent(ticker) + '.png" onerror="this.style.display=\'none\'">' +
+        '<span class="wbm-tick">' + _wbmEsc(ticker) + '</span></div>' +
+        (gateOk ? '' : '<span class="wbm-tick-gate-fail">✗ gates</span>') + '</div>' +
+      '<div class="wbm-score-col"><span class="wbm-score-val" style="color:' + sColor + '">' + score + '</span></div>' +
+      bars + penBox +
+      '</div></div>';
+  }).join('');
+}
+
+/* ── Gráfico de evolución de FR (fr_historia.json) ── */
+function wbmDrawFrChart(ticker){
+  var svg = _wbmEl('wbm-fr-svg'), caption = _wbmEl('wbm-fr-caption');
+  if (!svg) return;
+  var serie = (window._wbmFrHistoria || [])
+    .filter(function(e){ return e.ticker === ticker && e.fr != null; })
+    .sort(function(a,b){ return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
+
+  if (serie.length < 2){
+    svg.style.display = 'none';
+    svg.innerHTML = '';
+    if (caption) caption.textContent = 'Sin histórico suficiente todavía — la serie se arma con 1 punto por día a partir de ahora (nueva desde 2026-08).';
+    return;
+  }
+  svg.style.display = 'block';
+  var vals = serie.map(function(e){ return e.fr; });
+  var w=300, h=90, pad=6;
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var x = function(i){ return pad + i*(w-2*pad)/(vals.length-1); };
+  var y = function(v){ return h-pad - (v-min)/((max-min)||1)*(h-2*pad); };
+  var avg = vals.reduce(function(a,b){ return a+b; },0)/vals.length;
+  var line = vals.map(function(v,i){ return (i===0?'M':'L')+x(i).toFixed(1)+','+y(v).toFixed(1); }).join(' ');
+  var area = line + ' L'+x(vals.length-1).toFixed(1)+','+(h-pad)+' L'+x(0).toFixed(1)+','+(h-pad)+' Z';
+  var up = vals[vals.length-1] >= vals[0];
+  var col = up ? '#22c98a' : '#f0605a';
+  svg.innerHTML =
+    '<defs><linearGradient id="wbmFrGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="'+col+'" stop-opacity="0.28"/>' +
+    '<stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>' +
+    '<line x1="'+pad+'" y1="'+y(avg).toFixed(1)+'" x2="'+(w-pad)+'" y2="'+y(avg).toFixed(1)+'" stroke="rgba(148,163,184,0.35)" stroke-width="1" stroke-dasharray="3,3"/>' +
+    '<path d="'+area+'" fill="url(#wbmFrGrad)"/>' +
+    '<path d="'+line+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="'+x(vals.length-1).toFixed(1)+'" cy="'+y(vals[vals.length-1]).toFixed(1)+'" r="3" fill="'+col+'"/>';
+  if (caption) caption.textContent = 'Fuerza relativa (precio vs. SPY) · ' + serie.length + ' día' + (serie.length===1?'':'s') + ' de historia.';
+}
+
+/* ── Detalle a pantalla completa ── */
+window.wbmOpenDetail = function(ticker){
+  if (typeof DATOS === 'undefined' || !DATOS || typeof calcWarrenDetalle !== 'function') return;
+  var d = DATOS.find(function(x){ return x['Ticker'] === ticker; });
+  if (!d) return;
+  var det = calcWarrenDetalle(d);
+  var score = det.score, fallas = det.fallas, pen = det.pen, flags = det.flags;
+  var sColor = score>=70?'var(--green)':score>=50?'var(--blue)':'var(--amber)';
+
+  _wbmEl('wbm-d-tick').textContent = ticker;
+  _wbmEl('wbm-d-name').textContent = (typeof N === 'function' ? N(ticker) : ticker) + (d['Sector'] ? ' · ' + d['Sector'] : '');
+  _wbmEl('wbm-d-price').textContent = d['Precio'] != null ? '$' + _wbmFmt(d['Precio'], 2) : '—';
+  var varDia = d['Var Día %'];
+  var dVarEl = _wbmEl('wbm-d-var');
+  dVarEl.textContent = _wbmPct(varDia, 2);
+  dVarEl.style.color = varDia>0?'var(--green)':varDia<0?'var(--red)':'var(--muted)';
+
+  _wbmEl('wbm-gauge-num').textContent = Math.round(score);
+  _wbmEl('wbm-gauge-num').style.color = sColor;
+  var arc = _wbmEl('wbm-gauge-arc');
+  var circ = 2*Math.PI*42;
+  arc.style.strokeDasharray = circ;
+  arc.style.strokeDashoffset = circ*(1 - Math.max(0,Math.min(100,score))/100);
+  arc.setAttribute('stroke', sColor);
+
+  _wbmEl('wbm-bars-col').innerHTML = ['pa','pb','pc','pd'].map(function(k){
+    var val = det[k], cap = WBM_CAPS[k], pct = cap>0 ? val/cap : 0;
+    return '<div class="wbm-bar-item"><span class="wbm-bar-name">' + WBM_BAR_NAMES[k] + '</span>' +
+      '<div class="wbm-bar-track"><div class="wbm-bar-fill" style="width:' + Math.min(100,Math.round(pct*100)) + '%;background:' + WBM_COLORS[k] + '"></div></div>' +
+      '<span class="wbm-bar-frac">' + _wbmFmt(val,1) + '/' + cap + '</span></div>';
+  }).join('');
+
+  var gateOk = fallas.length === 0;
+  var gateVal = _wbmPct(d['Dist EMA200 %'], 2);
+  _wbmEl('wbm-gates-col').innerHTML = gateOk
+    ? '<div class="wbm-gate-item"><div class="wbm-gate-check"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>' +
+      '<div class="wbm-gate-text">Precio &gt; EMA200 con pendiente +</div><div class="wbm-gate-val">' + gateVal + '</div></div>'
+    : '<div class="wbm-gate-item"><div class="wbm-gate-check" style="background:var(--red-bg);border-color:rgba(240,96,90,0.4)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>' +
+      '<div class="wbm-gate-text">' + _wbmEsc(fallas.join(', ')) + '</div><div class="wbm-gate-val" style="color:var(--red)">' + gateVal + '</div></div>';
+
+  var items = wbmPenaltyItems(d, flags);
+  _wbmEl('wbm-pen-card').innerHTML = items.length
+    ? items.map(function(p){
+        return '<div class="wbm-pen-item"><span class="wbm-pen-emoji">' + p.emoji + '</span>' +
+          '<span class="wbm-pen-text">' + _wbmEsc(p.label) + '</span>' +
+          '<span class="wbm-pen-pts">−' + p.pts + '</span></div>';
+      }).join('') + '<div class="wbm-pen-total-row">Total penalizaciones <b>−' + _wbmFmt(Math.abs(pen),1) + ' pts</b></div>'
+    : '<div class="wbm-pen-empty"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M5 13l4 4L19 7"/></svg>Sin penalizaciones activas</div>';
+
+  wbmDrawFrChart(ticker);
+
+  var mHtml = '';
+  var rsi = d['RSI 14'];
+  if (rsi != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">RSI (14)</div><div class="wbm-metric-val" style="color:' + (rsi>70?'var(--amber)':rsi<30?'var(--red)':'var(--text)') + '">' + _wbmFmt(rsi,1) + '</div></div>';
+  var dSma50 = d['Dist SMA50 %'];
+  if (dSma50 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. SMA50</div><div class="wbm-metric-val" style="color:' + (dSma50>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(dSma50,2) + '</div></div>';
+  var dEma200 = d['Dist EMA200 %'];
+  if (dEma200 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. EMA200</div><div class="wbm-metric-val" style="color:' + (dEma200>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(dEma200,2) + '</div></div>';
+  var dMax52 = d['Dist Máx52W %'];
+  if (dMax52 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. máx. 52 sem.</div><div class="wbm-metric-val">' + _wbmPct(dMax52,2) + '</div></div>';
+  var vsSector = d['Vs Sector %'];
+  if (vsSector != null) mHtml += '<div class="wbm-metric wbm-metric-span2"><div class="wbm-metric-label">Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : '') + '</div><div class="wbm-metric-val" style="color:' + (vsSector>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(vsSector,2) + '</div></div>';
+  _wbmEl('wbm-metrics-grid').innerHTML = mHtml;
+
+  document.body.classList.add('wbm-detail-open');
+  var dScroll = document.querySelector('.wbm-d-scroll');
+  if (dScroll) dScroll.scrollTop = 0;
+};
+
+window.wbmCloseDetail = function(){
+  document.body.classList.remove('wbm-detail-open');
+};
+
+/* ── Inyección de HTML (una sola vez) ── */
+(function wbmInject(){
+  var tableWrap = _wbmEl('ws-table-wrap');
+  if (tableWrap && !_wbmEl('wbm-mobile-wrap')) {
+    tableWrap.insertAdjacentHTML('beforebegin',
+      '<div class="wbm-mobile-wrap" id="wbm-mobile-wrap">' +
+        '<div class="wbm-search-row"><div class="wbm-search-wrap">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>' +
+          '<input class="wbm-search-input" id="wbm-search" list="cmp-tickers-list" autocomplete="off" placeholder="Buscar ticker..." oninput="wbmRenderList()">' +
+        '</div></div>' +
+        '<div class="wbm-col-header"><div class="wbm-row-grid">' +
+          '<span></span><span class="wbm-ch-label">Ticker</span><span class="wbm-ch-label wbm-ch-wrap">Warren<br>Score</span>' +
+          '<span class="wbm-ch-label">Tend.</span><span class="wbm-ch-label">Fuerza</span><span class="wbm-ch-label">Contr.</span><span class="wbm-ch-label">Setup</span>' +
+          '<span class="wbm-ch-label">Pen.</span>' +
+        '</div></div>' +
+        '<div class="wbm-list-scroll" id="wbm-list-scroll"></div>' +
+      '</div>');
+  }
+  if (!_wbmEl('wbm-detail')) {
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="wbm-detail">' +
+        '<div class="wbm-d-head">' +
+          '<button class="wbm-back-btn" onclick="wbmCloseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
+          '<div><div class="wbm-d-tick" id="wbm-d-tick"></div><div class="wbm-d-name" id="wbm-d-name"></div></div>' +
+          '<div class="wbm-d-price-col"><div class="wbm-d-price" id="wbm-d-price"></div><div class="wbm-d-var" id="wbm-d-var"></div></div>' +
+        '</div>' +
+        '<div class="wbm-d-scroll">' +
+          '<div class="wbm-card"><div class="wbm-card-label">Warren Score</div><div class="wbm-ws-row">' +
+            '<div class="wbm-gauge-wrap"><svg viewBox="0 0 100 100" width="88" height="88">' +
+              '<circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg3)" stroke-width="9"></circle>' +
+              '<circle id="wbm-gauge-arc" cx="50" cy="50" r="42" fill="none" stroke="var(--green)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)"></circle>' +
+            '</svg><div class="wbm-gauge-num" id="wbm-gauge-num"></div></div>' +
+            '<div class="wbm-bars-col" id="wbm-bars-col"></div>' +
+          '</div></div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Gates Stage 2</div><div id="wbm-gates-col"></div></div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Penalizaciones</div><div id="wbm-pen-card"></div></div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Evolución de la FR · últimos 6 meses</div>' +
+            '<svg class="wbm-fr-svg" viewBox="0 0 300 90" preserveAspectRatio="none" id="wbm-fr-svg"></svg>' +
+            '<div class="wbm-fr-caption" id="wbm-fr-caption"></div>' +
+          '</div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Métricas</div><div class="wbm-metrics-grid" id="wbm-metrics-grid"></div></div>' +
+        '</div>' +
+      '</div>');
+  }
+})();
+
+/* ── Enganche a renderWarrenScore (misma señal que refresca la tabla
+   desktop refresca también la lista mobile) ── */
+var _wbmPrevRenderWarrenScore = window.renderWarrenScore;
+window.renderWarrenScore = function(){
+  if (typeof _wbmPrevRenderWarrenScore === 'function') _wbmPrevRenderWarrenScore();
+  try { wbmRenderList(); } catch(e){ console.error('wbmRenderList', e); }
+};
+
+try {
+  if (typeof DATOS !== 'undefined' && DATOS && DATOS.length && typeof renderWarrenScore === 'function') {
+    renderWarrenScore();
+  }
+} catch(e){}
+
+} catch(e){ console.error('WB V32 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V32 ═══════════════ -->
 
 
 </body>
