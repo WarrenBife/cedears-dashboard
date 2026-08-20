@@ -15698,6 +15698,29 @@ window.wbmCloseDetail = function(){
   document.body.classList.remove('wbm-detail-open');
 };
 
+/* ── Unificar la card de ticker: hoy CUALQUIER ticker del dashboard
+   (Cartelera, Scanner, Episodic Pivots, Despegue Fresco, Podio del día,
+   buscador) abre wbAbrirFicha() -- el drawer viejo de Ficha de Ticker
+   (WB UPGRADE V5) -- mientras que las filas del Warren Score mobile ya
+   abrían este detalle nuevo. Quedaban 2 cards distintas conviviendo
+   según desde dónde entrabas. Se intercepta wbAbrirFicha (mismo patrón
+   ya usado en este archivo para _buildFicha/renderWarrenScore: como es
+   una propiedad de window, cualquier código que la llame como
+   identificador libre -- ej. el listener delegado de V5 -- resuelve
+   dinámicamente a esta versión en el momento del click, sin tener que
+   tocar los múltiples call sites) para que en mobile abra siempre este
+   mismo detalle; en desktop sigue abriendo el drawer de siempre, sin
+   cambios. ── */
+var _wbmPrevAbrirFicha = window.wbAbrirFicha;
+window.wbAbrirFicha = function(ticker){
+  var esMobile = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
+  if (esMobile) {
+    wbmOpenDetail(ticker);
+  } else if (typeof _wbmPrevAbrirFicha === 'function') {
+    _wbmPrevAbrirFicha(ticker);
+  }
+};
+
 /* ── Inyección de HTML (una sola vez) ── */
 (function wbmInject(){
   var tableWrap = _wbmEl('ws-table-wrap');
