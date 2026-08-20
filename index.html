@@ -4491,16 +4491,24 @@ if ('serviceWorker' in navigator) {
     };
   }
 
-  /* ── Capa 1: índices SPY/QQQ (55 pts -- era 50, +5 de la repartición
-     de Capa 3). Escala ×1.1 (55/50). ── */
+  /* ── Capa 1: índices SPY/QQQ (80 pts -- era 55/50 con escala; ahora
+     40 pts crudos por índice sin escala: Tendencia 10 + Días Distrib.
+     10 + FTD 5 (sin cambios) + ADX/DMI 8 + Extensión ATR 7 (nuevos,
+     2026-08, sobre un script de referencia del usuario -- ver
+     wb_research/). No hace falta tocar Capa 2 ni Capa 4: al normalizar
+     el score final contra sumM=capa1.max+capa2.max+capa4.max, el peso
+     relativo de cada capa se ajusta solo. ── */
   function calcIndices(reg){
     if(!reg) return null;
-    var fields=['spy_tendencia','spy_dist_score','spy_ftd_score','qqq_tendencia','qqq_dist_score','qqq_ftd_score'];
+    var fields=['spy_tendencia','spy_dist_score','spy_ftd_score','spy_adx_score','spy_ext_score',
+                'qqq_tendencia','qqq_dist_score','qqq_ftd_score','qqq_adx_score','qqq_ext_score'];
     for(var i=0;i<fields.length;i++){ if(num(reg[fields[i]])==null) return null; }
-    var spy=(num(reg.spy_tendencia)||0)+(num(reg.spy_dist_score)||0)+(num(reg.spy_ftd_score)||0);
-    var qqq=(num(reg.qqq_tendencia)||0)+(num(reg.qqq_dist_score)||0)+(num(reg.qqq_ftd_score)||0);
-    var ESCALA=55/50;
-    return {pts:(spy+qqq)*ESCALA,max:55,detail:{spy:spy*ESCALA,qqq:qqq*ESCALA,spyDist:num(reg.spy_dist_days),qqqDist:num(reg.qqq_dist_days)}};
+    var spy=(num(reg.spy_tendencia)||0)+(num(reg.spy_dist_score)||0)+(num(reg.spy_ftd_score)||0)+(num(reg.spy_adx_score)||0)+(num(reg.spy_ext_score)||0);
+    var qqq=(num(reg.qqq_tendencia)||0)+(num(reg.qqq_dist_score)||0)+(num(reg.qqq_ftd_score)||0)+(num(reg.qqq_adx_score)||0)+(num(reg.qqq_ext_score)||0);
+    return {pts:spy+qqq,max:80,detail:{
+      spy:spy,qqq:qqq,spyDist:num(reg.spy_dist_days),qqqDist:num(reg.qqq_dist_days),
+      spyAdx:num(reg.spy_adx),qqqAdx:num(reg.qqq_adx),spyExt:num(reg.spy_ext_atr),qqqExt:num(reg.qqq_ext_atr)
+    }};
   }
 
   /* ── Capa 4: sentimiento VIX/P-C (15 pts -- era 10, +5 de la
@@ -4611,8 +4619,10 @@ if ('serviceWorker' in navigator) {
 
     /* Definición de capas para render */
     var layerDefs=[
-      {ico:'📈',lbl:'Índices SPY / QQQ',max:55,capa:R.capa1,
-       micro:R.capa1?'SPY '+Math.round(R.capa1.detail.spy)+' pts · QQQ '+Math.round(R.capa1.detail.qqq)+' pts'+(R.capa1.detail.spyDist!=null?' · '+R.capa1.detail.spyDist+' dist days SPY':''):null,
+      {ico:'📈',lbl:'Índices SPY / QQQ',max:80,capa:R.capa1,
+       micro:R.capa1?'SPY '+Math.round(R.capa1.detail.spy)+'/40 · QQQ '+Math.round(R.capa1.detail.qqq)+'/40'+
+         (R.capa1.detail.spyAdx!=null?' · ADX SPY '+R.capa1.detail.spyAdx.toFixed(1):'')+
+         (R.capa1.detail.spyExt!=null?' · ext '+R.capa1.detail.spyExt.toFixed(1)+' ATRs':''):null,
        pendMsg:'Pendiente de pipeline'},
       {ico:'🌐',lbl:'Amplitud del universo',max:30,capa:R.capa2,
        micro:R.capa2?R.capa2.detail.pE+'% sobre EMA200 · '+R.capa2.detail.pS+'% sobre SMA50 · NH '+R.capa2.detail.nh+' vs NL '+R.capa2.detail.nl:null,
@@ -4621,6 +4631,7 @@ if ('serviceWorker' in navigator) {
        micro:R.capa4?'VIX '+(R.capa4.detail.vix!=null?R.capa4.detail.vix.toFixed(1):'—')+'  ·  P/C ratio '+(R.capa4.detail.pc!=null?R.capa4.detail.pc.toFixed(2):'—'):null,
        pendMsg:'Pendiente de pipeline'}
     ];
+    var TOTAL_MAX_PTS=layerDefs.reduce(function(s,d){return s+d.max;},0);
 
     function layerHTML(def){
       var avail=def.capa&&def.capa.pts!=null;
@@ -4657,8 +4668,8 @@ if ('serviceWorker' in navigator) {
         '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
         '<div class="wb-rgm-expo-grid">'+expoHTML+'</div>'+
       '</div>'+
-      '<div class="wb-rgm-foot">'+ahora+' · calculado sobre '+R.sumM+' pts disponibles de 100'+
-        (R.sumM<100?' (capas de índices y sentimiento activan con pipeline)':'')+
+      '<div class="wb-rgm-foot">'+ahora+' · calculado sobre '+R.sumM+' pts disponibles de '+TOTAL_MAX_PTS+
+        (R.sumM<TOTAL_MAX_PTS?' (capas de índices y sentimiento activan con pipeline)':'')+
       '</div>';
 
     /* Animar gauge: doble-rAF para triggear CSS transition sobre elemento recién insertado */
@@ -4678,7 +4689,7 @@ if ('serviceWorker' in navigator) {
   rgmPanel.id='wb-rgm-panel';
   rgmPanel.innerHTML=
     '<div class="panel-head"><div>'+
-    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 55 pts), amplitud del universo (30 pts) y sentimiento VIX/P-C ratio (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
+    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 80 pts -- tendencia, días de distribución, follow-through day, ADX/DMI y extensión ATR), amplitud del universo (30 pts) y sentimiento VIX/P-C ratio (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
     '⚡ Régimen de mercado</div>'+
     '<div class="panel-sub">Score de condiciones 0–100 · guía de exposición progresiva</div>'+
     '</div></div>'+

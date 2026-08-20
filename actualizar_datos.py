@@ -366,6 +366,46 @@ def atr14_pct(df):
     except:
         return None
 
+def _adx_dmi_atr(df, periodo=14):
+    """ADX + DI+/DI- (Wilder, igual a ta.dmi/ta.atr de TradingView) + ATR
+    Wilder de la misma ventana -- Warren Score Régimen de Mercado, Capa 1
+    (2026-08). Sólo para SPY/QQQ (calcular_regimen); no se usa en
+    acciones individuales, que ya tienen su propio atr14_pct() con
+    promedio simple. Devuelve (adx, plus_di, minus_di, atr), los 4
+    últimos valores de la serie, o (None,None,None,None) si no hay
+    suficiente historia."""
+    if df is None or len(df) < periodo * 2:
+        return None, None, None, None
+    try:
+        high, low, close = df['High'], df['Low'], df['Close']
+        prev_close = close.shift(1)
+        up_move   = high.diff()
+        down_move = -low.diff()
+        plus_dm  = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=high.index)
+        minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=high.index)
+        tr = pd.concat([
+            high - low,
+            (high - prev_close).abs(),
+            (low - prev_close).abs()
+        ], axis=1).max(axis=1)
+
+        alpha = 1 / periodo
+        atr = tr.ewm(alpha=alpha, adjust=False, min_periods=periodo).mean()
+        plus_di_smooth  = plus_dm.ewm(alpha=alpha, adjust=False, min_periods=periodo).mean()
+        minus_di_smooth = minus_dm.ewm(alpha=alpha, adjust=False, min_periods=periodo).mean()
+
+        plus_di  = 100 * plus_di_smooth / atr.replace(0, np.nan)
+        minus_di = 100 * minus_di_smooth / atr.replace(0, np.nan)
+        dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
+        adx = dx.ewm(alpha=alpha, adjust=False, min_periods=periodo).mean()
+
+        adx_v, pdi_v, mdi_v, atr_v = adx.iloc[-1], plus_di.iloc[-1], minus_di.iloc[-1], atr.iloc[-1]
+        if pd.isna(adx_v) or pd.isna(pdi_v) or pd.isna(mdi_v) or pd.isna(atr_v):
+            return None, None, None, None
+        return round(float(adx_v), 2), round(float(pdi_v), 2), round(float(mdi_v), 2), round(float(atr_v), 4)
+    except Exception:
+        return None, None, None, None
+
 def vol_anual_pct(df):
     """Volatilidad histórica anualizada (252 ruedas) expresada como %."""
     if df is None or len(df) < 20:
@@ -2486,11 +2526,37 @@ def calcular_regimen(hist_spy, hist_qqq):
             )
             ftd = 4 if (correccion and hubo_ftd) else (2 if correccion else 0)
 
-        return int(tend), int(dist), int(dist_score), int(ftd)
+        # ADX/DMI -- fuerza + dirección de la tendencia (8 pts, 2026-08)
+        adx_val, pdi_val, mdi_val, atr_val = _adx_dmi_atr(hist)
+        adx_pts = 0
+        if adx_val is not None:
+            if adx_val >= 25: adx_pts += 5
+            elif adx_val >= 20: adx_pts += 2
+            if pdi_val is not None and mdi_val is not None and pdi_val > mdi_val:
+                adx_pts += 3
+
+        # Extensión ATR -- ¿tan lejos de la EMA200 que hay riesgo de
+        # pullback? (7 pts, graduado, mismos umbrales del script de
+        # referencia del usuario: 2.5/4.0/6.0/8.0 ATRs, escalados a 7)
+        ext_atr = None
+        ext_pts = 0
+        if atr_val and atr_val > 0:
+            ext_atr = (float(c.iloc[-1]) - float(ema200.iloc[-1])) / atr_val
+            if ext_atr > 8: ext_pts = 0
+            elif ext_atr > 6: ext_pts = 1
+            elif ext_atr > 4: ext_pts = 3
+            elif ext_atr > 2.5: ext_pts = 5
+            else: ext_pts = 7
+
+        return {
+            'tend': int(tend), 'dist_days': int(dist), 'dist_score': int(dist_score), 'ftd': int(ftd),
+            'adx': adx_val, 'plus_di': pdi_val, 'minus_di': mdi_val, 'adx_pts': int(adx_pts),
+            'ext_atr': round(ext_atr, 2) if ext_atr is not None else None, 'ext_pts': int(ext_pts),
+        }
 
     try:
-        spy_tend, spy_dist_days, spy_dist_score, spy_ftd = analizar_indice(hist_spy)
-        qqq_tend, qqq_dist_days, qqq_dist_score, qqq_ftd = analizar_indice(hist_qqq)
+        spy_r = analizar_indice(hist_spy)
+        qqq_r = analizar_indice(hist_qqq)
     except Exception as e:
         print(f"  ⚠️  Error analizando índices: {e}")
         return None
@@ -2529,14 +2595,26 @@ def calcular_regimen(hist_spy, hist_qqq):
 
     return {
         "fecha":          datetime.now().strftime('%Y-%m-%d'),
-        "spy_tendencia":  spy_tend,
-        "spy_dist_days":  spy_dist_days,
-        "spy_dist_score": spy_dist_score,
-        "spy_ftd_score":  spy_ftd,
-        "qqq_tendencia":  qqq_tend,
-        "qqq_dist_days":  qqq_dist_days,
-        "qqq_dist_score": qqq_dist_score,
-        "qqq_ftd_score":  qqq_ftd,
+        "spy_tendencia":  spy_r['tend'],
+        "spy_dist_days":  spy_r['dist_days'],
+        "spy_dist_score": spy_r['dist_score'],
+        "spy_ftd_score":  spy_r['ftd'],
+        "spy_adx":        spy_r['adx'],
+        "spy_plus_di":    spy_r['plus_di'],
+        "spy_minus_di":   spy_r['minus_di'],
+        "spy_adx_score":  spy_r['adx_pts'],
+        "spy_ext_atr":    spy_r['ext_atr'],
+        "spy_ext_score":  spy_r['ext_pts'],
+        "qqq_tendencia":  qqq_r['tend'],
+        "qqq_dist_days":  qqq_r['dist_days'],
+        "qqq_dist_score": qqq_r['dist_score'],
+        "qqq_ftd_score":  qqq_r['ftd'],
+        "qqq_adx":        qqq_r['adx'],
+        "qqq_plus_di":    qqq_r['plus_di'],
+        "qqq_minus_di":   qqq_r['minus_di'],
+        "qqq_adx_score":  qqq_r['adx_pts'],
+        "qqq_ext_atr":    qqq_r['ext_atr'],
+        "qqq_ext_score":  qqq_r['ext_pts'],
         "vix":            vix,
         "putcall_5d":     putcall_5d,
     }
@@ -2552,9 +2630,13 @@ hist_qqq = yf.Ticker("QQQ").history(period="2y")
 print("⏳ Calculando régimen de mercado (SPY/QQQ + VIX + P/C)...")
 regimen_data = calcular_regimen(hist_spy, hist_qqq)
 if regimen_data:
-    spy_pts = regimen_data['spy_tendencia'] + regimen_data['spy_dist_score'] + regimen_data['spy_ftd_score']
-    qqq_pts = regimen_data['qqq_tendencia'] + regimen_data['qqq_dist_score'] + regimen_data['qqq_ftd_score']
-    print(f"  ✅ SPY {spy_pts}/25 pts | QQQ {qqq_pts}/25 pts | VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']}")
+    spy_pts = (regimen_data['spy_tendencia'] + regimen_data['spy_dist_score'] + regimen_data['spy_ftd_score']
+               + regimen_data['spy_adx_score'] + regimen_data['spy_ext_score'])
+    qqq_pts = (regimen_data['qqq_tendencia'] + regimen_data['qqq_dist_score'] + regimen_data['qqq_ftd_score']
+               + regimen_data['qqq_adx_score'] + regimen_data['qqq_ext_score'])
+    print(f"  ✅ SPY {spy_pts}/40 pts (ADX {regimen_data['spy_adx']}, ext {regimen_data['spy_ext_atr']} ATRs) | "
+          f"QQQ {qqq_pts}/40 pts (ADX {regimen_data['qqq_adx']}, ext {regimen_data['qqq_ext_atr']} ATRs) | "
+          f"VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']}")
 else:
     print("  ⚠️  Régimen no disponible, las capas 1 y 4 quedarán inactivas")
 
