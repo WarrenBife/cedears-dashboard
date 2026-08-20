@@ -15409,6 +15409,11 @@ try {
   .wbm-pen-total-row b{color:var(--red);font-family:'DM Mono',monospace;font-weight:600;}
   .wbm-pen-empty{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding:2px 0;}
 
+  .wbm-sig-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+  .wbm-sig-item:last-of-type{border-bottom:none;}
+  .wbm-sig-emoji{font-size:14px;flex-shrink:0;width:20px;text-align:center;}
+  .wbm-sig-text{flex:1;font-size:11.5px;color:var(--green);}
+
   .wbm-fr-svg{width:100%;height:90px;display:block;}
   .wbm-fr-caption{font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
 
@@ -15490,6 +15495,30 @@ function wbmPenaltyItems(d, flags){
       emoji: agot.join(''),
       label: agot.map(function(f){ return lbl[f]; }).join(' + '),
       pts: agot.length >= 2 ? 10 : 4
+    });
+  }
+  return items;
+}
+
+/* ── Señales informativas (no restan puntos) -- 👀 Rebote SMA10 en
+   observación, 🫨 Sacudón previo, 💣 Bomba. En desktop viven en la
+   columna "Adv." junto con las penalizaciones; acá se separan en su
+   propia card para no mezclar positivas/neutras con lo que sí resta
+   puntos. Mismos criterios/textos que el tooltip de renderWarrenScore. ── */
+function wbmSignalItems(d){
+  var items = [];
+  if (_bool(d['Bomba Hoy'])) {
+    items.push({emoji:'💣', label:'BOMBA: rompió el máximo previo con eficiencia confirmada'});
+  }
+  if (_bool(d['Sacudon Activo'])) {
+    items.push({emoji:'🫨', label:'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia'});
+  }
+  if (d['Rebote SMA10 Estado'] === 'observacion') {
+    var dias = d['Rebote SMA10 Días'];
+    var fecha = d['Rebote SMA10 Fecha'];
+    items.push({
+      emoji:'👀',
+      label:'Rebotó en la SMA10' + (fecha ? ' el ' + fecha : '') + ' — en observación' + (dias!=null ? ' (día ' + dias + ' de 2)' : '')
     });
   }
   return items;
@@ -15633,6 +15662,18 @@ window.wbmOpenDetail = function(ticker){
       }).join('') + '<div class="wbm-pen-total-row">Total penalizaciones <b>−' + _wbmFmt(Math.abs(pen),1) + ' pts</b></div>'
     : '<div class="wbm-pen-empty"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M5 13l4 4L19 7"/></svg>Sin penalizaciones activas</div>';
 
+  var sigs = wbmSignalItems(d);
+  var sigWrap = _wbmEl('wbm-sig-card-wrap');
+  if (sigs.length) {
+    sigWrap.style.display = '';
+    _wbmEl('wbm-sig-card').innerHTML = sigs.map(function(s){
+      return '<div class="wbm-sig-item"><span class="wbm-sig-emoji">' + s.emoji + '</span>' +
+        '<span class="wbm-sig-text">' + _wbmEsc(s.label) + '</span></div>';
+    }).join('');
+  } else {
+    sigWrap.style.display = 'none';
+  }
+
   wbmDrawFrChart(ticker);
 
   var mHtml = '';
@@ -15693,6 +15734,7 @@ window.wbmCloseDetail = function(){
           '</div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Gates Stage 2</div><div id="wbm-gates-col"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Penalizaciones</div><div id="wbm-pen-card"></div></div>' +
+          '<div class="wbm-card" id="wbm-sig-card-wrap" style="display:none"><div class="wbm-card-label">Señales</div><div id="wbm-sig-card"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Evolución de la FR · últimos 6 meses</div>' +
             '<svg class="wbm-fr-svg" viewBox="0 0 300 90" preserveAspectRatio="none" id="wbm-fr-svg"></svg>' +
             '<div class="wbm-fr-caption" id="wbm-fr-caption"></div>' +
