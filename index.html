@@ -15422,6 +15422,26 @@ try {
   .wbm-metric-label{font-size:9.5px;color:var(--muted);margin-bottom:3px;}
   .wbm-metric-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
   .wbm-metric-span2{grid-column:1/-1;}
+
+  /* ── Métricas separadas por pilar, dentro de la card "Métricas" ── */
+  .wbm-msub{margin-top:14px;}
+  .wbm-msub:first-child{margin-top:0;}
+  .wbm-msub-label{font-size:10.5px;font-weight:600;color:var(--text);margin-bottom:8px;
+    display:flex;align-items:center;gap:6px;}
+  .wbm-msub-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+  /* ── Tira de posición vs. rango de 52 semanas (debajo de las 4 barras
+     de pilares, dentro de la card "Warren Score") ── */
+  .wbm-range52{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .wbm-range52-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+  .wbm-range52-title{font-size:10.5px;color:var(--muted);}
+  .wbm-range52-pct{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
+  .wbm-range52-track{position:relative;height:6px;border-radius:3px;
+    background:linear-gradient(90deg,var(--red) 0%,var(--amber) 50%,var(--green) 100%);opacity:0.9;}
+  .wbm-range52-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--text);
+    border:2px solid var(--bg2);box-shadow:0 0 0 1px var(--border2);transform:translate(-50%,-50%);}
+  .wbm-range52-ends{display:flex;justify-content:space-between;margin-top:2px;}
+  .wbm-range52-end{font-family:'DM Mono',monospace;font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
 </style>
 <script id="wb-v32-js">
 (function(){
@@ -15522,6 +15542,70 @@ function wbmSignalItems(d){
     });
   }
   return items;
+}
+
+/* ── Métricas del detalle, separadas por pilar (Tendencia / Fuerza RS /
+   Contracción / Setup) -- mismo agrupamiento que los 4 pilares del
+   Warren Score, con los campos crudos que alimentan a cada uno. ── */
+function wbmMetricBox(label, val, color, span2){
+  return '<div class="wbm-metric' + (span2?' wbm-metric-span2':'') + '"><div class="wbm-metric-label">' + label + '</div>' +
+    '<div class="wbm-metric-val" style="color:' + (color||'var(--text)') + '">' + val + '</div></div>';
+}
+function wbmMetricSection(label, dotColor, boxesHtml){
+  if (!boxesHtml) return '';
+  return '<div class="wbm-msub"><div class="wbm-msub-label"><span class="wbm-msub-dot" style="background:' + dotColor + '"></span>' + label + '</div>' +
+    '<div class="wbm-metrics-grid">' + boxesHtml + '</div></div>';
+}
+function wbmBuildMetricsSections(d){
+  var boxes;
+
+  // Tendencia (Pilar A)
+  boxes = '';
+  var dSma50 = d['Dist SMA50 %'];
+  if (dSma50 != null) boxes += wbmMetricBox('Dist. SMA50', _wbmPct(dSma50,2), dSma50>=0?'var(--green)':'var(--red)');
+  var dEma200 = d['Dist EMA200 %'];
+  if (dEma200 != null) boxes += wbmMetricBox('Dist. EMA200', _wbmPct(dEma200,2), dEma200>=0?'var(--green)':'var(--red)');
+  var vsSector = d['Vs Sector %'];
+  if (vsSector != null) boxes += wbmMetricBox('Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : ''), _wbmPct(vsSector,2), vsSector>=0?'var(--green)':'var(--red)', true);
+  var sTendencia = wbmMetricSection('Tendencia', WBM_COLORS.pa, boxes);
+
+  // Fuerza Relativa (Pilar B)
+  boxes = '';
+  var frHoy = d['FR Hoy'];
+  if (frHoy != null) boxes += wbmMetricBox('FR', _wbmFmt(frHoy,4));
+  var frSemana = d['FR Semana ant.'];
+  if (frSemana != null) boxes += wbmMetricBox('FR semana pasada', _wbmFmt(frSemana,4));
+  var frMes = d['FR Mes ant.'];
+  if (frMes != null) boxes += wbmMetricBox('FR hace un mes', _wbmFmt(frMes,4));
+  var frSobreSma = d['FR > SMA50'];
+  if (frSobreSma != null) boxes += wbmMetricBox('FR &gt; SMA50', _wbmEsc(frSobreSma), String(frSobreSma).indexOf('Sí')!==-1?'var(--green)':'var(--red)');
+  var sFuerza = wbmMetricSection('Fuerza Relativa', WBM_COLORS.pb, boxes);
+
+  // Contracción (Pilar C)
+  boxes = '';
+  var rsi = d['RSI 14'];
+  if (rsi != null) boxes += wbmMetricBox('RSI (14)', _wbmFmt(rsi,1), rsi>70?'var(--amber)':rsi<30?'var(--red)':'var(--text)');
+  var contrVol = d['Contraccion Volatilidad'];
+  if (contrVol != null) boxes += wbmMetricBox('Ratio de contracción', _wbmFmt(contrVol,2));
+  var volRatio = d['Vol 5d/40d'];
+  if (volRatio != null) boxes += wbmMetricBox('Ratio de volumen (5d/40d)', _wbmFmt(volRatio,2));
+  var bonoEr = d['Bono ER Pts'];
+  if (bonoEr != null) boxes += wbmMetricBox('Bono de eficiencia', _wbmFmt(bonoEr,1) + '/10', (+bonoEr)>0?'var(--green)':'var(--text)');
+  var sContraccion = wbmMetricSection('Contracción', WBM_COLORS.pc, boxes);
+
+  // Setup (Pilar D)
+  boxes = '';
+  var vcpDet = d['VCP Detected'];
+  boxes += wbmMetricBox('VCP detectado', _bool(vcpDet)?'Sí':'No', _bool(vcpDet)?'var(--green)':'var(--text)');
+  var baseSemanas = d['Base Semanas'];
+  if (baseSemanas != null) boxes += wbmMetricBox('Semanas de base', _wbmFmt(baseSemanas,1));
+  var vcpContr = d['VCP Contractions'];
+  if (vcpContr != null) boxes += wbmMetricBox('Contracciones', _wbmFmt(vcpContr,0));
+  var vcpPivot = d['VCP Dist Pivot %'];
+  if (vcpPivot != null) boxes += wbmMetricBox('Dist. al pivot', _wbmPct(vcpPivot,2), vcpPivot>=0?'var(--green)':'var(--red)');
+  var sSetup = wbmMetricSection('Setup', WBM_COLORS.pd, boxes);
+
+  return sTendencia + sFuerza + sContraccion + sSetup;
 }
 
 /* ── Lista compacta ── */
@@ -15645,6 +15729,19 @@ window.wbmOpenDetail = function(ticker){
       '<span class="wbm-bar-frac">' + _wbmFmt(val,1) + '/' + cap + '</span></div>';
   }).join('');
 
+  var range52 = _wbmEl('wbm-range52');
+  var min52 = d['Mín 52W'], max52 = d['Máx 52W'], precio = d['Precio'];
+  if (min52 != null && max52 != null && precio != null && max52 > min52) {
+    var fracPos = Math.max(0, Math.min(1, (precio - min52) / (max52 - min52)));
+    range52.style.display = '';
+    _wbmEl('wbm-range52-pct').textContent = Math.round(fracPos * 100) + '%';
+    _wbmEl('wbm-range52-dot').style.left = (fracPos * 100) + '%';
+    _wbmEl('wbm-range52-min').textContent = '$' + _wbmFmt(min52, 2) + ' mín.';
+    _wbmEl('wbm-range52-max').textContent = '$' + _wbmFmt(max52, 2) + ' máx.';
+  } else {
+    range52.style.display = 'none';
+  }
+
   var gateOk = fallas.length === 0;
   var gateVal = _wbmPct(d['Dist EMA200 %'], 2);
   _wbmEl('wbm-gates-col').innerHTML = gateOk
@@ -15676,18 +15773,7 @@ window.wbmOpenDetail = function(ticker){
 
   wbmDrawFrChart(ticker);
 
-  var mHtml = '';
-  var rsi = d['RSI 14'];
-  if (rsi != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">RSI (14)</div><div class="wbm-metric-val" style="color:' + (rsi>70?'var(--amber)':rsi<30?'var(--red)':'var(--text)') + '">' + _wbmFmt(rsi,1) + '</div></div>';
-  var dSma50 = d['Dist SMA50 %'];
-  if (dSma50 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. SMA50</div><div class="wbm-metric-val" style="color:' + (dSma50>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(dSma50,2) + '</div></div>';
-  var dEma200 = d['Dist EMA200 %'];
-  if (dEma200 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. EMA200</div><div class="wbm-metric-val" style="color:' + (dEma200>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(dEma200,2) + '</div></div>';
-  var dMax52 = d['Dist Máx52W %'];
-  if (dMax52 != null) mHtml += '<div class="wbm-metric"><div class="wbm-metric-label">Dist. máx. 52 sem.</div><div class="wbm-metric-val">' + _wbmPct(dMax52,2) + '</div></div>';
-  var vsSector = d['Vs Sector %'];
-  if (vsSector != null) mHtml += '<div class="wbm-metric wbm-metric-span2"><div class="wbm-metric-label">Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : '') + '</div><div class="wbm-metric-val" style="color:' + (vsSector>=0?'var(--green)':'var(--red)') + '">' + _wbmPct(vsSector,2) + '</div></div>';
-  _wbmEl('wbm-metrics-grid').innerHTML = mHtml;
+  _wbmEl('wbm-metrics-body').innerHTML = wbmBuildMetricsSections(d);
 
   document.body.classList.add('wbm-detail-open');
   var dScroll = document.querySelector('.wbm-d-scroll');
@@ -15754,7 +15840,13 @@ window.wbAbrirFicha = function(ticker){
               '<circle id="wbm-gauge-arc" cx="50" cy="50" r="42" fill="none" stroke="var(--green)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)"></circle>' +
             '</svg><div class="wbm-gauge-num" id="wbm-gauge-num"></div></div>' +
             '<div class="wbm-bars-col" id="wbm-bars-col"></div>' +
-          '</div></div>' +
+          '</div>' +
+            '<div class="wbm-range52" id="wbm-range52" style="display:none">' +
+              '<div class="wbm-range52-head"><span class="wbm-range52-title">Posición en el rango de 52 semanas</span><span class="wbm-range52-pct" id="wbm-range52-pct"></span></div>' +
+              '<div class="wbm-range52-track"><div class="wbm-range52-dot" id="wbm-range52-dot"></div></div>' +
+              '<div class="wbm-range52-ends"><span class="wbm-range52-end" id="wbm-range52-min"></span><span class="wbm-range52-end" id="wbm-range52-max"></span></div>' +
+            '</div>' +
+          '</div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Gates Stage 2</div><div id="wbm-gates-col"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Penalizaciones</div><div id="wbm-pen-card"></div></div>' +
           '<div class="wbm-card" id="wbm-sig-card-wrap" style="display:none"><div class="wbm-card-label">Señales</div><div id="wbm-sig-card"></div></div>' +
@@ -15762,7 +15854,7 @@ window.wbAbrirFicha = function(ticker){
             '<svg class="wbm-fr-svg" viewBox="0 0 300 90" preserveAspectRatio="none" id="wbm-fr-svg"></svg>' +
             '<div class="wbm-fr-caption" id="wbm-fr-caption"></div>' +
           '</div>' +
-          '<div class="wbm-card"><div class="wbm-card-label">Métricas</div><div class="wbm-metrics-grid" id="wbm-metrics-grid"></div></div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Métricas</div><div id="wbm-metrics-body"></div></div>' +
         '</div>' +
       '</div>');
   }
