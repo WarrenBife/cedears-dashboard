@@ -2547,10 +2547,15 @@ async function iniciarPago() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, products, plan: _planActual }),
     });
-    if (!r.ok) throw new Error(`Error ${r.status}`);
-    const d = await r.json();
+    // Parsear el body SIEMPRE (incluso si !r.ok) -- crear-pago.js manda el
+    // motivo real del error en JSON ({error: ...}), y antes se descartaba
+    // reemplazandolo por un generico "Error 500" que no servia para
+    // diagnosticar nada.
+    let d = null;
+    try { d = await r.json(); } catch { /* body no-JSON, sigue con d=null */ }
+    if (!r.ok) throw new Error(d?.error || `Error ${r.status}`);
     // La suscripción mensual (PreApproval) solo trae init_point — sandbox_init_point es propio de Preference (anual)
-    const url = (_planActual === 'mensual') ? d.init_point : (IS_LOCAL ? d.sandbox_init_point : d.init_point);
+    const url = (_planActual === 'mensual') ? d?.init_point : (IS_LOCAL ? d?.sandbox_init_point : d?.init_point);
     if (!url) throw new Error('No se recibió la URL de pago');
     location.href = url;
   } catch (err) {
