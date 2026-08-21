@@ -1944,6 +1944,32 @@ def _penalizacion_casob_pts(duracion_taza):
     return p0 + t * (p1 - p0)
 
 
+# Anula el Bono ER cuando la "pausa" desde el día del máximo terminó por
+# DEBAJO de donde arrancó (signo neto negativo) Y el volumen se sostuvo
+# cerca del volumen del propio día del máximo -- caso real BKR (20/8/2026,
+# ratio 0.87x) vs. caso real MU (21/4/2026, ratio 0.64x, el volumen SÍ se
+# secó y dos días después rompió con fuerza). El ER de Kaufman no tiene
+# signo (usa valor absoluto), así que por sí solo no distingue una pausa
+# sana (recorrido derecho pero corrigiendo con volumen que se apaga) de
+# una toma de ganancias derecha con volumen sostenido. Validado a escala
+# (universo 308 tickers, 8 años, n=114 eventos "vivos" con ER>=piso):
+# dentro del grupo de signo negativo, volumen sostenido >=0.75 da retorno
+# mediano a 20 ruedas de -1.79% (n=9) vs. +1.70% del grupo que se secó
+# (n=29) -- MU (0.64) y BKR (0.87) clasifican del lado correcto en todo
+# el rango 0.65-0.80 probado. Sin cambios si el signo neto es positivo
+# (ahí el volumen no discrimina nada, validado aparte).
+REINTENTO_BONO_VOL_UMBRAL = 0.75
+
+def _bono_anulado_por_volumen(bloque_cierres, vol_pausa, vol_dia_max, umbral=REINTENTO_BONO_VOL_UMBRAL):
+    if len(bloque_cierres) < 2 or vol_dia_max is None or vol_dia_max <= 0 or len(vol_pausa) == 0:
+        return False
+    signo_neto_negativo = bloque_cierres[-1] <= bloque_cierres[0]
+    if not signo_neto_negativo:
+        return False
+    vol_ratio = float(np.mean(vol_pausa)) / vol_dia_max
+    return vol_ratio >= umbral
+
+
 def detectar_reintento_maximo(hist):
     """
     Bono de eficiencia (ER de Kaufman) + penalización Caso B para el
@@ -2093,7 +2119,11 @@ def detectar_reintento_maximo(hist):
                     if dias_desde_rotura == 0:
                         resultado['Bomba Hoy'] = True
                         bono_congelado = (er_pausa - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
-                        resultado['Bono ER Pts'] = round(max(0.0, min(REINTENTO_ER_BONO_MAX, bono_congelado)), 2)
+                        bono_congelado = max(0.0, min(REINTENTO_ER_BONO_MAX, bono_congelado))
+                        vol_pausa_bloque = vol[dia_max_idx + 1:idx_fin_pausa + 1]
+                        if _bono_anulado_por_volumen(bloque_pausa, vol_pausa_bloque, vol[dia_max_idx]):
+                            bono_congelado = 0.0
+                        resultado['Bono ER Pts'] = round(bono_congelado, 2)
                     if mejor_bomba_dias_ago is None or dias_desde_rotura < mejor_bomba_dias_ago:
                         mejor_bomba_dias_ago = dias_desde_rotura
                 continue  # evento ya resuelto -- no aporta más bono en los días siguientes
@@ -2112,6 +2142,9 @@ def detectar_reintento_maximo(hist):
             if er_hoy is not None:
                 bono = (er_hoy - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
                 bono = max(0.0, min(REINTENTO_ER_BONO_MAX, bono))
+                vol_pausa_bloque = vol[dia_max_idx + 1:idx_fin_ventana + 1]
+                if _bono_anulado_por_volumen(bloque, vol_pausa_bloque, vol[dia_max_idx]):
+                    bono = 0.0
                 resultado['Bono ER Pts'] = round(bono, 2)
 
         resultado['Bomba Dias Ago'] = mejor_bomba_dias_ago

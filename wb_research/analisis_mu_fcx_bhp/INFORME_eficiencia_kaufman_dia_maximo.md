@@ -447,3 +447,35 @@ Es decir, un progreso menor al 1% no distingue de un Caso B real -- confirma que
 ### Nota sobre BKR específicamente (no es un bug)
 
 Con el fix, `ya_progreso` da correctamente `False` para BKR (el cierre marginal del 17/8 ya no cuenta como progreso). Pero al 20/8, BKR **todavía no dispara** Caso B Penalizado -- por la condición *separada* de `vol_sostenido` (RVOL10 promedio de los días sin progreso ≥1.0), que da 0,917: los 3 días entre el día 1 y hoy tuvieron volumen algo bajo (0,91 / 0,99 / 0,76), y aunque hoy mismo BKR cayó -2,6% con RVOL10=1,01 (justo el tipo de día que Caso B busca detectar), promediado con los 3 días previos no llega a 1,0. Es un caso límite genuino, no relacionado con este fix -- si el volumen se sostiene los próximos días el promedio subiría y probablemente sí dispare. Se decidió no tocar `vol_sostenido` en esta sesión (condición preexistente, no validada específicamente acá).
+
+## Bono ER -- anulación por signo negativo + volumen sostenido (20/8/2026) -- IMPLEMENTADO
+
+### Caso de origen
+
+Auditando BKR completo (por qué no dispara ninguna penalización pese a la baja reciente) se encontró que además cargaba **Bono ER Pts = 9,79** (casi el máximo de 10) -- de un segundo "reintento" distinto al de Caso B, mismo ticker, pico de referencia en $69,92. El "día del máximo" fue el 14/8 (cierre $64,82); desde ahí el papel bajó *casi en línea recta* hasta $62,78 el 20/8. `_er_estandar_kaufman()` usa `cambio_neto = abs(close[-1]-close[0])` -- **sin signo** -- así que un descenso derecho puntúa exactamente igual que un avance derecho. De ahí el bono casi máximo pese a la baja.
+
+### Primer intento (descartado): exigir signo positivo, sin más
+
+Backtest inicial (n=21, universo 2 años): signo neto positivo → 92,3% éxito (rompe el máximo previo) vs. negativo → 37,5%. Parecía suficiente para exigir signo positivo sin más. **El usuario detectó el problema antes de implementar**: MU (14→21/4/2026, el caso ancla que originó todo el feature) *también* tiene signo neto negativo en esa ventana (cierre $465,59→$449,31) y aun así rompió con fuerza el 22/4. Exigir signo positivo solo habría anulado el bono del propio caso que valida el feature -- se descartó.
+
+### Segundo intento (validado e implementado): signo negativo + volumen sostenido
+
+La diferencia real entre MU y BKR es el **volumen durante la pausa, medido contra el volumen del propio día del máximo** (no contra el promedio de 10 ruedas):
+
+- MU: volumen de la pausa = 64% del volumen del día del máximo (se secó) -- caso sano, consolidación de baja convicción antes de romper.
+- BKR: volumen de la pausa = 87% del volumen del día del máximo (se sostuvo) -- posible toma de ganancias.
+
+Ampliando el universo a 8 años (308 tickers, n=114 eventos "vivos" con ER≥piso), dentro del grupo de signo negativo:
+
+| Corte (umbral 0,75) | n | Éxito | Retorno mediano 20r |
+|---|---|---|---|
+| Volumen sostenido (≥75% del día del máximo) | 9 | 33,3% | **-1,79%** |
+| Volumen seco (<75%) | 29 | 34,5% | **+1,70%** |
+
+Probado en el rango 0,65-0,80: el corte es estable (retorno mediano negativo del lado "sostenido" en casi todo el rango); en 0,85 la muestra baja a n=8 y dos outliers grandes (AMAT +35,7%, LRCX +31,8%) le dan vuelta la mediana -- se descartó ese umbral por ruidoso. MU (0,64) y BKR (0,87) clasifican del lado correcto en 0,65-0,80.
+
+### Implementación
+
+`REINTENTO_BONO_VOL_UMBRAL = 0.75` + función `_bono_anulado_por_volumen()`: anula el Bono ER (lo pone en 0) únicamente si el cierre al final de la ventana quedó igual o por debajo del cierre del día del máximo (signo neto ≤0) **y** el volumen promedio de la pausa fue ≥75% del volumen del día del máximo. Si el signo es positivo, sin cambios (el volumen no discrimina nada ahí, validado aparte). Cableado en las dos ramas de la función (bono "vivo" en crecimiento, y bono "congelado" el día que confirma la ruptura).
+
+Validado contra los 2 casos reales: BKR (20/8) pasa de 9,79 a **0,0** pts; MU (20/4, 21/4, 22/4 -- incluyendo el día de la Bomba) se mantiene **exactamente igual** (9,84 / 6,24 / 6,24 + Bomba Hoy), sin ningún cambio.
