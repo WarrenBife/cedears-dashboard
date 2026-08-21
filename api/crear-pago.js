@@ -88,7 +88,15 @@ module.exports = async (req, res) => {
       preapproval_id: result.id,
     });
   } catch (err) {
-    console.error('[crear-pago]', err.message);
-    res.status(500).json({ error: err.message });
+    // El SDK de MercadoPago, en un error de la API, hace `throw await response.json()`
+    // -- err ES el body del error de MP (no un Error normal), y el detalle real casi
+    // siempre vive en err.cause (array de {code, description}), no en err.message
+    // (que suele ser un mensaje generico tipo "Internal server error"). Antes solo se
+    // logueaba err.message y se perdia el motivo real.
+    const detalle = Array.isArray(err?.cause) && err.cause.length
+      ? err.cause.map(c => `${c.code ?? ''} ${c.description ?? JSON.stringify(c)}`.trim()).join(' | ')
+      : (err?.error || err?.message || String(err));
+    console.error('[crear-pago]', JSON.stringify({ message: err?.message, error: err?.error, status: err?.status, cause: err?.cause }));
+    res.status(500).json({ error: detalle });
   }
 };
