@@ -1970,6 +1970,39 @@ def _bono_anulado_por_volumen(bloque_cierres, vol_pausa, vol_dia_max, umbral=REI
     return vol_ratio >= umbral
 
 
+# Anula el Bono ER (condición adicional, con OR sobre la de arriba) cuando
+# el ACERCAMIENTO al máximo -- desde que el precio reingresó a la banda
+# del 10% del pico previo (zona_idx) hasta el "día del máximo" -- ya venía
+# zigzagueando, en vez de ser una rally derecha hacia el nuevo máximo.
+# Caso real: BKR reingresó a su zona el 6/8/2026 y recién "hizo el máximo"
+# el 14/8 -- en el medio, puro ida y vuelta (ER=0.33). MU en cambio subió
+# derecho desde que reingresó a la zona hasta el día del máximo (ER=0.95).
+# Es la métrica que sí explica la diferencia MU/BKR sin diluirse con una
+# rally previa no relacionada (a diferencia de ampliar el ER de la PAUSA
+# hasta zona_idx, que se probó y se descartó por romper a MU -- ver
+# informe). No aplica si el reingreso a la zona fue el mismo día que el
+# "día del máximo" (sin acercamiento medible, ~54% de los casos en el
+# backtest) -- esos casos rinden igual o mejor que un acercamiento
+# derecho, no hay que penalizarlos. Validado a escala (308 tickers, 8
+# años, n=114, 52 con acercamiento medible): ER acercamiento<0.5 da
+# 50.0% éxito y retorno mediano -0.42% (n=20) vs. 66.0% éxito y +2.24%
+# del resto (n=94) -- confirmado en split por ticker (ambas mitades,
+# misma dirección). Combinado con el filtro de volumen de arriba (casi
+# no se superponen -- capturan fallas distintas), el grupo "anulado"
+# sube a n=27, 48.1% éxito, retorno mediano -0.07% vs. 67.8%/+1.97% del
+# resto que mantiene el bono.
+REINTENTO_ACERCAMIENTO_ER_UMBRAL = 0.5
+
+def _bono_anulado_por_acercamiento_choppy(close, zona_idx, dia_max_idx, umbral=REINTENTO_ACERCAMIENTO_ER_UMBRAL):
+    if zona_idx is None or dia_max_idx is None or dia_max_idx <= zona_idx:
+        return False  # reingreso instantaneo -- no hay acercamiento que medir, no penaliza
+    bloque_acercamiento = close[zona_idx:dia_max_idx + 1]
+    er_acercamiento = _er_estandar_kaufman(bloque_acercamiento)
+    if er_acercamiento is None:
+        return False
+    return er_acercamiento < umbral
+
+
 def detectar_reintento_maximo(hist):
     """
     Bono de eficiencia (ER de Kaufman) + penalización Caso B para el
@@ -2121,7 +2154,8 @@ def detectar_reintento_maximo(hist):
                         bono_congelado = (er_pausa - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
                         bono_congelado = max(0.0, min(REINTENTO_ER_BONO_MAX, bono_congelado))
                         vol_pausa_bloque = vol[dia_max_idx + 1:idx_fin_pausa + 1]
-                        if _bono_anulado_por_volumen(bloque_pausa, vol_pausa_bloque, vol[dia_max_idx]):
+                        if (_bono_anulado_por_volumen(bloque_pausa, vol_pausa_bloque, vol[dia_max_idx])
+                                or _bono_anulado_por_acercamiento_choppy(close, zona_idx, dia_max_idx)):
                             bono_congelado = 0.0
                         resultado['Bono ER Pts'] = round(bono_congelado, 2)
                     if mejor_bomba_dias_ago is None or dias_desde_rotura < mejor_bomba_dias_ago:
@@ -2143,7 +2177,8 @@ def detectar_reintento_maximo(hist):
                 bono = (er_hoy - REINTENTO_ER_PISO) / (REINTENTO_ER_TECHO - REINTENTO_ER_PISO) * REINTENTO_ER_BONO_MAX
                 bono = max(0.0, min(REINTENTO_ER_BONO_MAX, bono))
                 vol_pausa_bloque = vol[dia_max_idx + 1:idx_fin_ventana + 1]
-                if _bono_anulado_por_volumen(bloque, vol_pausa_bloque, vol[dia_max_idx]):
+                if (_bono_anulado_por_volumen(bloque, vol_pausa_bloque, vol[dia_max_idx])
+                        or _bono_anulado_por_acercamiento_choppy(close, zona_idx, dia_max_idx)):
                     bono = 0.0
                 resultado['Bono ER Pts'] = round(bono, 2)
 
