@@ -3886,7 +3886,7 @@ if ('serviceWorker' in navigator) {
         '<div id="wb-rot-accel-etf"></div>'+
       '</div>'+
     '</div>',
-    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; y en las últimas 5 el RS Score subió ≥15 pts, con al menos 4 semanas en suba. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una racha de aceleración.');
+    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; y en las últimas 2 semanas, cada una por separado, el RS Score subió más que el ritmo semanal promedio DEL PROPIO ticker (no un umbral fijo igual para todos) -- así se detecta apenas se confirma el arranque, sin esperar que se acumulen varias semanas de subida. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración.');
 
   /* — Episodic Pivots & Bombs — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots & Bombs',
@@ -4326,15 +4326,18 @@ if ('serviceWorker' in navigator) {
   }
 
   /* — Aceleración inusual: dio vueltas fuera de Líderes la mayor parte
-     de una ventana de 16 semanas, y en las últimas 5 arrancó una subida
-     sostenida. Ej. real: GLD, ~11 de 16 semanas entre Rezagado y
-     Mejorando, aceleró fuerte en las últimas 5. Umbrales fijados a
-     mano, sin backtest -- ajustar si en la práctica quedan muy laxos o
-     muy exigentes. ── */
-  var WB_ROT_ACCEL_VENTANA     = 16;
-  var WB_ROT_ACCEL_BAJAS_MIN   = 8;   // de las 11 semanas mas viejas de la ventana
-  var WB_ROT_ACCEL_SALTO_MIN   = 15;  // pts de RS Score en las ultimas 5 semanas
-  var WB_ROT_ACCEL_SUBIDAS_MIN = 4;   // de las ultimas 5 semanas
+     de una ventana de referencia, y en las ÚLTIMAS 2 semanas se movió
+     más rápido que su propio ritmo normal -- no un umbral fijo igual
+     para todos, sino el promedio de movimiento semanal DEL PROPIO
+     ticker (así detecta el arranque apenas se confirma, en vez de
+     esperar a que se acumulen 5 semanas de subida como en el primer
+     intento -- feedback del usuario, 2026-08). Ej. real: GLD, ~11 de
+     16 semanas entre Rezagado y Mejorando antes de acelerar.
+     Umbrales fijados a mano, sin backtest -- ajustar si en la
+     práctica quedan muy laxos o muy exigentes. ── */
+  var WB_ROT_ACCEL_VENTANA      = 16;  // semanas de contexto (referencia + deambular)
+  var WB_ROT_ACCEL_BAJAS_MIN    = 8;   // de las 11 semanas mas viejas de esa ventana, cuantas fuera de Lideres
+  var WB_ROT_ACCEL_BASELINE_MIN = 2.0; // piso del "ritmo normal" (pts RS Score/semana) -- evita falsos positivos en tickers casi planos
 
   function wbRotAceleracion(){
     if(!_wbRotHist) return {acciones:[], etfs:[]};
@@ -4343,34 +4346,47 @@ if ('serviceWorker' in navigator) {
     Object.keys(_wbRotHist).forEach(function(t){
       var serie = _wbRotHist[t];
       if(serie.length < WB_ROT_ACCEL_VENTANA + 1) return; // +1: hace falta el punto base para el delta de la 1ra semana
-      var ult   = serie.slice(-WB_ROT_ACCEL_VENTANA - 1); // 17 cierres -> 16 semanas con delta propio
-      var vieja = ult.slice(0, 12);  // semanas 1-11 (mas antiguas)
-      var nueva = ult.slice(-6);     // ultimas 5 semanas
+      var ult = serie.slice(-WB_ROT_ACCEL_VENTANA - 1); // 17 cierres -> 16 semanas con delta propio
+      var n = ult.length;
 
+      var deltaHoy  = (ult[n-1].rs_score!=null && ult[n-2].rs_score!=null) ? ult[n-1].rs_score - ult[n-2].rs_score : null;
+      var deltaAyer = (ult[n-2].rs_score!=null && ult[n-3].rs_score!=null) ? ult[n-2].rs_score - ult[n-3].rs_score : null;
+      if(deltaHoy==null || deltaAyer==null) return;
+
+      // Referencia: promedio de |Δ semanal| DEL PROPIO ticker, sobre las
+      // semanas de contexto -- excluye las últimas 2 (las que se están
+      // evaluando) para no contaminar el promedio con la aceleración misma.
+      var ref = ult.slice(0, n-2); // 15 puntos -> 14 deltas de referencia
+      var deltasRef = [];
+      for(var i=1;i<ref.length;i++){
+        if(ref[i].rs_score!=null && ref[i-1].rs_score!=null) deltasRef.push(Math.abs(ref[i].rs_score - ref[i-1].rs_score));
+      }
+      if(deltasRef.length < 8) return;
+      var baseline = Math.max(WB_ROT_ACCEL_BASELINE_MIN, deltasRef.reduce(function(a,b){return a+b;},0) / deltasRef.length);
+
+      // Contexto "vino deambulando": de las 11 semanas mas viejas de la
+      // referencia, cuantas estuvieron fuera de Lideres
+      var vieja = ref.slice(0, 12);
       var bajas = 0;
-      for(var i=1;i<vieja.length;i++){
-        var rs=vieja[i].rs_score, rsPrev=vieja[i-1].rs_score;
+      for(var j=1;j<vieja.length;j++){
+        var rs=vieja[j].rs_score, rsPrev=vieja[j-1].rs_score;
         if(rs==null||rsPrev==null) continue;
         if(_wbRotQuadrant(rs, rs-rsPrev) !== 'lideres') bajas++;
       }
       if(bajas < WB_ROT_ACCEL_BAJAS_MIN) return;
 
-      var subidas=0;
-      for(var j=1;j<nueva.length;j++){
-        if(nueva[j].rs_score!=null && nueva[j-1].rs_score!=null && nueva[j].rs_score>nueva[j-1].rs_score) subidas++;
-      }
-      var rsHoy = nueva[nueva.length-1].rs_score, rsBase = nueva[0].rs_score;
-      if(rsHoy==null||rsBase==null) return;
-      var salto = rsHoy - rsBase;
-      if(salto < WB_ROT_ACCEL_SALTO_MIN || subidas < WB_ROT_ACCEL_SUBIDAS_MIN) return;
+      // Aceleración: las ÚLTIMAS 2 semanas, cada una, superaron el ritmo normal
+      if(!(deltaHoy > baseline && deltaAyer > baseline)) return;
 
+      var rsHoy = ult[n-1].rs_score;
+      var factor = ((deltaHoy + deltaAyer) / 2) / baseline;
       var tipo = tipoByT[t]; if(!tipo) return;
-      var tag = '<span style="font-size:9.5px;color:var(--green);white-space:nowrap">+'+fmt(salto,1)+' en 5 sem</span>';
-      var row = {ticker:t, rs:rsHoy, salto:salto, html:_wbRotRow(t, rsHoy, tag)};
+      var tag = '<span style="font-size:9.5px;color:var(--green);white-space:nowrap">🚀 '+fmt(factor,1)+'x el ritmo normal</span>';
+      var row = {ticker:t, rs:rsHoy, factor:factor, html:_wbRotRow(t, rsHoy, tag)};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
-    accs.sort(function(a,b){ return b.salto-a.salto; });
-    etfs.sort(function(a,b){ return b.salto-a.salto; });
+    accs.sort(function(a,b){ return b.factor-a.factor; });
+    etfs.sort(function(a,b){ return b.factor-a.factor; });
     return {acciones:accs, etfs:etfs};
   }
 
