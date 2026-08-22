@@ -2430,6 +2430,21 @@ def calcular_feedback_breakouts(breakouts_log):
     return round(sobrevivieron / n, 3), n
 
 
+# ── Historial semanal de RS Score para el Cuadrante de Rotación
+# (rotacion_historia.json, Warren Score 2026-08) -- distinto de
+# rs_historia.json (ese guarda rs_ratio/rs_mom, el z-score estilo
+# JdK-RRG, solo para los 31 ETFs sectoriales del panel "Rotación por
+# sector"). Este usa el MISMO RS Score 0-100 que ya se muestra en toda
+# la app -- percentrank de la fuerza relativa (ticker/SPY) contra su
+# PROPIA historia, no contra el resto del universo -- así que se puede
+# resamplear a cierres semanales sin recalcular nada cruzado entre
+# tickers. Cubre TODO el universo (acciones + ETFs), no solo
+# sectoriales. Se recalcula entero en cada corrida (no es incremental
+# como fr_historia.json) porque rs_score_series() ya devuelve la serie
+# diaria completa a partir del histórico de precios ya descargado --
+# no hace falta persistir ni mergear entre corridas.
+ROTACION_HISTORIA_SEMANAS = 20  # ~unas semanas de margen sobre las 16 que pide el panel
+
 def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str):
     try:
         tk   = yf.Ticker(ticker_symbol)
@@ -2563,6 +2578,21 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         rs_ser_completa = rs_score_series(close, hist_spy["Close"])
         reversal = ema200_reversal_features(hist, ema200_series, rs_ser_completa)
 
+        # Historial semanal de RS Score (rotacion_historia.json) -- ver
+        # comentario de ROTACION_HISTORIA_SEMANAS más arriba
+        rs_semanal = []
+        if rs_ser_completa is not None:
+            try:
+                serie_sem = rs_ser_completa.dropna()
+                serie_sem.index = pd.to_datetime(serie_sem.index).tz_localize(None) if serie_sem.index.tz is not None else pd.to_datetime(serie_sem.index)
+                serie_sem = serie_sem.resample('W-FRI').last().dropna().tail(ROTACION_HISTORIA_SEMANAS)
+                rs_semanal = [
+                    {"fecha": fecha.strftime('%Y-%m-%d'), "rs_score": round(float(val), 2)}
+                    for fecha, val in serie_sem.items()
+                ]
+            except Exception:
+                rs_semanal = []
+
         # Señales de agotamiento del avance (Warren Score v2.2)
         div_rsi_v  = div_rsi(hist)
         div_obv_v  = div_obv(hist)
@@ -2683,6 +2713,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
             "Pend SMA50 Pts":          pend_sma50_pts,
             "RSI Sobrecompra Sin Confirmar": rsi_sin_confirmar,
+            "_rs_score_semanal":       rs_semanal,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
@@ -2920,6 +2951,7 @@ hoy_str = datetime.now().strftime('%Y-%m-%d')
 print("⏳ Calculando KPIs + Market Cap + Sector + Volumen...")
 todos_los_datos = []
 tickers_procesados = set()
+rotacion_historia = []  # rotacion_historia.json -- se arma entero de nuevo cada corrida, ver ROTACION_HISTORIA_SEMANAS
 
 for grupo, tickers in TICKERS.items():
     print(f"\n📂 {grupo}")
@@ -2939,6 +2971,13 @@ for grupo, tickers in TICKERS.items():
         if fr_hoy_val is not None:
             fr_historia = [e for e in fr_historia if not (e.get("ticker") == ticker and e.get("fecha") == hoy_str)]
             fr_historia.append({"fecha": hoy_str, "ticker": ticker, "fr": round(float(fr_hoy_val), 6)})
+
+        # Historial semanal de RS Score (rotacion_historia.json) -- se saca
+        # del dict antes de que "datos" termine en datos.json (no hace
+        # falta ahí, es una lista, no un valor de tabla)
+        rs_semanal_ticker = datos.pop("_rs_score_semanal", None) or []
+        for fila in rs_semanal_ticker:
+            rotacion_historia.append({"fecha": fila["fecha"], "ticker": ticker, "rs_score": fila["rs_score"]})
 
         datos["Grupo"] = grupo
 
@@ -3119,6 +3158,28 @@ if resp_fh.status_code in [200, 201]:
     print(f"✅ fr_historia.json actualizado ({len(fr_historia)} filas)")
 else:
     print(f"⚠️  Error subiendo fr_historia.json: {resp_fh.status_code} — {resp_fh.json().get('message')}")
+
+# ── EXPORTAR ROTACION_HISTORIA.JSON A GITHUB (Cuadrante de Rotación:
+# transiciones a Líderes + aceleración inusual, 2026-08) -- se
+# sobreescribe entero cada corrida, no es incremental (ver comentario
+# de ROTACION_HISTORIA_SEMANAS) ──
+ROTACION_HISTORIA_FILE = "rotacion_historia.json"
+try:
+    rot_str = json.dumps(rotacion_historia, ensure_ascii=False)
+    rot_b64 = base64.b64encode(rot_str.encode()).decode()
+    url_rot = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{ROTACION_HISTORIA_FILE}"
+    resp_rot = requests.get(url_rot, headers=headers)
+    sha_rot  = resp_rot.json().get("sha") if resp_rot.status_code == 200 else None
+    payload_rot = {"message": f"Auto-update rotacion_historia {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": rot_b64}
+    if sha_rot:
+        payload_rot["sha"] = sha_rot
+    resp_rot = requests.put(url_rot, headers=headers, json=payload_rot)
+    if resp_rot.status_code in [200, 201]:
+        print(f"✅ rotacion_historia.json actualizado ({len(rotacion_historia)} filas)")
+    else:
+        print(f"⚠️  Error subiendo rotacion_historia.json: {resp_rot.status_code} — {resp_rot.json().get('message')}")
+except Exception as e:
+    print(f"⚠️  rotacion_historia.json: {e}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
