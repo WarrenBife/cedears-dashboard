@@ -3858,6 +3858,36 @@ if ('serviceWorker' in navigator) {
     '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>',
     'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. El tamaño de la burbuja representa el Market Cap del activo. Cuadrante azul (Mejorando): RS bajo pero acelerando, suelen ser los futuros líderes.');
 
+  /* — Recién a Líderes (transiciones de esta semana) — */
+  var rotTransP = mkPanel('wb-rot-trans-panel','🏆 Recién a Líderes',
+    'Entraron al cuadrante de Líderes esta semana, viniendo de Mejorando o Rezagado',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;">'+
+      '<div style="border-right:1px solid rgba(255,255,255,0.04)">'+
+        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ACCIONES</div>'+
+        '<div id="wb-rot-trans-acc"></div>'+
+      '</div>'+
+      '<div>'+
+        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ETFS</div>'+
+        '<div id="wb-rot-trans-etf"></div>'+
+      '</div>'+
+    '</div>',
+    'Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más.');
+
+  /* — Aceleración inusual — */
+  var rotAccelP = mkPanel('wb-rot-accel-panel','⚡ Aceleración inusual',
+    'Dieron vueltas en zona baja varias semanas y arrancaron una aceleración sostenida',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;">'+
+      '<div style="border-right:1px solid rgba(255,255,255,0.04)">'+
+        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ACCIONES</div>'+
+        '<div id="wb-rot-accel-acc"></div>'+
+      '</div>'+
+      '<div>'+
+        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ETFS</div>'+
+        '<div id="wb-rot-accel-etf"></div>'+
+      '</div>'+
+    '</div>',
+    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; y en las últimas 5 el RS Score subió ≥15 pts, con al menos 4 semanas en suba. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una racha de aceleración.');
+
   /* — Episodic Pivots & Bombs — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots & Bombs',
     'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional. Bombs: rompieron un máximo previo con eficiencia confirmada, últimos 7 días.',
@@ -3903,7 +3933,7 @@ if ('serviceWorker' in navigator) {
     spot, statsRow,
     P.cart,
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
-    rrgP,
+    rrgP, rotTransP, rotAccelP,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
     P.warren, mkGrid(epP, ema200P),
     snapP,
@@ -4188,6 +4218,177 @@ if ('serviceWorker' in navigator) {
   }
 
   window.wbRenderRRG = wbRenderRRG; /* exponer globalmente para onchange inline */
+
+  /* ═══ 4b. Cuadrante de Rotación — historial semanal (rotacion_historia.json):
+     "Recién a Líderes" (transiciones) + "Aceleración inusual". Pedido del
+     usuario, 2026-08. rotacion_historia.json trae el RS Score semanal (W-FRI)
+     de TODO el universo, últimas ~20 semanas -- ver actualizar_datos.py
+     (ROTACION_HISTORIA_SEMANAS). Ambos paneles son SCREENERS descriptivos
+     con reglas heurísticas fijadas a mano, no señales validadas a escala
+     como el resto del Warren Score. ═══ */
+  var _wbRotHist = null; // {ticker: [{fecha, rs_score}, ...]} ordenado asc por fecha
+  var _wbRotHistFetching = false;
+
+  function wbFetchRotHist(cb){
+    if(_wbRotHist){ cb(); return; }
+    if(_wbRotHistFetching) return;
+    _wbRotHistFetching = true;
+    fetch('/rotacion_historia.json?_='+Date.now())
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(rows){
+        _wbRotHistFetching = false;
+        var byT = {};
+        (rows||[]).forEach(function(row){
+          if(!byT[row.ticker]) byT[row.ticker] = [];
+          byT[row.ticker].push(row);
+        });
+        Object.keys(byT).forEach(function(t){
+          byT[t].sort(function(a,b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); });
+        });
+        _wbRotHist = byT;
+        cb();
+      })
+      .catch(function(){ _wbRotHistFetching = false; });
+  }
+
+  /* Mismo corte que usa el chart (quadFill/quadBorder): x=RS Score,
+     y=variación vs semana anterior, división en x=50 / y=0 */
+  function _wbRotQuadrant(rs, delta){
+    if(rs>=50 && delta>=0) return 'lideres';
+    if(rs<50  && delta>=0) return 'mejorando';
+    if(rs>=50 && delta<0)  return 'debilitando';
+    return 'rezagado';
+  }
+  var _WB_ROT_QLBL = {lideres:'Líderes', mejorando:'Mejorando', debilitando:'Debilitando', rezagado:'Rezagado'};
+  var _WB_ROT_QDOT = {lideres:'var(--green)', mejorando:'var(--blue)', debilitando:'var(--amber)', rezagado:'var(--red)'};
+
+  function _wbRotRow(t, rs, tagHtml){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
+      '<div style="display:flex;align-items:center;gap:7px;min-width:0">'+
+        '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
+        '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+esc(t)+'</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--text)">'+fmt(rs,1)+'</span>'+
+        tagHtml+
+      '</div>'+
+    '</div>';
+  }
+
+  function _wbRotList(items, emptyMsg){
+    if(!items.length) return '<div class="wb-empty" style="padding:14px 12px;font-size:11px">'+emptyMsg+'</div>';
+    return '<div style="max-height:172px;overflow-y:auto">'+items.join('')+'</div>';
+  }
+
+  function _wbRotTipoMap(){
+    var m = {};
+    filtrados().forEach(function(d){ m[d['Ticker']] = d['Tipo']; });
+    return m;
+  }
+
+  /* — Recién a Líderes: cuadrante de hoy = Líderes, cuadrante de la
+     semana pasada = Mejorando o Rezagado — */
+  function wbRotTransiciones(){
+    if(!_wbRotHist) return {acciones:[], etfs:[]};
+    var tipoByT = _wbRotTipoMap();
+    var accs = [], etfs = [];
+    Object.keys(_wbRotHist).forEach(function(t){
+      var serie = _wbRotHist[t];
+      if(serie.length < 3) return;
+      var n = serie.length;
+      var rsHoy = serie[n-1].rs_score, rsAyer = serie[n-2].rs_score, rsAntes = serie[n-3].rs_score;
+      if(rsHoy==null || rsAyer==null || rsAntes==null) return;
+      var qHoy  = _wbRotQuadrant(rsHoy, rsHoy - rsAyer);
+      var qAyer = _wbRotQuadrant(rsAyer, rsAyer - rsAntes);
+      if(qHoy !== 'lideres') return;
+      if(qAyer !== 'mejorando' && qAyer !== 'rezagado') return;
+      var tipo = tipoByT[t]; if(!tipo) return;
+      var tag = '<span style="font-size:9.5px;color:'+_WB_ROT_QDOT[qAyer]+';white-space:nowrap">desde '+_WB_ROT_QLBL[qAyer]+'</span>';
+      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, tag)};
+      if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
+    });
+    accs.sort(function(a,b){ return b.rs-a.rs; });
+    etfs.sort(function(a,b){ return b.rs-a.rs; });
+    return {acciones:accs, etfs:etfs};
+  }
+
+  function wbRenderRotTrans(){
+    var accEl = $('wb-rot-trans-acc'), etfEl = $('wb-rot-trans-etf');
+    if(!accEl || !etfEl) return;
+    if(!_wbRotHist){
+      accEl.innerHTML = etfEl.innerHTML = '<div class="wb-empty" style="padding:14px 12px;font-size:11px">Cargando…</div>';
+      wbFetchRotHist(function(){ try{ wbRenderRotTrans(); wbRenderRotAccel(); }catch(e){} });
+      return;
+    }
+    var r = wbRotTransiciones();
+    accEl.innerHTML = _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción entró a Líderes esta semana.');
+    etfEl.innerHTML = _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF entró a Líderes esta semana.');
+  }
+
+  /* — Aceleración inusual: dio vueltas fuera de Líderes la mayor parte
+     de una ventana de 16 semanas, y en las últimas 5 arrancó una subida
+     sostenida. Ej. real: GLD, ~11 de 16 semanas entre Rezagado y
+     Mejorando, aceleró fuerte en las últimas 5. Umbrales fijados a
+     mano, sin backtest -- ajustar si en la práctica quedan muy laxos o
+     muy exigentes. ── */
+  var WB_ROT_ACCEL_VENTANA     = 16;
+  var WB_ROT_ACCEL_BAJAS_MIN   = 8;   // de las 11 semanas mas viejas de la ventana
+  var WB_ROT_ACCEL_SALTO_MIN   = 15;  // pts de RS Score en las ultimas 5 semanas
+  var WB_ROT_ACCEL_SUBIDAS_MIN = 4;   // de las ultimas 5 semanas
+
+  function wbRotAceleracion(){
+    if(!_wbRotHist) return {acciones:[], etfs:[]};
+    var tipoByT = _wbRotTipoMap();
+    var accs = [], etfs = [];
+    Object.keys(_wbRotHist).forEach(function(t){
+      var serie = _wbRotHist[t];
+      if(serie.length < WB_ROT_ACCEL_VENTANA + 1) return; // +1: hace falta el punto base para el delta de la 1ra semana
+      var ult   = serie.slice(-WB_ROT_ACCEL_VENTANA - 1); // 17 cierres -> 16 semanas con delta propio
+      var vieja = ult.slice(0, 12);  // semanas 1-11 (mas antiguas)
+      var nueva = ult.slice(-6);     // ultimas 5 semanas
+
+      var bajas = 0;
+      for(var i=1;i<vieja.length;i++){
+        var rs=vieja[i].rs_score, rsPrev=vieja[i-1].rs_score;
+        if(rs==null||rsPrev==null) continue;
+        if(_wbRotQuadrant(rs, rs-rsPrev) !== 'lideres') bajas++;
+      }
+      if(bajas < WB_ROT_ACCEL_BAJAS_MIN) return;
+
+      var subidas=0;
+      for(var j=1;j<nueva.length;j++){
+        if(nueva[j].rs_score!=null && nueva[j-1].rs_score!=null && nueva[j].rs_score>nueva[j-1].rs_score) subidas++;
+      }
+      var rsHoy = nueva[nueva.length-1].rs_score, rsBase = nueva[0].rs_score;
+      if(rsHoy==null||rsBase==null) return;
+      var salto = rsHoy - rsBase;
+      if(salto < WB_ROT_ACCEL_SALTO_MIN || subidas < WB_ROT_ACCEL_SUBIDAS_MIN) return;
+
+      var tipo = tipoByT[t]; if(!tipo) return;
+      var tag = '<span style="font-size:9.5px;color:var(--green);white-space:nowrap">+'+fmt(salto,1)+' en 5 sem</span>';
+      var row = {ticker:t, rs:rsHoy, salto:salto, html:_wbRotRow(t, rsHoy, tag)};
+      if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
+    });
+    accs.sort(function(a,b){ return b.salto-a.salto; });
+    etfs.sort(function(a,b){ return b.salto-a.salto; });
+    return {acciones:accs, etfs:etfs};
+  }
+
+  function wbRenderRotAccel(){
+    var accEl = $('wb-rot-accel-acc'), etfEl = $('wb-rot-accel-etf');
+    if(!accEl || !etfEl) return;
+    if(!_wbRotHist){
+      accEl.innerHTML = etfEl.innerHTML = '<div class="wb-empty" style="padding:14px 12px;font-size:11px">Cargando…</div>';
+      wbFetchRotHist(function(){ try{ wbRenderRotTrans(); wbRenderRotAccel(); }catch(e){} });
+      return;
+    }
+    var r = wbRotAceleracion();
+    accEl.innerHTML = _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción muestra este patrón hoy.');
+    etfEl.innerHTML = _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF muestra este patrón hoy.');
+  }
+
+  window.wbRenderRotTrans = wbRenderRotTrans;
+  window.wbRenderRotAccel = wbRenderRotAccel;
 
   /* ═══ 5. Episodic Pivots & Bombs ═══
      Bombs (Warren Score v4.1): tickers que rompieron un máximo previo con
@@ -4544,6 +4745,8 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderRegimen(); }catch(e){ console.error('wbRegimen',e); }
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
+    try{ wbRenderRotTrans(); }catch(e){ console.error('wbRotTrans',e); }
+    try{ wbRenderRotAccel(); }catch(e){ console.error('wbRotAccel',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
     try{ wbRenderEMA200Reversal(); }catch(e){ console.error('wbEMA200',e); }
     try{ wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
