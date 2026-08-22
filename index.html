@@ -16732,6 +16732,13 @@ function wbmRenderList(){
       '</div></div>';
   }).join('');
 }
+// wbmRenderList es una function declaration dentro del IIFE de este bloque
+// -- el oninput="wbmRenderList()" del buscador (#wbm-search) se evalúa en
+// el scope GLOBAL, no en este closure, así que sin esta línea tira
+// ReferenceError silencioso cada vez que se escribe y la lista nunca se
+// filtra (el buscador mobile no funcionaba desde que se introdujo este
+// bloque). Mismo patrón que wbmOpenDetail/wbmCloseDetail más abajo.
+window.wbmRenderList = wbmRenderList;
 
 /* ── Gráfico de evolución de FR (fr_historia.json) ── */
 function wbmDrawFrChart(ticker){
