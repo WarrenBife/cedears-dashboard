@@ -499,3 +499,30 @@ Calculado a mano en los 2 casos ancla: **BKR (6/8→14/8) ER=0,33** (zigzag ya d
 **Casi no se superpone con el filtro de volumen** (fix anterior, mismo día): de 20 casos "zigzag" y 9 casos "signo negativo+volumen sostenido", solo 2 están en ambos grupos -- capturan modos de falla distintos. Combinados con OR (se anula si cualquiera de los dos dispara), el grupo "malo" crece a n=27 con retorno mediano **-0,07%** vs. n=87 con **+1,97%** del resto -- la separación más limpia de las tres variantes probadas, confirmada en split por ticker.
 
 **Implementación**: `REINTENTO_ACERCAMIENTO_ER_UMBRAL = 0.5` + función `_bono_anulado_por_acercamiento_choppy()` -- anula el bono si `zona_idx < dia_max_idx` (hay tramo de acercamiento) y su ER < 0,5. Se agrega con **OR** sobre `_bono_anulado_por_volumen()` (cualquiera de las dos anula, no hace falta que se cumplan las dos). Verificado: BKR sigue en 0 (ahora por las dos razones a la vez); MU sin cambios (9,84/6,24/6,24+Bomba).
+
+## Warren Score v4.8 -- RSI Pilar C: 0 pts si viene de sobrecompra sin confirmar (22/8/2026) -- IMPLEMENTADO
+
+### Caso de origen
+
+BABA, 21/8/2026: RSI picaba cerca de sobrecompra (71,7 el 10/8), corrigió, se recuperó casi hasta los máximos (RSI 63,5 el 20/8) y se derrumbó **-8,37% en una sola rueda** (volumen 3x lo normal, earnings), aterrizando el RSI en 46,2 -- justo en la franja 45-60 que da puntaje PLENO al componente de RSI en Pilar C (desde el ajuste "RSI 14 más conservador", commit 46d585b) -- el mismo día del golpe, sin ningún tiempo para mostrar reacción. Preocupación del usuario: un papel sobrecomprado que corrige fuerte puede estar recién arrancando la baja, no "sano" -- el RSI solo no distingue eso.
+
+### Primer intento (descartado): esperar 1 día verde
+
+Evento: RSI hoy en [45,60], RSI máximo de los últimos 15 días ≥70, caída de precio desde ese máximo ≥8%. Comparando el día de ENTRADA a la zona rojo (sin reacción) vs. verde (con reacción), sobre 5.217 eventos (308 tickers, 8 años): el grupo rojo rindió **igual o mejor** que el verde (ret10 +0,14% vs. -0,31%, fracaso 28,4% vs. 28,2%) -- va al revés de la hipótesis, probablemente por reversión a la media de corto plazo tras una caída fuerte de un día. Se probó también con la lógica correcta de "esperar cuantos días haga falta hasta la primera vela verde" (n=5.183): **el 99,96% confirma en promedio 1 día** -- un umbral tan débil que no filtra nada (regla actual ret10 -0,04% vs. regla propuesta -0,22%, prácticamente igual o peor). Se probó además "1 día verde + le gana a SPY ese mismo día" (fuerza relativa): igual de débil, 99,8% confirma en ~1 día.
+
+### Segundo intento (validado e implementado): 2 días verdes seguidos
+
+Mismo evento base, pero exigiendo **2 días consecutivos** con cierre > cierre del día anterior en algún momento dentro de los 10 días desde que entró a la zona. Resultado, sobre 5.183 eventos:
+
+| | n | Retorno mediano 10r / 20r | Fracaso 10r / 20r |
+|---|---|---|---|
+| Nunca logran 2 verdes seguidos en 10r | 634 (12,2%) | **-9,46% / -8,04%** | **68,5% / 61,4%** |
+| Sí logran 2 verdes seguidos | 4.549 (87,8%) | -0,40% / +0,17% | 29,1% / 35,0% |
+
+Confirmado en split por ticker: Mitad A (n=313, 11,5%) -10,23%/73,5% fracaso vs. resto -0,13%/28,8%; Mitad B (n=321, 13,1%) -8,10%/63,6% vs. resto -0,64%/29,5% -- misma dirección, señal muy fuerte, la más contundente de toda esta racha de investigaciones (más que Caso B, más que el fix del Bono ER).
+
+### Implementación
+
+**Backend** (`actualizar_datos.py`): nueva función `_rsi_sobrecompra_sin_confirmar(hist)` -- reconstruye el "día 0" del episodio (el primer día, mirando hacia atrás hasta 10 ruedas, en que ya se cumplía "RSI hoy en 45-60, viniendo de RSI≥70 en los últimos 15 días con caída de precio ≥8%"), y devuelve `True` si desde ese día hasta hoy TODAVÍA no hubo 2 días verdes seguidos. Constantes: `RSI_CONFIRMACION_RSI_TECHO=70.0`, `RSI_CONFIRMACION_CAIDA_MIN=0.08`, `RSI_CONFIRMACION_LOOKBACK_PICO=15`, `RSI_CONFIRMACION_VENTANA_ESPERA=10`. Exportado como `"RSI Sobrecompra Sin Confirmar"` en `calcular_kpis()`.
+
+**Frontend** (`index.html`, Warren Score v4.8, `WB UPGRADE V34`, `WB_SCORE_VERSION_50`): `_pilarCv50` da `ptsRSI=0` (en vez de la triangular normal, hasta 8,25 pts) si el campo viene en `True`. Insertado ANTES del bloque mobile V32 (mismo orden que V33/V49, requisito de la arquitectura: el wrapper de `renderWarrenScore` del mobile tiene que ser el último en redefinir `window.renderWarrenScore`). Todo lo demás (gates, Pilar A, B, D, restas, penalizaciones) copia verbatim de V33/V49. Verificado con harness Node: diferencia exacta de 8,25 pts en Pilar C cuando el flag está activo (RSI=52, con y sin el flag); sin efecto cuando el RSI está fuera de la franja 45-60 (ej. 75).

@@ -2275,6 +2275,83 @@ def _penalizacion_sma50_pendiente(rs_score, sma50_slope_pct):
     t = (SMA50_PEND_PISO - sma50_slope_pct) / (SMA50_PEND_PISO - SMA50_PEND_TECHO)
     return round(SMA50_PEND_MAX * t, 2)
 
+# ── Gate "RSI sobrecompra sin confirmar" (Warren Score v4.8, 2026-08) --
+# ver informe en wb_research/. Caso de origen: BABA 21/8/2026 -- RSI
+# 63.5->46.2 en un solo dia (-8.37%, earnings), aterrizando justo en la
+# franja de puntaje pleno (45-60) del componente RSI de Pilar C el
+# MISMO dia del golpe, sin ninguna reaccion todavia. La preocupacion:
+# un papel que viene de sobrecompra y cae fuerte puede estar recien
+# arrancando la baja, no "sano" -- el RSI solo no distingue eso.
+#
+# Probado y descartado primero: exigir un solo dia verde antes de
+# puntuar -- umbral demasiado debil, el 99.96% de los casos "confirma"
+# en 1 dia en promedio (ruido normal), sin filtrar nada (n=5.183,
+# retorno CASI IGUAL con o sin esperar). Tambien descartado: 1 dia
+# verde + que le gane a SPY ese dia (fuerza relativa) -- igual de debil
+# (99.8% confirma en ~1 dia).
+#
+# Lo que SI funciona: 2 DIAS VERDES SEGUIDOS. Validado a escala (308
+# tickers, 8 anios, n=5.183): el 12-13% de los casos que NUNCA logran
+# 2 dias verdes seguidos en 10 ruedas desde que entraron a la zona
+# tienen retorno mediano -8% a -10% y 63-74% de fracaso (cae >=5%) a
+# 10-20 ruedas -- vs. ~29% de fracaso del resto. Confirmado en split
+# por ticker (misma direccion en ambas mitades). Es la señal mas fuerte
+# de toda esta racha de investigaciones.
+RSI_CONFIRMACION_RSI_TECHO      = 70.0  # RSI que cuenta como "sobrecompra" en la ventana previa
+RSI_CONFIRMACION_CAIDA_MIN      = 0.08  # caida minima de precio desde el maximo de esa ventana
+RSI_CONFIRMACION_LOOKBACK_PICO  = 15    # ruedas hacia atras para buscar el maximo de RSI/precio
+RSI_CONFIRMACION_VENTANA_ESPERA = 10    # tope de ruedas hacia atras para reconstruir el "dia 0" del episodio
+
+def _rsi_sobrecompra_sin_confirmar(hist):
+    """True si HOY el RSI esta en la franja de puntaje pleno (45-60) del
+    componente RSI de Pilar C, pero llego ahi viniendo de sobrecompra
+    (RSI>=70 en los ultimos 15 dias) con una caida de precio >=8% desde
+    ese maximo, Y TODAVIA no mostro 2 dias verdes seguidos desde que
+    entro a esa zona. Si es True, el frontend debe dar 0 pts al
+    componente de RSI en vez del valor normal de la triangular."""
+    try:
+        close = hist['Close'].values
+        rsi = _rsi14_serie_completa(hist['Close']).values
+        n = len(close)
+        piso_min = RSI_CONFIRMACION_LOOKBACK_PICO + RSI_CONFIRMACION_VENTANA_ESPERA + 2
+        if n < piso_min:
+            return False
+        hoy_rsi = rsi[-1]
+        if np.isnan(hoy_rsi) or not (45 <= hoy_rsi <= 60):
+            return False
+
+        # Reconstruir el "dia 0" del episodio: el primer dia (mirando
+        # hacia atras, hasta VENTANA_ESPERA ruedas) en el que ya se
+        # cumplia "viene de sobrecompra con caida fuerte" sin haberse
+        # salido de la franja sana en el medio -- mismo chequeo que se
+        # hace hoy, pero repetido dia por dia hacia atras.
+        limite = max(n - 1 - RSI_CONFIRMACION_VENTANA_ESPERA, RSI_CONFIRMACION_LOOKBACK_PICO)
+        dia0 = None
+        for k in range(n - 1, limite, -1):
+            rsi_k = rsi[k]
+            if np.isnan(rsi_k) or not (45 <= rsi_k <= 60):
+                break
+            ventana_prev = rsi[k - RSI_CONFIRMACION_LOOKBACK_PICO:k]
+            if len(ventana_prev) == 0 or np.nanmax(ventana_prev) < RSI_CONFIRMACION_RSI_TECHO:
+                break
+            max_precio = close[k - RSI_CONFIRMACION_LOOKBACK_PICO:k].max()
+            if max_precio <= 0:
+                break
+            caida = (max_precio - close[k]) / max_precio
+            if caida < RSI_CONFIRMACION_CAIDA_MIN:
+                break
+            dia0 = k
+        if dia0 is None:
+            return False  # no viene de este patron -- el gate no aplica
+
+        # Desde dia0 hasta hoy, ¿hubo 2 dias verdes seguidos?
+        for j in range(dia0 + 1, n):
+            if close[j] > close[j - 1] and close[j - 1] > close[j - 2]:
+                return False  # ya confirmo
+        return True  # todavia sin confirmar
+    except Exception:
+        return False
+
 def procesar_rebote_sma10(rebote_state, ticker, hist, sma10, sma10_slope, precio_actual, hoy_str):
     """Devuelve dict {estado, dias, fecha, low, cierre} para HOY, y muta
     rebote_state[ticker] in-place (lo agrega, lo deja igual, o lo borra).
@@ -2435,6 +2512,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
 
         # Penalización "pendiente SMA50 pronunciada" -- Warren Score v4.7
         pend_sma50_pts = _penalizacion_sma50_pendiente(score_actual, sma50_slope_pct20)
+
+        # Gate "RSI sobrecompra sin confirmar" -- Warren Score v4.8, ver
+        # informe en wb_research/ (caso BABA)
+        rsi_sin_confirmar = _rsi_sobrecompra_sin_confirmar(hist)
 
         # VCP
         vcp = detectar_vcp(hist)
@@ -2601,6 +2682,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "OBV Penaliza Fecha Inicio": agot_obv['obv_fecha_inicio'],
             "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
             "Pend SMA50 Pts":          pend_sma50_pts,
+            "RSI Sobrecompra Sin Confirmar": rsi_sin_confirmar,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
