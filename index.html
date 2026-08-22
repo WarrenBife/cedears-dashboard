@@ -4118,19 +4118,21 @@ if ('serviceWorker' in navigator) {
           zoom:{
             zoom:{ wheel:{enabled:true,speed:0.08}, pinch:{enabled:true}, mode:'xy' },
             pan:{ enabled:true, mode:'xy' },
-            limits:{ x:{min:0,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} }
+            limits:{ x:{min:20,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} }
           }
         },
         scales:{
-          x:{ min:0, max:100, title:{display:true,text:'RS Score',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} },
+          x:{ min:20, max:100, title:{display:true,text:'RS Score',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} },
           y:{ min:-30, title:{display:true,text:'Δ RS vs semana ant.',color:'#737d8f',font:{size:10}}, grid:{color:'rgba(148,163,184,0.06)'}, ticks:{color:'#737d8f',font:{size:10}} }
         }
       }
     });
 
-    /* ── Zoom estilo TradingView sobre los ejes ── */
+    /* ── Zoom estilo TradingView sobre los ejes -- eje X arranca en 20
+       (no en 0): "lo que está debajo no sirve de nada" (RS Score bajo,
+       zona irrelevante para detectar rotación) ── */
     window._wbRrgCleanup = (function(chart){
-      var LIM = { x:{min:0,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} };
+      var LIM = { x:{min:20,max:100,minRange:5}, y:{min:-30,max:60,minRange:5} };
       var drag = null; /* { axis, startPx, anchorVal, initMin, initMax } */
 
       function onDown(e){
