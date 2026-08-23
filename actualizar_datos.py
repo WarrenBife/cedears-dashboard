@@ -47,7 +47,7 @@ TICKERS = {
         "XP", "PAGS", "STNE", "NU", "HOOD", "FISV", "O"
     ],
     "CEDEARs Salud": [
-        "JNJ", "PFE", "ABBV", "MRK", "AMGN", "GILD", "BIIB",
+        "JNJ", "PFE", "ABBV", "ABT", "MRK", "AMGN", "GILD", "BIIB",
         "MRNA", "BMY", "AZN", "NVS", "GSK", "LLY", "MDT",
         "ISRG", "DHR", "TMO", "UNH", "CVS", "VRTX", "MDLZ", "HIMS"
     ],
@@ -131,7 +131,7 @@ ETF_SECTOR = {
     "XYZ": "XLF",
 
     # Salud
-    "ABBV": "XLV", "AMGN": "XLV", "BIIB": "XLV", "BMY": "XLV",
+    "ABBV": "XLV", "ABT": "XLV", "AMGN": "XLV", "BIIB": "XLV", "BMY": "XLV",
     "CVS": "XLV", "DHR": "XLV", "GILD": "XLV", "HIMS": "XLV",
     "ISRG": "XLV", "JNJ": "XLV", "LLY": "XLV", "MDT": "XLV",
     "MRK": "XLV", "MRNA": "XLV", "PFE": "XLV", "TEM": "XLV",
