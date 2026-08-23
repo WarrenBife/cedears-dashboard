@@ -344,6 +344,75 @@ def rs_score_series(close_ticker, close_spy, lookback=252):
             scores.append(round(rank, 2))
     return pd.Series(scores, index=fr.index)
 
+def detectar_cruce_sma50_impulso(close_ticker, close_spy, periodo_sma=50,
+                                  dias_frescura=5, semanas_bajando=8, racha_min=2):
+    """Cruce de SMA50 (de la FR ticker/SPY) CON IMPULSO ya en marcha --
+    pedido del usuario 2026-08, caso de origen GLD: cruzó su SMA50 el
+    07/08/2026 tras tocar un piso el 04/08 luego de ~7 semanas cayendo, y
+    para el 14/08 ya llevaba 2 cierres semanales seguidos al alza (31/07
+    0.497 -> 07/08 0.515 -> 14/08 0.517). No reemplaza al RS Score (que es
+    un percentrank de esta misma FR contra su propia historia) -- es otro
+    lente sobre el mismo fenómeno, mirando la FR cruda contra su propia
+    media móvil en vez de rankearla.
+
+    Tres condiciones, las tres tienen que cumplirse:
+      1. Cruce reciente: la FR pasó de <=SMA50 a >SMA50 hace como máximo
+         `dias_frescura` ruedas, y sigue arriba hoy (no cruzó y volvió a
+         caer)
+      2. Veníamos cayendo de verdad: la SMA50 en el momento del cruce está
+         más baja que `semanas_bajando` semanas antes -- filtra ruido de
+         un lateral, exige una reversión real de tendencia
+      3. Con impulso, no de golpe: mirando cierres semanales (viernes), la
+         FR ya lleva >= `racha_min` semanas consecutivas al alza contando
+         desde la semana del cruce hacia hoy
+
+    Sin backtest, umbrales fijados a mano y validados contra el caso GLD
+    (dispara correctamente del día 1 al día 5 post-cruce). Devuelve
+    (bool, dias_desde_cruce | None)."""
+    df = pd.DataFrame({"t": close_ticker, "s": close_spy}).dropna()
+    if len(df) < periodo_sma + semanas_bajando * 5 + 10:
+        return False, None
+    df["fr"]  = df["t"] / df["s"]
+    df["sma"] = df["fr"].rolling(periodo_sma).mean()
+    df = df.dropna(subset=["sma"])
+    if len(df) < 2:
+        return False, None
+
+    arriba = df["fr"] > df["sma"]
+    if not arriba.iloc[-1]:
+        return False, None  # hoy no está arriba de su propia SMA50
+
+    # Último cruce hacia arriba, buscando hasta ~30 ruedas atrás (no hace
+    # falta mirar más lejos: si el cruce fue más viejo que eso, ya no
+    # califica como "reciente" de todos modos)
+    cruce_idx = None
+    lim = max(0, len(df) - 1 - 30)
+    for i in range(len(df) - 1, lim, -1):
+        if arriba.iloc[i] and not arriba.iloc[i - 1]:
+            cruce_idx = i
+            break
+    if cruce_idx is None:
+        return False, None
+
+    dias_desde_cruce = (len(df) - 1) - cruce_idx
+    if dias_desde_cruce > dias_frescura:
+        return False, None
+
+    idx_antes = cruce_idx - semanas_bajando * 5
+    if idx_antes < 0:
+        return False, None
+    if not (df["sma"].iloc[cruce_idx] < df["sma"].iloc[idx_antes]):
+        return False, None  # la SMA no venía bajando antes del cruce
+
+    serie_sem = df["fr"].resample("W-FRI").last().dropna()
+    if len(serie_sem) < racha_min + 1:
+        return False, None
+    deltas_sem = serie_sem.diff().dropna().tail(racha_min)
+    if not (deltas_sem > 0).all():
+        return False, None  # falta alguna semana de la racha reciente
+
+    return True, dias_desde_cruce
+
 def atr14_pct(df):
     """ATR de 14 ruedas expresado como % del precio actual."""
     if df is None or len(df) < 15:
@@ -2525,6 +2594,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             close, hist_spy["Close"]
         )
 
+        # Cruce de SMA50 (FR) con impulso -- ver detectar_cruce_sma50_impulso()
+        cruce_sma50_ok, cruce_sma50_dias = detectar_cruce_sma50_impulso(close, hist_spy["Close"])
+
         # Penalización "pendiente SMA50 pronunciada" -- Warren Score v4.7
         pend_sma50_pts = _penalizacion_sma50_pendiente(score_actual, sma50_slope_pct20)
 
@@ -2645,6 +2717,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "FR Ayer":             fr_ayer,
             "FR Semana ant.":      fr_semana,
             "FR Mes ant.":         fr_mes,
+            "Cruce SMA50 Impulso":      cruce_sma50_ok,
+            "Cruce SMA50 Impulso Dias": cruce_sma50_dias,
             "VCP Score":           vcp['VCP Score'],
             "VCP Detected":        vcp['VCP Detected'],
             "VCP Contractions":    vcp['VCP Contractions'],

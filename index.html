@@ -1205,6 +1205,14 @@ function isValidBreakout(d) {
   return true;
 }
 
+/* — Cruce de SMA50 (FR) con impulso: campo ya viene calculado por
+   detectar_cruce_sma50_impulso() en el pipeline (Python) -- acá solo se
+   lee, mismo patrón que isValidBreakout() de arriba. Pedido del usuario
+   2026-08, caso de origen GLD (ver memoria del proyecto). ── */
+function esCruceSma50Impulso(d) {
+  return d['Cruce SMA50 Impulso'] === true;
+}
+
 // ── WARREN SCORE v2 — Ranking pre-breakout ──────────────────────────────────
 
 function _lineal(x, x0, x1, y0, y1) {
@@ -4343,10 +4351,20 @@ if ('serviceWorker' in navigator) {
      el popup de TradingView en vez de (o antes que) la card unificada
      -- pedido del usuario, 2026-08: que cualquier ticker abra siempre
      el mismo formato de card. */
-  function _wbRotTickerCell(t){
+  function _wbRotTickerCell(t, cruceDias){
+    // cruceDias: si el ticker tiene un cruce de SMA50 (FR) con impulso
+    // vigente (ver esCruceSma50Impulso / detectar_cruce_sma50_impulso en
+    // el pipeline), viene con el número de días desde el cruce -- se
+    // pinta como badge, mismo patrón visual que el 🚀 de Despegue Fresco
+    // (isValidBreakout/brkStar) usado en el resto de la app. Pedido del
+    // usuario 2026-08, caso de origen GLD.
+    var cruceBadge = (cruceDias != null)
+      ? ' <span style="font-size:10px" title="Cruce de SMA50 (FR) con impulso — hace '+cruceDias+'d">↗️</span>'
+      : '';
     return '<div style="display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden">'+
       '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
       '<span class="ticker-badge" title="'+esc(N(t))+'" style="overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</span>'+
+      cruceBadge+
     '</div>';
   }
 
@@ -4358,11 +4376,11 @@ if ('serviceWorker' in navigator) {
   var _WB_ROT_TRANS_GRID = '1fr 0.75fr 0.75fr 0.75fr';
   function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde','Evolución'], _WB_ROT_TRANS_GRID, 'wb-rot-trans-grid'); }
 
-  function _wbRotRow(t, rs, qAyer, serie){
+  function _wbRotRow(t, rs, qAyer, serie, cruceDias){
     var qCol = {lideres:'#22c98a', mejorando:'#4f8ef7', debilitando:'#f5a623', rezagado:'#f0605a'}[qAyer] || 'var(--muted)';
     var qGlow = {lideres:'rgba(34,201,138,0.5)', mejorando:'rgba(79,142,247,0.5)', debilitando:'rgba(245,166,35,0.5)', rezagado:'rgba(240,96,90,0.5)'}[qAyer] || 'transparent';
     return '<div class="wb-rot-trans-grid" style="display:grid;grid-template-columns:'+_WB_ROT_TRANS_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
-      _wbRotTickerCell(t)+
+      _wbRotTickerCell(t, cruceDias)+
       _wbRotRsCell(rs)+
       '<span style="text-align:center;font-size:10px;font-weight:600;color:'+qCol+';text-shadow:0 0 5px '+qGlow+';white-space:nowrap">'+_WB_ROT_QLBL[qAyer]+'</span>'+
       '<div class="wb-rot-spark-col" style="display:flex;justify-content:center">'+_wbRotSparkline(serie)+'</div>'+
@@ -4380,11 +4398,22 @@ if ('serviceWorker' in navigator) {
     return m;
   }
 
+  // ticker -> días desde el cruce de SMA50 (FR) con impulso, o undefined
+  // si no tiene. Ver esCruceSma50Impulso / detectar_cruce_sma50_impulso.
+  function _wbRotCruceMap(){
+    var m = {};
+    filtrados().forEach(function(d){
+      if(esCruceSma50Impulso(d)) m[d['Ticker']] = d['Cruce SMA50 Impulso Dias'];
+    });
+    return m;
+  }
+
   /* — Recién a Líderes: cuadrante de hoy = Líderes, cuadrante de la
      semana pasada = Mejorando o Rezagado — */
   function wbRotTransiciones(){
     if(!_wbRotHist) return {acciones:[], etfs:[]};
-    var tipoByT = _wbRotTipoMap();
+    var tipoByT  = _wbRotTipoMap();
+    var cruceByT = _wbRotCruceMap();
     var accs = [], etfs = [];
     Object.keys(_wbRotHist).forEach(function(t){
       var serie = _wbRotHist[t];
@@ -4397,7 +4426,7 @@ if ('serviceWorker' in navigator) {
       if(qHoy !== 'lideres') return;
       if(qAyer !== 'mejorando' && qAyer !== 'rezagado') return;
       var tipo = tipoByT[t]; if(!tipo) return;
-      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, qAyer, serie)};
+      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, qAyer, serie, cruceByT[t])};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
     accs.sort(function(a,b){ return b.rs-a.rs; });
@@ -4451,9 +4480,9 @@ if ('serviceWorker' in navigator) {
   var _WB_ROT_ACCEL_GRID = '1.3fr 1fr 1fr 1fr';
   function _wbRotAccelHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Ritmo','Hace'], _WB_ROT_ACCEL_GRID); }
 
-  function _wbRotAccelRow(t, rs, factor, dias){
+  function _wbRotAccelRow(t, rs, factor, dias, cruceDias){
     return '<div style="display:grid;grid-template-columns:'+_WB_ROT_ACCEL_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
-      _wbRotTickerCell(t)+
+      _wbRotTickerCell(t, cruceDias)+
       _wbRotRsCell(rs)+
       '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#22c98a;text-shadow:0 0 7px rgba(34,201,138,0.6)">'+fmt(factor,1)+'x</span>'+
       '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#4f8ef7;text-shadow:0 0 7px rgba(79,142,247,0.55)">'+dias+'d</span>'+
@@ -4462,7 +4491,8 @@ if ('serviceWorker' in navigator) {
 
   function wbRotAceleracion(){
     if(!_wbRotHist) return {acciones:[], etfs:[]};
-    var tipoByT = _wbRotTipoMap();
+    var tipoByT  = _wbRotTipoMap();
+    var cruceByT = _wbRotCruceMap();
     var accs = [], etfs = [];
     Object.keys(_wbRotHist).forEach(function(t){
       var serie = _wbRotHist[t];
@@ -4514,7 +4544,7 @@ if ('serviceWorker' in navigator) {
       if(racha === 1 && factor <= WB_ROT_ACCEL_FACTOR_1SEM) return;
       var diasHace = racha * 7; // semanas -> dias aprox (los datos son semanales, viernes a viernes)
       var tipo = tipoByT[t]; if(!tipo) return;
-      var row = {ticker:t, rs:rsHoy, factor:factor, racha:racha, html:_wbRotAccelRow(t, rsHoy, factor, diasHace)};
+      var row = {ticker:t, rs:rsHoy, factor:factor, racha:racha, html:_wbRotAccelRow(t, rsHoy, factor, diasHace, cruceByT[t])};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
     accs.sort(function(a,b){ return b.factor-a.factor; });
