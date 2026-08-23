@@ -3886,7 +3886,7 @@ if ('serviceWorker' in navigator) {
         '<div id="wb-rot-accel-etf"></div>'+
       '</div>'+
     '</div>',
-    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; y en las últimas 2 semanas, cada una por separado, el RS Score subió más que el ritmo semanal promedio DEL PROPIO ticker (no un umbral fijo igual para todos) -- así se detecta apenas se confirma el arranque, sin esperar que se acumulen varias semanas de subida. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración.');
+    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; RS Score hoy ≤80 (si ya está por encima, el arranque no es fresco); y viene con una racha de 2 a 3 semanas consecutivas por encima de su propio ritmo semanal normal -- ni un salto suelto de una semana, ni ya varias semanas acelerando (eso sería sobreextendido, no un arranque). "Ritmo" = cuántas veces más rápido que lo normal; "Hace" = hace cuántos días viene con ese ritmo. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración reciente.');
 
   /* — Episodic Pivots & Bombs — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots & Bombs',
@@ -4326,18 +4326,49 @@ if ('serviceWorker' in navigator) {
   }
 
   /* — Aceleración inusual: dio vueltas fuera de Líderes la mayor parte
-     de una ventana de referencia, y en las ÚLTIMAS 2 semanas se movió
-     más rápido que su propio ritmo normal -- no un umbral fijo igual
-     para todos, sino el promedio de movimiento semanal DEL PROPIO
-     ticker (así detecta el arranque apenas se confirma, en vez de
-     esperar a que se acumulen 5 semanas de subida como en el primer
-     intento -- feedback del usuario, 2026-08). Ej. real: GLD, ~11 de
-     16 semanas entre Rezagado y Mejorando antes de acelerar.
-     Umbrales fijados a mano, sin backtest -- ajustar si en la
-     práctica quedan muy laxos o muy exigentes. ── */
+     de una ventana de referencia, y hace POCO (2-3 semanas, no más)
+     arrancó un ritmo más rápido que su propio ritmo normal -- no un
+     umbral fijo igual para todos, sino el promedio de movimiento
+     semanal DEL PROPIO ticker. Tres ajustes sobre la v1, feedback del
+     usuario 2026-08: (1) RS Score hoy >80 se excluye -- ya arrancó
+     hace tiempo, no es un arranque fresco; (2) en vez de mirar sólo
+     "las últimas 2 semanas superan el ritmo normal", se mide una
+     RACHA de semanas consecutivas con ese ritmo y se exige que sea de
+     2 o 3 -- si ya lleva 4+ semanas así, probablemente está sobre-
+     extendido, no arrancando; (3) columnas con encabezado en vez de
+     repetir texto en cada fila. Ej. real: GLD, ~11 de 16 semanas
+     entre Rezagado y Mejorando antes de acelerar. Umbrales fijados a
+     mano, sin backtest -- ajustar si en la práctica quedan muy laxos
+     o muy exigentes. ── */
   var WB_ROT_ACCEL_VENTANA      = 16;  // semanas de contexto (referencia + deambular)
   var WB_ROT_ACCEL_BAJAS_MIN    = 8;   // de las 11 semanas mas viejas de esa ventana, cuantas fuera de Lideres
   var WB_ROT_ACCEL_BASELINE_MIN = 2.0; // piso del "ritmo normal" (pts RS Score/semana) -- evita falsos positivos en tickers casi planos
+  var WB_ROT_ACCEL_RS_TECHO     = 80;  // RS Score hoy por encima de esto: ya arranco hace tiempo, no es fresco
+  var WB_ROT_ACCEL_RACHA_MIN    = 2;   // semanas consecutivas minimas con ritmo acelerado
+  var WB_ROT_ACCEL_RACHA_MAX    = 3;   // por encima de esto ya viene acelerado hace rato -- probablemente sobreextendido
+
+  function _wbRotAccelRow(t, rs, factor, dias){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
+      '<div style="display:flex;align-items:center;gap:7px;min-width:0">'+
+        '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
+        '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+esc(t)+'</span>'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">'+fmt(rs,1)+'</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--green);min-width:30px;text-align:right">'+fmt(factor,1)+'x</span>'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);min-width:32px;text-align:right">'+dias+'d</span>'+
+      '</div>'+
+    '</div>';
+  }
+  function _wbRotAccelHeader(){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 12px 4px;font-size:8.5px;color:var(--muted);letter-spacing:.03em">'+
+      '<span>TICKER · RS</span>'+
+      '<div style="display:flex;gap:10px">'+
+        '<span style="min-width:30px;text-align:right">RITMO</span>'+
+        '<span style="min-width:32px;text-align:right">HACE</span>'+
+      '</div>'+
+    '</div>';
+  }
 
   function wbRotAceleracion(){
     if(!_wbRotHist) return {acciones:[], etfs:[]};
@@ -4349,40 +4380,43 @@ if ('serviceWorker' in navigator) {
       var ult = serie.slice(-WB_ROT_ACCEL_VENTANA - 1); // 17 cierres -> 16 semanas con delta propio
       var n = ult.length;
 
-      var deltaHoy  = (ult[n-1].rs_score!=null && ult[n-2].rs_score!=null) ? ult[n-1].rs_score - ult[n-2].rs_score : null;
-      var deltaAyer = (ult[n-2].rs_score!=null && ult[n-3].rs_score!=null) ? ult[n-2].rs_score - ult[n-3].rs_score : null;
-      if(deltaHoy==null || deltaAyer==null) return;
+      var rsHoy = ult[n-1].rs_score;
+      if(rsHoy==null || rsHoy > WB_ROT_ACCEL_RS_TECHO) return; // ya arranco hace tiempo, no es un arranque fresco
 
-      // Referencia: promedio de |Δ semanal| DEL PROPIO ticker, sobre las
-      // semanas de contexto -- excluye las últimas 2 (las que se están
-      // evaluando) para no contaminar el promedio con la aceleración misma.
-      var ref = ult.slice(0, n-2); // 15 puntos -> 14 deltas de referencia
-      var deltasRef = [];
-      for(var i=1;i<ref.length;i++){
-        if(ref[i].rs_score!=null && ref[i-1].rs_score!=null) deltasRef.push(Math.abs(ref[i].rs_score - ref[i-1].rs_score));
+      // "vieja": semanas 1-11 (puntos 0-11) -- ritmo normal DEL PROPIO
+      // ticker + contexto "vino deambulando"
+      var vieja = ult.slice(0, 12);
+      var deltasVieja = [];
+      for(var i=1;i<vieja.length;i++){
+        if(vieja[i].rs_score!=null && vieja[i-1].rs_score!=null) deltasVieja.push(vieja[i].rs_score - vieja[i-1].rs_score);
       }
-      if(deltasRef.length < 8) return;
-      var baseline = Math.max(WB_ROT_ACCEL_BASELINE_MIN, deltasRef.reduce(function(a,b){return a+b;},0) / deltasRef.length);
+      if(deltasVieja.length < 8) return;
+      var baseline = Math.max(WB_ROT_ACCEL_BASELINE_MIN, deltasVieja.reduce(function(a,b){return a+Math.abs(b);},0) / deltasVieja.length);
 
-      // Contexto "vino deambulando": de las 11 semanas mas viejas de la
-      // referencia, cuantas estuvieron fuera de Lideres
-      var vieja = ref.slice(0, 12);
       var bajas = 0;
-      for(var j=1;j<vieja.length;j++){
-        var rs=vieja[j].rs_score, rsPrev=vieja[j-1].rs_score;
-        if(rs==null||rsPrev==null) continue;
-        if(_wbRotQuadrant(rs, rs-rsPrev) !== 'lideres') bajas++;
-      }
+      deltasVieja.forEach(function(d, idx){
+        if(_wbRotQuadrant(vieja[idx+1].rs_score, d) !== 'lideres') bajas++;
+      });
       if(bajas < WB_ROT_ACCEL_BAJAS_MIN) return;
 
-      // Aceleración: las ÚLTIMAS 2 semanas, cada una, superaron el ritmo normal
-      if(!(deltaHoy > baseline && deltaAyer > baseline)) return;
+      // Racha: semanas CONSECUTIVAS terminando HOY con ritmo > baseline,
+      // mirando como maximo las ultimas 5 semanas (puntos 11-16, justo
+      // despues de "vieja"). Tiene que caer en [2,3]: ni una sola semana
+      // suelta (ruido), ni 4+ semanas ya acelerando (sobreextendido).
+      var racha = 0;
+      for(var k=n-1; k>=n-5 && k>=1; k--){
+        var a=ult[k].rs_score, b=ult[k-1].rs_score;
+        if(a==null || b==null || !((a-b) > baseline)) break;
+        racha++;
+      }
+      if(racha < WB_ROT_ACCEL_RACHA_MIN || racha > WB_ROT_ACCEL_RACHA_MAX) return;
 
-      var rsHoy = ult[n-1].rs_score;
+      var deltaHoy = ult[n-1].rs_score - ult[n-2].rs_score;
+      var deltaAyer = ult[n-2].rs_score - ult[n-3].rs_score;
       var factor = ((deltaHoy + deltaAyer) / 2) / baseline;
+      var diasHace = racha * 7; // semanas -> dias aprox (los datos son semanales, viernes a viernes)
       var tipo = tipoByT[t]; if(!tipo) return;
-      var tag = '<span style="font-size:9.5px;color:var(--green);white-space:nowrap">🚀 '+fmt(factor,1)+'x el ritmo normal</span>';
-      var row = {ticker:t, rs:rsHoy, factor:factor, html:_wbRotRow(t, rsHoy, tag)};
+      var row = {ticker:t, rs:rsHoy, factor:factor, racha:racha, html:_wbRotAccelRow(t, rsHoy, factor, diasHace)};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
     accs.sort(function(a,b){ return b.factor-a.factor; });
@@ -4399,8 +4433,9 @@ if ('serviceWorker' in navigator) {
       return;
     }
     var r = wbRotAceleracion();
-    accEl.innerHTML = _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción muestra este patrón hoy.');
-    etfEl.innerHTML = _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF muestra este patrón hoy.');
+    var header = _wbRotAccelHeader();
+    accEl.innerHTML = (r.acciones.length ? header : '') + _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción muestra este patrón hoy.');
+    etfEl.innerHTML = (r.etfs.length ? header : '') + _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF muestra este patrón hoy.');
   }
 
   window.wbRenderRotTrans = wbRenderRotTrans;
