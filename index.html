@@ -4420,7 +4420,7 @@ if ('serviceWorker' in navigator) {
   }
 
   /* — Aceleración inusual: dio vueltas fuera de Líderes la mayor parte
-     de una ventana de referencia, y hace POCO (2-3 semanas, no más)
+     de una ventana de referencia, y hace POCO (1-3 semanas, no más)
      arrancó un ritmo más rápido que su propio ritmo normal -- no un
      umbral fijo igual para todos, sino el promedio de movimiento
      semanal DEL PROPIO ticker. Tres ajustes sobre la v1, feedback del
@@ -4428,18 +4428,25 @@ if ('serviceWorker' in navigator) {
      hace tiempo, no es un arranque fresco; (2) en vez de mirar sólo
      "las últimas 2 semanas superan el ritmo normal", se mide una
      RACHA de semanas consecutivas con ese ritmo y se exige que sea de
-     2 o 3 -- si ya lleva 4+ semanas así, probablemente está sobre-
+     1 a 3 -- si ya lleva 4+ semanas así, probablemente está sobre-
      extendido, no arrancando; (3) columnas con encabezado en vez de
      repetir texto en cada fila. Ej. real: GLD, ~11 de 16 semanas
-     entre Rezagado y Mejorando antes de acelerar. Umbrales fijados a
+     entre Rezagado y Mejorando antes de acelerar. Cuarto ajuste,
+     mismo feedback: (4) racha de 1 sola semana es más ruidosa que
+     una de 2-3, así que para esa entra sólo si el ritmo de esa
+     semana superó el propio promedio por WB_ROT_ACCEL_FACTOR_1SEM
+     (1.5x) -- no alcanza con apenas superarlo. Umbrales fijados a
      mano, sin backtest -- ajustar si en la práctica quedan muy laxos
      o muy exigentes. ── */
   var WB_ROT_ACCEL_VENTANA      = 16;  // semanas de contexto (referencia + deambular)
   var WB_ROT_ACCEL_BAJAS_MIN    = 8;   // de las 11 semanas mas viejas de esa ventana, cuantas fuera de Lideres
   var WB_ROT_ACCEL_BASELINE_MIN = 2.0; // piso del "ritmo normal" (pts RS Score/semana) -- evita falsos positivos en tickers casi planos
   var WB_ROT_ACCEL_RS_TECHO     = 80;  // RS Score hoy por encima de esto: ya arranco hace tiempo, no es fresco
-  var WB_ROT_ACCEL_RACHA_MIN    = 2;   // semanas consecutivas minimas con ritmo acelerado
+  var WB_ROT_ACCEL_RACHA_MIN    = 1;   // semanas consecutivas minimas con ritmo acelerado (1 sola semana exige WB_ROT_ACCEL_FACTOR_1SEM, ver mas abajo)
   var WB_ROT_ACCEL_RACHA_MAX    = 3;   // por encima de esto ya viene acelerado hace rato -- probablemente sobreextendido
+  var WB_ROT_ACCEL_FACTOR_1SEM  = 1.5; // piso extra SOLO para racha=1 -- pedido del usuario 2026-08: una semana
+                                        // sola es mas ruidosa que una racha de 2-3, asi que no alcanza con superar
+                                        // el ritmo propio, tiene que superarlo por 1.5x
 
   var _WB_ROT_ACCEL_GRID = '1.3fr 1fr 1fr 1fr';
   function _wbRotAccelHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Ritmo','Hace'], _WB_ROT_ACCEL_GRID); }
@@ -4496,7 +4503,15 @@ if ('serviceWorker' in navigator) {
 
       var deltaHoy = ult[n-1].rs_score - ult[n-2].rs_score;
       var deltaAyer = ult[n-2].rs_score - ult[n-3].rs_score;
-      var factor = ((deltaHoy + deltaAyer) / 2) / baseline;
+      // Con racha=1 el delta de ayer NO supero el baseline (por eso la
+      // racha no siguio) -- promediarlo con el de hoy subestimaria el
+      // ritmo real de esa semana suelta. Para ese caso el factor mide
+      // solo el delta de hoy, y se exige aparte que sea >1.5x (piso mas
+      // alto que el resto, que solo pide superar el baseline). Con
+      // racha 2-3 las dos semanas ya superaron el baseline, ahi si tiene
+      // sentido promediarlas como antes.
+      var factor = (racha === 1) ? (deltaHoy / baseline) : (((deltaHoy + deltaAyer) / 2) / baseline);
+      if(racha === 1 && factor <= WB_ROT_ACCEL_FACTOR_1SEM) return;
       var diasHace = racha * 7; // semanas -> dias aprox (los datos son semanales, viernes a viernes)
       var tipo = tipoByT[t]; if(!tipo) return;
       var row = {ticker:t, rs:rsHoy, factor:factor, racha:racha, html:_wbRotAccelRow(t, rsHoy, factor, diasHace)};
