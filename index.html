@@ -3874,7 +3874,7 @@ if ('serviceWorker' in navigator) {
         '.wb-rot-cols{grid-template-columns:1fr}'+
         '.wb-rot-cols[data-view="acc"] .wb-rot-col-etf{display:none}'+
         '.wb-rot-cols[data-view="etf"] .wb-rot-col-acc{display:none;border-right:none}'+
-        '.wb-rot-trans-grid{grid-template-columns:0.85fr 0.45fr 0.55fr 0.65fr !important;gap:3px !important}'+
+        '.wb-rot-trans-grid{grid-template-columns:0.95fr 0.65fr 0.65fr 0.65fr !important;gap:3px !important}'+
       '}'+
     '</style>'+
     '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'etf\')">ETFs</button></div>'+
@@ -4305,7 +4305,7 @@ if ('serviceWorker' in navigator) {
 
   function _wbRotHeaderGrid(cols, tpl, cls){
     var cells = cols.map(function(c,i){
-      return '<span style="text-align:'+(i===0?'left':'right')+'">'+c+'</span>';
+      return '<span style="text-align:'+(i===0?'left':'center')+'">'+c+'</span>';
     }).join('');
     return '<div'+(cls?' class="'+cls+'"':'')+' style="display:grid;grid-template-columns:'+tpl+';align-items:center;gap:4px;padding:5px 12px 7px;margin-top:2px;'+
       'font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:'+_WB_ROT_NEON+';'+
@@ -4344,10 +4344,10 @@ if ('serviceWorker' in navigator) {
 
   function _wbRotRsCell(rs){
     var col = colorRS(rs), glow = _WB_ROT_GLOW[col] || 'rgba(255,255,255,0.3)';
-    return '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+col+';text-shadow:0 0 7px '+glow+'">'+fmt(rs,1)+'</span>';
+    return '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+col+';text-shadow:0 0 7px '+glow+'">'+fmt(rs,1)+'</span>';
   }
 
-  var _WB_ROT_TRANS_GRID = '0.9fr 0.55fr 0.75fr 1fr';
+  var _WB_ROT_TRANS_GRID = '1fr 0.75fr 0.75fr 0.75fr';
   function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde','Evolución'], _WB_ROT_TRANS_GRID, 'wb-rot-trans-grid'); }
 
   function _wbRotRow(t, rs, qAyer, serie){
@@ -4356,8 +4356,8 @@ if ('serviceWorker' in navigator) {
     return '<div class="wb-rot-trans-grid" style="display:grid;grid-template-columns:'+_WB_ROT_TRANS_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
       _wbRotTickerCell(t)+
       _wbRotRsCell(rs)+
-      '<span style="text-align:right;font-size:10px;font-weight:600;color:'+qCol+';text-shadow:0 0 5px '+qGlow+';white-space:nowrap">'+_WB_ROT_QLBL[qAyer]+'</span>'+
-      '<div class="wb-rot-spark-col" style="display:flex;justify-content:flex-end">'+_wbRotSparkline(serie)+'</div>'+
+      '<span style="text-align:center;font-size:10px;font-weight:600;color:'+qCol+';text-shadow:0 0 5px '+qGlow+';white-space:nowrap">'+_WB_ROT_QLBL[qAyer]+'</span>'+
+      '<div class="wb-rot-spark-col" style="display:flex;justify-content:center">'+_wbRotSparkline(serie)+'</div>'+
     '</div>';
   }
 
@@ -4440,8 +4440,8 @@ if ('serviceWorker' in navigator) {
     return '<div style="display:grid;grid-template-columns:'+_WB_ROT_ACCEL_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
       _wbRotTickerCell(t)+
       _wbRotRsCell(rs)+
-      '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#22c98a;text-shadow:0 0 7px rgba(34,201,138,0.6)">'+fmt(factor,1)+'x</span>'+
-      '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#4f8ef7;text-shadow:0 0 7px rgba(79,142,247,0.55)">'+dias+'d</span>'+
+      '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#22c98a;text-shadow:0 0 7px rgba(34,201,138,0.6)">'+fmt(factor,1)+'x</span>'+
+      '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#4f8ef7;text-shadow:0 0 7px rgba(79,142,247,0.55)">'+dias+'d</span>'+
     '</div>';
   }
 
