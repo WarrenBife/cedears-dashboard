@@ -3861,32 +3861,62 @@ if ('serviceWorker' in navigator) {
   /* — Recién a Líderes (transiciones de esta semana) — */
   var rotTransP = mkPanel('wb-rot-trans-panel','🏆 Recién a Líderes',
     'Entraron al cuadrante de Líderes esta semana, viniendo de Mejorando o Rezagado',
-    '<div style="display:grid;grid-template-columns:1fr 1fr;">'+
-      '<div style="border-right:1px solid rgba(255,255,255,0.04)">'+
-        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ACCIONES</div>'+
+    '<style>'+
+      '.wb-rot-switch{display:none;gap:6px;padding:0 12px 8px}'+
+      '.wb-rot-pill{background:none;border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-family:\'DM Mono\',monospace;font-size:10px;padding:3px 12px;border-radius:6px;cursor:pointer;transition:all .18s;letter-spacing:.04em}'+
+      '.wb-rot-pill:hover{color:var(--text)}'+
+      '.wb-rot-pill.active{background:rgba(34,201,138,0.12);color:#22c98a;border-color:rgba(34,201,138,0.4);box-shadow:0 0 8px rgba(34,201,138,0.22)}'+
+      '.wb-rot-cols{display:grid;grid-template-columns:1fr 1fr}'+
+      '.wb-rot-col-acc{border-right:1px solid rgba(255,255,255,0.04)}'+
+      '.wb-rot-col-title{padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em}'+
+      '@media (max-width:600px){'+
+        '.wb-rot-switch{display:flex}'+
+        '.wb-rot-cols{grid-template-columns:1fr}'+
+        '.wb-rot-cols[data-view="acc"] .wb-rot-col-etf{display:none}'+
+        '.wb-rot-cols[data-view="etf"] .wb-rot-col-acc{display:none;border-right:none}'+
+        '.wb-rot-spark-col{display:none}'+
+        '.wb-rot-trans-grid{grid-template-columns:1.3fr 1fr 1fr !important}'+
+      '}'+
+    '</style>'+
+    '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'etf\')">ETFs</button></div>'+
+    '<div class="wb-rot-cols" id="wb-rot-trans-cols" data-view="acc">'+
+      '<div class="wb-rot-col-acc">'+
+        '<div class="wb-rot-col-title">ACCIONES</div>'+
         '<div id="wb-rot-trans-acc"></div>'+
       '</div>'+
       '<div>'+
-        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ETFS</div>'+
+        '<div class="wb-rot-col-title">ETFS</div>'+
         '<div id="wb-rot-trans-etf"></div>'+
       '</div>'+
     '</div>',
-    'Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más.');
+    'Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más. En desktop suma un mini-gráfico de la evolución del RS Score de las últimas semanas.');
 
   /* — Aceleración inusual — */
   var rotAccelP = mkPanel('wb-rot-accel-panel','⚡ Aceleración inusual',
     'Dieron vueltas en zona baja varias semanas y arrancaron una aceleración sostenida',
-    '<div style="display:grid;grid-template-columns:1fr 1fr;">'+
-      '<div style="border-right:1px solid rgba(255,255,255,0.04)">'+
-        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ACCIONES</div>'+
+    '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'etf\')">ETFs</button></div>'+
+    '<div class="wb-rot-cols" id="wb-rot-accel-cols" data-view="acc">'+
+      '<div class="wb-rot-col-acc">'+
+        '<div class="wb-rot-col-title">ACCIONES</div>'+
         '<div id="wb-rot-accel-acc"></div>'+
       '</div>'+
       '<div>'+
-        '<div style="padding:7px 12px 5px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:.04em">ETFS</div>'+
+        '<div class="wb-rot-col-title">ETFS</div>'+
         '<div id="wb-rot-accel-etf"></div>'+
       '</div>'+
     '</div>',
     'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; RS Score hoy ≤80 (si ya está por encima, el arranque no es fresco); y viene con una racha de 2 a 3 semanas consecutivas por encima de su propio ritmo semanal normal -- ni un salto suelto de una semana, ni ya varias semanas acelerando (eso sería sobreextendido, no un arranque). "Ritmo" = cuántas veces más rápido que lo normal; "Hace" = hace cuántos días viene con ese ritmo. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración reciente.');
+
+  function wbRotSwitchView(containerId, which){
+    var el = document.getElementById(containerId);
+    if(!el) return;
+    el.setAttribute('data-view', which);
+    var wrap = el.previousElementSibling; // .wb-rot-switch
+    if(wrap && wrap.classList && wrap.classList.contains('wb-rot-switch')){
+      wrap.querySelectorAll('.wb-rot-pill').forEach(function(b){ b.classList.toggle('active', b.dataset.view===which); });
+    }
+  }
+  window.wbRotSwitchView = wbRotSwitchView;
 
   /* — Episodic Pivots & Bombs — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots & Bombs',
@@ -4274,14 +4304,34 @@ if ('serviceWorker' in navigator) {
   var _WB_ROT_NEON = '#22c98a';
   var _WB_ROT_NEON_GLOW = 'rgba(34,201,138,0.55)';
 
-  function _wbRotHeaderGrid(cols, tpl){
+  function _wbRotHeaderGrid(cols, tpl, cls){
     var cells = cols.map(function(c,i){
       return '<span style="text-align:'+(i===0?'left':'right')+'">'+c+'</span>';
     }).join('');
-    return '<div style="display:grid;grid-template-columns:'+tpl+';align-items:center;gap:4px;padding:5px 12px 7px;margin-top:2px;'+
+    return '<div'+(cls?' class="'+cls+'"':'')+' style="display:grid;grid-template-columns:'+tpl+';align-items:center;gap:4px;padding:5px 12px 7px;margin-top:2px;'+
       'font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:'+_WB_ROT_NEON+';'+
       'text-shadow:0 0 6px '+_WB_ROT_NEON_GLOW+',0 0 16px rgba(34,201,138,0.22);border-bottom:1px solid rgba(34,201,138,0.3)">'+
       cells+'</div>';
+  }
+
+  /* Mini-gráfico de evolución del RS Score (últimas semanas disponibles,
+     hasta 20) -- sólo tiene sentido con el espacio libre de desktop,
+     se oculta en mobile via CSS (.wb-rot-spark-col) */
+  function _wbRotSparkline(serie){
+    var vals = (serie||[]).map(function(p){ return p.rs_score; }).filter(function(v){ return v!=null; });
+    if(vals.length < 2) return '';
+    var w=100, h=26, pad=2;
+    var min=Math.min.apply(null, vals), max=Math.max.apply(null, vals);
+    var range=(max-min)||1;
+    var pts = vals.map(function(v,i){
+      var x = pad + (i/(vals.length-1)) * (w-pad*2);
+      var y = h-pad - ((v-min)/range) * (h-pad*2);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    var col = vals[vals.length-1] >= vals[0] ? '#22c98a' : '#f0605a';
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block;overflow:visible">'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 3px '+col+')"/>'+
+    '</svg>';
   }
 
   function _wbRotTickerCell(t){
@@ -4296,16 +4346,17 @@ if ('serviceWorker' in navigator) {
     return '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+col+';text-shadow:0 0 7px '+glow+'">'+fmt(rs,1)+'</span>';
   }
 
-  var _WB_ROT_TRANS_GRID = '1.3fr 1fr 1fr';
-  function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde'], _WB_ROT_TRANS_GRID); }
+  var _WB_ROT_TRANS_GRID = '0.9fr 0.55fr 0.75fr 1fr';
+  function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde','Evolución'], _WB_ROT_TRANS_GRID, 'wb-rot-trans-grid'); }
 
-  function _wbRotRow(t, rs, qAyer){
+  function _wbRotRow(t, rs, qAyer, serie){
     var qCol = {lideres:'#22c98a', mejorando:'#4f8ef7', debilitando:'#f5a623', rezagado:'#f0605a'}[qAyer] || 'var(--muted)';
     var qGlow = {lideres:'rgba(34,201,138,0.5)', mejorando:'rgba(79,142,247,0.5)', debilitando:'rgba(245,166,35,0.5)', rezagado:'rgba(240,96,90,0.5)'}[qAyer] || 'transparent';
-    return '<div style="display:grid;grid-template-columns:'+_WB_ROT_TRANS_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
+    return '<div class="wb-rot-trans-grid" style="display:grid;grid-template-columns:'+_WB_ROT_TRANS_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
       _wbRotTickerCell(t)+
       _wbRotRsCell(rs)+
       '<span style="text-align:right;font-size:10px;font-weight:600;color:'+qCol+';text-shadow:0 0 5px '+qGlow+';white-space:nowrap">'+_WB_ROT_QLBL[qAyer]+'</span>'+
+      '<div class="wb-rot-spark-col" style="display:flex;justify-content:flex-end">'+_wbRotSparkline(serie)+'</div>'+
     '</div>';
   }
 
@@ -4337,7 +4388,7 @@ if ('serviceWorker' in navigator) {
       if(qHoy !== 'lideres') return;
       if(qAyer !== 'mejorando' && qAyer !== 'rezagado') return;
       var tipo = tipoByT[t]; if(!tipo) return;
-      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, qAyer)};
+      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, qAyer, serie)};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
     accs.sort(function(a,b){ return b.rs-a.rs; });
