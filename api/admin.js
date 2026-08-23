@@ -12,6 +12,9 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 //   ?action=buscar&payment_id=X&secret=...
 //   ?action=otorgar&email=Y&products=dashboard,planilla&secret=...  (products opcional, default dashboard)
 //   ?action=backfill&secret=...  (corrida unica: crea pago:{id} para los email:* viejos que no lo tengan)
+//   ?action=listar&secret=...  (lista todos los email:* con dias restantes, ordenados por vencer antes primero --
+//   para chequear a ojo que las renovaciones mensuales esten entrando: si un subscription_id se queda pegado
+//   bajando de dia sin volver a subir a ~30-33, el webhook de esa renovacion no esta llegando)
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -89,5 +92,33 @@ module.exports = async (req, res) => {
     return res.json({ ok: true, total: keys.length, creados, existentes, sinPid });
   }
 
-  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill)' });
+  if (action === 'listar') {
+    const keys  = await kv.keys('email:*');
+    const ahora = Date.now();
+
+    const registros = [];
+    for (const key of keys) {
+      const data = await kv.get(key);
+      if (!data) continue;
+
+      const diasRestantes = data.exp ? Math.round((data.exp - ahora) / (24 * 60 * 60 * 1000)) : null;
+      registros.push({
+        email:            key.replace(/^email:/, ''),
+        products:         data.products || ['dashboard'],
+        exp_fecha:        data.exp ? new Date(data.exp).toISOString() : null,
+        dias_restantes:   diasRestantes,
+        vencido:          diasRestantes !== null && diasRestantes < 0,
+        es_suscripcion:   !!data.subscription_id, // false = pago unico anual
+        subscription_id:  data.subscription_id || null,
+        payment_id:       data.payment_id || null,
+      });
+    }
+
+    // Los que estan por vencer primero, para verlos de un vistazo arriba de todo
+    registros.sort((a, b) => (a.dias_restantes ?? Infinity) - (b.dias_restantes ?? Infinity));
+
+    return res.json({ ok: true, total: registros.length, registros });
+  }
+
+  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill, listar)' });
 };
