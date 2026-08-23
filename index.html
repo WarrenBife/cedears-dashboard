@@ -4335,10 +4335,18 @@ if ('serviceWorker' in navigator) {
     '</svg>';
   }
 
+  /* Sin onmouseenter/mostrarGrafico (popup de TradingView) a propósito:
+     .ticker-badge ya tiene un listener de click delegado y global (WB
+     UPGRADE V5) que abre wbAbrirFicha() -- en mobile redirige a
+     wbmOpenDetail() (WB UPGRADE V32), la card unificada. Agregar el
+     hover acá duplicaba la interacción y en mobile el tap podía abrir
+     el popup de TradingView en vez de (o antes que) la card unificada
+     -- pedido del usuario, 2026-08: que cualquier ticker abra siempre
+     el mismo formato de card. */
   function _wbRotTickerCell(t){
     return '<div style="display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden">'+
       '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
-      '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()" style="overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</span>'+
+      '<span class="ticker-badge" title="'+esc(N(t))+'" style="overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</span>'+
     '</div>';
   }
 
@@ -16835,14 +16843,28 @@ var WBM_BAR_NAMES = {pa:'Tendencia', pb:'Fuerza RS', pc:'Contracción', pd:'Setu
 
 function wbmScoreColor(pct){ return pct>=0.7?'var(--green)':pct>=0.4?'var(--amber)':'var(--red)'; }
 
-/* ── Fetch fr_historia.json (serie diaria de FR por ticker, para el
-   gráfico de evolución del detalle -- ver actualizar_datos.py) ── */
+/* ── Fetch fr_historia.json (serie diaria de FR por ticker) -- ya no
+   alimenta el gráfico del detalle (ver wbmDrawRsChart, que pasó a usar
+   rotacion_historia.json: 16-20 semanas ya pobladas para todo el
+   universo, contra fr_historia.json que recién arrancó a acumular en
+   2026-08 con 1 punto/día). Se deja el fetch por si algo más lo usa. ── */
 var WBM_FR_URL = 'https://warrenbife.github.io/cedears-dashboard/fr_historia.json';
 window._wbmFrHistoria = [];
 fetch(WBM_FR_URL + '?_=' + Date.now())
   .then(function(r){ return r.ok ? r.json() : []; })
   .then(function(d){ window._wbmFrHistoria = Array.isArray(d) ? d : []; })
   .catch(function(){ window._wbmFrHistoria = []; });
+
+/* ── Fetch rotacion_historia.json (RS Score semanal por ticker, 16-20
+   semanas, todo el universo -- ver actualizar_datos.py,
+   ROTACION_HISTORIA_SEMANAS) -- alimenta el gráfico de evolución del
+   detalle mobile (wbmDrawRsChart) ── */
+var WBM_ROT_URL = 'https://warrenbife.github.io/cedears-dashboard/rotacion_historia.json';
+window._wbmRotHistoria = [];
+fetch(WBM_ROT_URL + '?_=' + Date.now())
+  .then(function(r){ return r.ok ? r.json() : []; })
+  .then(function(d){ window._wbmRotHistoria = Array.isArray(d) ? d : []; })
+  .catch(function(){ window._wbmRotHistoria = []; });
 
 function wbmComputeRanks(){
   var ranks = {};
@@ -17072,21 +17094,28 @@ function wbmRenderList(){
 window.wbmRenderList = wbmRenderList;
 
 /* ── Gráfico de evolución de FR (fr_historia.json) ── */
-function wbmDrawFrChart(ticker){
+/* ── Gráfico de evolución del RS Score (rotacion_historia.json, 16-20
+   semanas W-FRI) -- reemplaza al de FR diaria (wbmDrawFrChart original,
+   fr_historia.json), que recién empezó a acumular en 2026-08 y todavía
+   no tenía historia útil. Mismo dibujo (área + línea + punto final),
+   sólo cambia la fuente de datos y la granularidad (semanal, no
+   diaria). Se mantiene el nombre de función viejo como alias por si
+   quedó algún call site suelto. ── */
+function wbmDrawRsChart(ticker){
   var svg = _wbmEl('wbm-fr-svg'), caption = _wbmEl('wbm-fr-caption');
   if (!svg) return;
-  var serie = (window._wbmFrHistoria || [])
-    .filter(function(e){ return e.ticker === ticker && e.fr != null; })
+  var serie = (window._wbmRotHistoria || [])
+    .filter(function(e){ return e.ticker === ticker && e.rs_score != null; })
     .sort(function(a,b){ return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
 
   if (serie.length < 2){
     svg.style.display = 'none';
     svg.innerHTML = '';
-    if (caption) caption.textContent = 'Sin histórico suficiente todavía — la serie se arma con 1 punto por día a partir de ahora (nueva desde 2026-08).';
+    if (caption) caption.textContent = 'Sin histórico suficiente todavía para este ticker.';
     return;
   }
   svg.style.display = 'block';
-  var vals = serie.map(function(e){ return e.fr; });
+  var vals = serie.map(function(e){ return e.rs_score; });
   var w=300, h=90, pad=6;
   var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
   var x = function(i){ return pad + i*(w-2*pad)/(vals.length-1); };
@@ -17104,8 +17133,9 @@ function wbmDrawFrChart(ticker){
     '<path d="'+area+'" fill="url(#wbmFrGrad)"/>' +
     '<path d="'+line+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<circle cx="'+x(vals.length-1).toFixed(1)+'" cy="'+y(vals[vals.length-1]).toFixed(1)+'" r="3" fill="'+col+'"/>';
-  if (caption) caption.textContent = 'Fuerza relativa (precio vs. SPY) · ' + serie.length + ' día' + (serie.length===1?'':'s') + ' de historia.';
+  if (caption) caption.textContent = 'RS Score semanal (percentil de fuerza relativa vs. SPY) · ' + serie.length + ' semana' + (serie.length===1?'':'s') + ' de historia.';
 }
+var wbmDrawFrChart = wbmDrawRsChart; // alias, ver comentario arriba
 
 /* ── Detalle a pantalla completa ── */
 window.wbmOpenDetail = function(ticker){
@@ -17276,7 +17306,7 @@ window.wbAbrirFicha = function(ticker){
           '<div class="wbm-card"><div class="wbm-card-label">Gates Stage 2</div><div id="wbm-gates-col"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Penalizaciones</div><div id="wbm-pen-card"></div></div>' +
           '<div class="wbm-card" id="wbm-sig-card-wrap" style="display:none"><div class="wbm-card-label">Señales</div><div id="wbm-sig-card"></div></div>' +
-          '<div class="wbm-card"><div class="wbm-card-label">Evolución de la FR · últimos 6 meses</div>' +
+          '<div class="wbm-card"><div class="wbm-card-label">Evolución del RS Score · últimas 16 semanas</div>' +
             '<svg class="wbm-fr-svg" viewBox="0 0 300 90" preserveAspectRatio="none" id="wbm-fr-svg"></svg>' +
             '<div class="wbm-fr-caption" id="wbm-fr-caption"></div>' +
           '</div>' +
