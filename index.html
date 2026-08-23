@@ -4296,7 +4296,7 @@ if ('serviceWorker' in navigator) {
     return '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+col+';text-shadow:0 0 7px '+glow+'">'+fmt(rs,1)+'</span>';
   }
 
-  var _WB_ROT_TRANS_GRID = '1fr 46px 92px';
+  var _WB_ROT_TRANS_GRID = '1.3fr 1fr 1fr';
   function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde'], _WB_ROT_TRANS_GRID); }
 
   function _wbRotRow(t, rs, qAyer){
@@ -4381,7 +4381,7 @@ if ('serviceWorker' in navigator) {
   var WB_ROT_ACCEL_RACHA_MIN    = 2;   // semanas consecutivas minimas con ritmo acelerado
   var WB_ROT_ACCEL_RACHA_MAX    = 3;   // por encima de esto ya viene acelerado hace rato -- probablemente sobreextendido
 
-  var _WB_ROT_ACCEL_GRID = '1fr 46px 50px 46px';
+  var _WB_ROT_ACCEL_GRID = '1.3fr 1fr 1fr 1fr';
   function _wbRotAccelHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Ritmo','Hace'], _WB_ROT_ACCEL_GRID); }
 
   function _wbRotAccelRow(t, rs, factor, dias){
