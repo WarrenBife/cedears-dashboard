@@ -3858,7 +3858,7 @@ if ('serviceWorker' in navigator) {
     'Eje X: RS Score · Eje Y: variación RS semanal · Tamaño de burbuja: Market Cap',
     '<style>'+
       '.wb-rot-section{margin:16px -18px 0;padding-top:14px;border-top:1px solid var(--border);}'+
-      '.wb-rot-section-head{padding:0 18px 8px;cursor:help;}'+
+      '.wb-rot-section-head{padding:0 18px 8px;}'+
       '.wb-rot-section-title{font-size:12.5px;font-weight:600;color:var(--green);letter-spacing:0.02em;display:flex;align-items:center;gap:6px;}'+
       '.wb-rot-section-sub{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4;}'+
       '.wb-rot-switch{display:none;gap:6px;padding:0 18px 8px}'+
@@ -3892,7 +3892,7 @@ if ('serviceWorker' in navigator) {
     '</div>'+
     '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>'+
     '<div class="wb-rot-section">'+
-      '<div class="wb-rot-section-head" data-tooltip="Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más. En desktop suma un mini-gráfico de la evolución del RS Score de las últimas semanas.">'+
+      '<div class="wb-rot-section-head">'+
         '<div class="wb-rot-section-title">🏆 Recién a Líderes</div>'+
         '<div class="wb-rot-section-sub">Entraron al cuadrante de Líderes esta semana, viniendo de Mejorando o Rezagado</div>'+
       '</div>'+
@@ -3909,7 +3909,7 @@ if ('serviceWorker' in navigator) {
       '</div>'+
     '</div>'+
     '<div class="wb-rot-section">'+
-      '<div class="wb-rot-section-head" data-tooltip="Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; RS Score hoy ≤80 (si ya está por encima, el arranque no es fresco); y viene con una racha de 1 a 3 semanas consecutivas por encima de su propio ritmo semanal normal -- una semana sola exige superarlo por 1.5x, no alcanza con apenas superarlo. &quot;Ritmo&quot; = cuántas veces más rápido que lo normal; &quot;Hace&quot; = hace cuántos días viene con ese ritmo. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración reciente.">'+
+      '<div class="wb-rot-section-head">'+
         '<div class="wb-rot-section-title">⚡ Aceleración inusual</div>'+
         '<div class="wb-rot-section-sub">Dieron vueltas en zona baja varias semanas y arrancaron una aceleración sostenida</div>'+
       '</div>'+
