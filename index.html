@@ -3846,31 +3846,22 @@ if ('serviceWorker' in navigator) {
     '<div class="wb-spot-grid" id="wb-spot-grid"><div class="wb-empty">Cargando datos…</div></div>'+
     '<span class="wb-spot-mark">warrenbife.com</span>';
 
-  /* — RRG — */
+  /* — RRG + Recién a Líderes + Aceleración inusual, unificados en UN
+     solo panel -- pedido del usuario 2026-08: antes eran 3 .panel
+     separados apilados; ahora son 3 SECCIONES (.wb-rot-section) dentro
+     del mismo cuadro. El título/subtítulo/tooltip de cada sub-panel
+     viejo pasó a ser el título+sub+data-tooltip de su .wb-rot-section-
+     head (mismo mecanismo global de tooltip que .panel-title, que
+     escucha cualquier [data-tooltip], no solo esa clase). Los ids
+     internos (wb-rot-trans-acc, wb-rot-accel-etf, etc.) no cambiaron. — */
   var rrgP = mkPanel('wb-rrg-panel','Cuadrantes de rotación',
     'Eje X: RS Score · Eje Y: variación RS semanal · Tamaño de burbuja: Market Cap',
-    '<div class="wb-rrg-legend">'+
-      '<span><i style="background:var(--green)"></i>Liderando</span>'+
-      '<span><i style="background:var(--blue)"></i>Mejorando</span>'+
-      '<span><i style="background:var(--amber)"></i>Debilitando</span>'+
-      '<span><i style="background:var(--red)"></i>Rezagado</span>'+
-      '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
-      '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
-      '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span>'+
-      '<select id="wbRrgMesFilter" onchange="try{wbRenderRRG()}catch(e){}" style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);font-size:9.5px;padding:2px 6px;border-radius:6px;cursor:pointer;">'+
-        '<option value="all">Todos</option>'+
-        '<option value="mes">RS subió vs mes ant.</option>'+
-      '</select>'+
-      '<button id="wbRrgResetZoom" onclick="try{if(window._wbRrg)window._wbRrg.resetZoom()}catch(e){}" style="display:none;background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--muted);font-size:9px;padding:2px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;">↺ Reset zoom</button>'+
-    '</div>'+
-    '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>',
-    'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. El tamaño de la burbuja representa el Market Cap del activo. Cuadrante azul (Mejorando): RS bajo pero acelerando, suelen ser los futuros líderes.');
-
-  /* — Recién a Líderes (transiciones de esta semana) — */
-  var rotTransP = mkPanel('wb-rot-trans-panel','🏆 Recién a Líderes',
-    'Entraron al cuadrante de Líderes esta semana, viniendo de Mejorando o Rezagado',
     '<style>'+
-      '.wb-rot-switch{display:none;gap:6px;padding:0 12px 8px}'+
+      '.wb-rot-section{margin:16px -18px 0;padding-top:14px;border-top:1px solid var(--border);}'+
+      '.wb-rot-section-head{padding:0 18px 8px;cursor:help;}'+
+      '.wb-rot-section-title{font-size:12.5px;font-weight:600;color:var(--green);letter-spacing:0.02em;display:flex;align-items:center;gap:6px;}'+
+      '.wb-rot-section-sub{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4;}'+
+      '.wb-rot-switch{display:none;gap:6px;padding:0 18px 8px}'+
       '.wb-rot-pill{background:none;border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-family:\'DM Mono\',monospace;font-size:10px;padding:3px 12px;border-radius:6px;cursor:pointer;transition:all .18s;letter-spacing:.04em}'+
       '.wb-rot-pill:hover{color:var(--text)}'+
       '.wb-rot-pill.active{background:rgba(34,201,138,0.12);color:#22c98a;border-color:rgba(34,201,138,0.4);box-shadow:0 0 8px rgba(34,201,138,0.22)}'+
@@ -3885,34 +3876,56 @@ if ('serviceWorker' in navigator) {
         '.wb-rot-trans-grid{grid-template-columns:0.95fr 0.65fr 0.65fr 0.65fr !important;gap:3px !important}'+
       '}'+
     '</style>'+
-    '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'etf\')">ETFs</button></div>'+
-    '<div class="wb-rot-cols" id="wb-rot-trans-cols" data-view="acc">'+
-      '<div class="wb-rot-col-acc">'+
-        '<div class="wb-rot-col-title">ACCIONES</div>'+
-        '<div id="wb-rot-trans-acc"></div>'+
+    '<div class="wb-rrg-legend">'+
+      '<span><i style="background:var(--green)"></i>Liderando</span>'+
+      '<span><i style="background:var(--blue)"></i>Mejorando</span>'+
+      '<span><i style="background:var(--amber)"></i>Debilitando</span>'+
+      '<span><i style="background:var(--red)"></i>Rezagado</span>'+
+      '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
+      '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
+      '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span>'+
+      '<select id="wbRrgMesFilter" onchange="try{wbRenderRRG()}catch(e){}" style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);font-size:9.5px;padding:2px 6px;border-radius:6px;cursor:pointer;">'+
+        '<option value="all">Todos</option>'+
+        '<option value="mes">RS subió vs mes ant.</option>'+
+      '</select>'+
+      '<button id="wbRrgResetZoom" onclick="try{if(window._wbRrg)window._wbRrg.resetZoom()}catch(e){}" style="display:none;background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--muted);font-size:9px;padding:2px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;">↺ Reset zoom</button>'+
+    '</div>'+
+    '<div class="chart-wrap" style="height:520px"><canvas id="wbRrgChart"></canvas></div>'+
+    '<div class="wb-rot-section">'+
+      '<div class="wb-rot-section-head" data-tooltip="Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más. En desktop suma un mini-gráfico de la evolución del RS Score de las últimas semanas.">'+
+        '<div class="wb-rot-section-title">🏆 Recién a Líderes</div>'+
+        '<div class="wb-rot-section-sub">Entraron al cuadrante de Líderes esta semana, viniendo de Mejorando o Rezagado</div>'+
       '</div>'+
-      '<div class="wb-rot-col-etf">'+
-        '<div class="wb-rot-col-title">ETFS</div>'+
-        '<div id="wb-rot-trans-etf"></div>'+
+      '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'etf\')">ETFs</button></div>'+
+      '<div class="wb-rot-cols" id="wb-rot-trans-cols" data-view="acc">'+
+        '<div class="wb-rot-col-acc">'+
+          '<div class="wb-rot-col-title">ACCIONES</div>'+
+          '<div id="wb-rot-trans-acc"></div>'+
+        '</div>'+
+        '<div class="wb-rot-col-etf">'+
+          '<div class="wb-rot-col-title">ETFS</div>'+
+          '<div id="wb-rot-trans-etf"></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="wb-rot-section">'+
+      '<div class="wb-rot-section-head" data-tooltip="Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; RS Score hoy ≤80 (si ya está por encima, el arranque no es fresco); y viene con una racha de 1 a 3 semanas consecutivas por encima de su propio ritmo semanal normal -- una semana sola exige superarlo por 1.5x, no alcanza con apenas superarlo. &quot;Ritmo&quot; = cuántas veces más rápido que lo normal; &quot;Hace&quot; = hace cuántos días viene con ese ritmo. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración reciente.">'+
+        '<div class="wb-rot-section-title">⚡ Aceleración inusual</div>'+
+        '<div class="wb-rot-section-sub">Dieron vueltas en zona baja varias semanas y arrancaron una aceleración sostenida</div>'+
+      '</div>'+
+      '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'etf\')">ETFs</button></div>'+
+      '<div class="wb-rot-cols" id="wb-rot-accel-cols" data-view="acc">'+
+        '<div class="wb-rot-col-acc">'+
+          '<div class="wb-rot-col-title">ACCIONES</div>'+
+          '<div id="wb-rot-accel-acc"></div>'+
+        '</div>'+
+        '<div class="wb-rot-col-etf">'+
+          '<div class="wb-rot-col-title">ETFS</div>'+
+          '<div id="wb-rot-accel-etf"></div>'+
+        '</div>'+
       '</div>'+
     '</div>',
-    'Compara el cuadrante de esta semana contra el de la semana anterior (RS Score y su variación semanal). Si pasó de Mejorando o Rezagado a Líderes (RS≥50 y variación positiva), aparece acá. Muestra hasta 5 por columna, scrolleable si hay más. En desktop suma un mini-gráfico de la evolución del RS Score de las últimas semanas.');
-
-  /* — Aceleración inusual — */
-  var rotAccelP = mkPanel('wb-rot-accel-panel','⚡ Aceleración inusual',
-    'Dieron vueltas en zona baja varias semanas y arrancaron una aceleración sostenida',
-    '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-accel-cols\',\'etf\')">ETFs</button></div>'+
-    '<div class="wb-rot-cols" id="wb-rot-accel-cols" data-view="acc">'+
-      '<div class="wb-rot-col-acc">'+
-        '<div class="wb-rot-col-title">ACCIONES</div>'+
-        '<div id="wb-rot-accel-acc"></div>'+
-      '</div>'+
-      '<div class="wb-rot-col-etf">'+
-        '<div class="wb-rot-col-title">ETFS</div>'+
-        '<div id="wb-rot-accel-etf"></div>'+
-      '</div>'+
-    '</div>',
-    'Regla fija a mano (no validada a escala como el resto del Warren Score): de las 11 semanas más viejas de una ventana de 16, al menos 8 estuvieron fuera de Líderes; RS Score hoy ≤80 (si ya está por encima, el arranque no es fresco); y viene con una racha de 2 a 3 semanas consecutivas por encima de su propio ritmo semanal normal -- ni un salto suelto de una semana, ni ya varias semanas acelerando (eso sería sobreextendido, no un arranque). "Ritmo" = cuántas veces más rápido que lo normal; "Hace" = hace cuántos días viene con ese ritmo. Mismo patrón que casos históricos como GLD: muchas semanas dando vueltas entre Rezagado y Mejorando, después una aceleración reciente.');
+    'Eje X: RS Score actual. Eje Y: cambio del RS vs semana anterior. El tamaño de la burbuja representa el Market Cap del activo. Cuadrante azul (Mejorando): RS bajo pero acelerando, suelen ser los futuros líderes.');
 
   function wbRotSwitchView(containerId, which){
     var el = document.getElementById(containerId);
@@ -3970,7 +3983,7 @@ if ('serviceWorker' in navigator) {
     spot, statsRow,
     P.cart,
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
-    rrgP, rotTransP, rotAccelP,
+    rrgP,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
     P.warren, mkGrid(epP, ema200P),
     snapP,
