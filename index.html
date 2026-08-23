@@ -3874,8 +3874,7 @@ if ('serviceWorker' in navigator) {
         '.wb-rot-cols{grid-template-columns:1fr}'+
         '.wb-rot-cols[data-view="acc"] .wb-rot-col-etf{display:none}'+
         '.wb-rot-cols[data-view="etf"] .wb-rot-col-acc{display:none;border-right:none}'+
-        '.wb-rot-spark-col{display:none !important}'+
-        '.wb-rot-trans-grid{grid-template-columns:1.3fr 1fr 1fr !important}'+
+        '.wb-rot-trans-grid{grid-template-columns:0.85fr 0.45fr 0.55fr 0.65fr !important;gap:3px !important}'+
       '}'+
     '</style>'+
     '<div class="wb-rot-switch"><button class="wb-rot-pill active" data-view="acc" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'acc\')">Acciones</button><button class="wb-rot-pill" data-view="etf" onclick="wbRotSwitchView(\'wb-rot-trans-cols\',\'etf\')">ETFs</button></div>'+
@@ -4329,7 +4328,9 @@ if ('serviceWorker' in navigator) {
       return x.toFixed(1)+','+y.toFixed(1);
     }).join(' ');
     var col = vals[vals.length-1] >= vals[0] ? '#22c98a' : '#f0605a';
-    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block;overflow:visible">'+
+    // width:100% (no ancho fijo en px) -- se achica solo al ancho real de
+    // su columna, sea el desktop (~100px) o el mobile (~50px)
+    return '<svg width="100%" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="display:block;max-width:'+w+'px">'+
       '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 3px '+col+')"/>'+
     '</svg>';
   }
