@@ -4262,22 +4262,56 @@ if ('serviceWorker' in navigator) {
   var _WB_ROT_QLBL = {lideres:'Líderes', mejorando:'Mejorando', debilitando:'Debilitando', rezagado:'Rezagado'};
   var _WB_ROT_QDOT = {lideres:'var(--green)', mejorando:'var(--blue)', debilitando:'var(--amber)', rezagado:'var(--red)'};
 
-  function _wbRotRow(t, rs, tagHtml){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
-      '<div style="display:flex;align-items:center;gap:7px;min-width:0">'+
-        '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
-        '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+esc(t)+'</span>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--text)">'+fmt(rs,1)+'</span>'+
-        tagHtml+
-      '</div>'+
+  /* — Estilo visual compartido: columnas en grid (alineadas de verdad,
+     no un flex apretujado) + acento neón en encabezados y valores.
+     Mismos colores que WBM_BOX_GLOW (mobile) para consistencia. ── */
+  var _WB_ROT_GLOW = {
+    '#22c98a': 'rgba(34,201,138,0.65)',  // verde  (colorRS: RS>70)
+    '#f5a623': 'rgba(245,166,35,0.6)',   // ambar  (colorRS: RS 40-70)
+    '#f0605a': 'rgba(240,96,90,0.6)',    // rojo   (colorRS: RS<=40)
+    '#6b7280': 'rgba(107,114,128,0.4)'   // gris (sin dato)
+  };
+  var _WB_ROT_NEON = '#22c98a';
+  var _WB_ROT_NEON_GLOW = 'rgba(34,201,138,0.55)';
+
+  function _wbRotHeaderGrid(cols, tpl){
+    var cells = cols.map(function(c,i){
+      return '<span style="text-align:'+(i===0?'left':'right')+'">'+c+'</span>';
+    }).join('');
+    return '<div style="display:grid;grid-template-columns:'+tpl+';align-items:center;gap:4px;padding:5px 12px 7px;margin-top:2px;'+
+      'font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:'+_WB_ROT_NEON+';'+
+      'text-shadow:0 0 6px '+_WB_ROT_NEON_GLOW+',0 0 16px rgba(34,201,138,0.22);border-bottom:1px solid rgba(34,201,138,0.3)">'+
+      cells+'</div>';
+  }
+
+  function _wbRotTickerCell(t){
+    return '<div style="display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden">'+
+      '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
+      '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()" style="overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</span>'+
+    '</div>';
+  }
+
+  function _wbRotRsCell(rs){
+    var col = colorRS(rs), glow = _WB_ROT_GLOW[col] || 'rgba(255,255,255,0.3)';
+    return '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+col+';text-shadow:0 0 7px '+glow+'">'+fmt(rs,1)+'</span>';
+  }
+
+  var _WB_ROT_TRANS_GRID = '1fr 46px 92px';
+  function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Desde'], _WB_ROT_TRANS_GRID); }
+
+  function _wbRotRow(t, rs, qAyer){
+    var qCol = {lideres:'#22c98a', mejorando:'#4f8ef7', debilitando:'#f5a623', rezagado:'#f0605a'}[qAyer] || 'var(--muted)';
+    var qGlow = {lideres:'rgba(34,201,138,0.5)', mejorando:'rgba(79,142,247,0.5)', debilitando:'rgba(245,166,35,0.5)', rezagado:'rgba(240,96,90,0.5)'}[qAyer] || 'transparent';
+    return '<div style="display:grid;grid-template-columns:'+_WB_ROT_TRANS_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
+      _wbRotTickerCell(t)+
+      _wbRotRsCell(rs)+
+      '<span style="text-align:right;font-size:10px;font-weight:600;color:'+qCol+';text-shadow:0 0 5px '+qGlow+';white-space:nowrap">'+_WB_ROT_QLBL[qAyer]+'</span>'+
     '</div>';
   }
 
   function _wbRotList(items, emptyMsg){
     if(!items.length) return '<div class="wb-empty" style="padding:14px 12px;font-size:11px">'+emptyMsg+'</div>';
-    return '<div style="max-height:172px;overflow-y:auto">'+items.join('')+'</div>';
+    return '<div style="max-height:190px;overflow-y:auto">'+items.join('')+'</div>';
   }
 
   function _wbRotTipoMap(){
@@ -4303,8 +4337,7 @@ if ('serviceWorker' in navigator) {
       if(qHoy !== 'lideres') return;
       if(qAyer !== 'mejorando' && qAyer !== 'rezagado') return;
       var tipo = tipoByT[t]; if(!tipo) return;
-      var tag = '<span style="font-size:9.5px;color:'+_WB_ROT_QDOT[qAyer]+';white-space:nowrap">desde '+_WB_ROT_QLBL[qAyer]+'</span>';
-      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, tag)};
+      var row = {ticker:t, rs:rsHoy, html:_wbRotRow(t, rsHoy, qAyer)};
       if(tipo==='ETF') etfs.push(row); else if(tipo==='Acción') accs.push(row);
     });
     accs.sort(function(a,b){ return b.rs-a.rs; });
@@ -4321,8 +4354,9 @@ if ('serviceWorker' in navigator) {
       return;
     }
     var r = wbRotTransiciones();
-    accEl.innerHTML = _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción entró a Líderes esta semana.');
-    etfEl.innerHTML = _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF entró a Líderes esta semana.');
+    var header = _wbRotTransHeader();
+    accEl.innerHTML = (r.acciones.length ? header : '') + _wbRotList(r.acciones.map(function(x){return x.html;}), 'Ninguna acción entró a Líderes esta semana.');
+    etfEl.innerHTML = (r.etfs.length ? header : '') + _wbRotList(r.etfs.map(function(x){return x.html;}), 'Ningún ETF entró a Líderes esta semana.');
   }
 
   /* — Aceleración inusual: dio vueltas fuera de Líderes la mayor parte
@@ -4347,26 +4381,15 @@ if ('serviceWorker' in navigator) {
   var WB_ROT_ACCEL_RACHA_MIN    = 2;   // semanas consecutivas minimas con ritmo acelerado
   var WB_ROT_ACCEL_RACHA_MAX    = 3;   // por encima de esto ya viene acelerado hace rato -- probablemente sobreextendido
 
+  var _WB_ROT_ACCEL_GRID = '1fr 46px 50px 46px';
+  function _wbRotAccelHeader(){ return _wbRotHeaderGrid(['Ticker','RS','Ritmo','Hace'], _WB_ROT_ACCEL_GRID); }
+
   function _wbRotAccelRow(t, rs, factor, dias){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
-      '<div style="display:flex;align-items:center;gap:7px;min-width:0">'+
-        '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" style="width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.display=\'none\'">'+
-        '<span class="ticker-badge" title="'+esc(N(t))+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+esc(t)+'</span>'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">'+fmt(rs,1)+'</span>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--green);min-width:30px;text-align:right">'+fmt(factor,1)+'x</span>'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);min-width:32px;text-align:right">'+dias+'d</span>'+
-      '</div>'+
-    '</div>';
-  }
-  function _wbRotAccelHeader(){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 12px 4px;font-size:8.5px;color:var(--muted);letter-spacing:.03em">'+
-      '<span>TICKER · RS</span>'+
-      '<div style="display:flex;gap:10px">'+
-        '<span style="min-width:30px;text-align:right">RITMO</span>'+
-        '<span style="min-width:32px;text-align:right">HACE</span>'+
-      '</div>'+
+    return '<div style="display:grid;grid-template-columns:'+_WB_ROT_ACCEL_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
+      _wbRotTickerCell(t)+
+      _wbRotRsCell(rs)+
+      '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#22c98a;text-shadow:0 0 7px rgba(34,201,138,0.6)">'+fmt(factor,1)+'x</span>'+
+      '<span style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#4f8ef7;text-shadow:0 0 7px rgba(79,142,247,0.55)">'+dias+'d</span>'+
     '</div>';
   }
 
