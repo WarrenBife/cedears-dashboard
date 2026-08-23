@@ -17249,18 +17249,24 @@ window.wbmCloseDetail = function(){
    una propiedad de window, cualquier código que la llame como
    identificador libre -- ej. el listener delegado de V5 -- resuelve
    dinámicamente a esta versión en el momento del click, sin tener que
-   tocar los múltiples call sites) para que en mobile abra siempre este
-   mismo detalle; en desktop sigue abriendo el drawer de siempre, sin
-   cambios. ── */
-var _wbmPrevAbrirFicha = window.wbAbrirFicha;
+   tocar los múltiples call sites).
+
+   Antes solo pasaba en mobile (esMobile ? wbmOpenDetail : drawer viejo);
+   pedido del usuario 2026-08: la misma card en TODOS lados, también en
+   desktop -- #wbm-detail ya es un overlay fixed;inset:0 sin gate de
+   @media, así que funciona a cualquier ancho sin tocar CSS. ── */
 window.wbAbrirFicha = function(ticker){
-  var esMobile = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
-  if (esMobile) {
-    wbmOpenDetail(ticker);
-  } else if (typeof _wbmPrevAbrirFicha === 'function') {
-    _wbmPrevAbrirFicha(ticker);
-  }
+  wbmOpenDetail(ticker);
 };
+
+/* ── Anular el popup de TradingView (mostrarGrafico/ocultarGrafico) en
+   TODA la app -- pedido del usuario 2026-08: ningún popup de
+   TradingView, solo la card unificada de arriba. En vez de tocar cada
+   onmouseenter="mostrarGrafico(...)" desperdigado por el archivo
+   (Cartelera, Scanner, Episodic Pivots, Podio del día, etc.), se
+   reasignan las funciones mismas a no-op -- mismo patrón de arriba. ── */
+window.mostrarGrafico = function(){};
+window.ocultarGrafico = function(){};
 
 /* ── Inyección de HTML (una sola vez) ── */
 (function wbmInject(){
