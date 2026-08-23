@@ -17280,12 +17280,19 @@ window.wbmOpenDetail = function(ticker){
       '<div class="wbm-gate-text">' + _wbmEsc(fallas.join(', ')) + '</div><div class="wbm-gate-val" style="color:var(--red)">' + gateVal + '</div></div>';
 
   var items = wbmPenaltyItems(d, flags, det.restaChop);
+  // Total = suma de los pts de los items ya listados, no det.pen: restaChop
+  // (🌪️) resta directo del Pilar C, no de "pen" -- Math.abs(pen) se quedaba
+  // afuera de esos puntos y el total no cerraba con lo que se veía en la
+  // lista (ej. MSI: item 🌪️ mostraba -2 pero el total decía -0). Sumar los
+  // items es además a prueba de que el día de mañana aparezca otro flag con
+  // la misma estructura (resta a un pilar en vez de a pen).
+  var totalPen = items.reduce(function(sum, p){ return sum + (p.pts || 0); }, 0);
   _wbmEl('wbm-pen-card').innerHTML = items.length
     ? items.map(function(p){
         return '<div class="wbm-pen-item"><span class="wbm-pen-emoji">' + p.emoji + '</span>' +
           '<span class="wbm-pen-text">' + _wbmEsc(p.label) + '</span>' +
           '<span class="wbm-pen-pts">−' + p.pts + '</span></div>';
-      }).join('') + '<div class="wbm-pen-total-row">Total penalizaciones <b>−' + _wbmFmt(Math.abs(pen),1) + ' pts</b></div>'
+      }).join('') + '<div class="wbm-pen-total-row">Total penalizaciones <b>−' + _wbmFmt(totalPen,1) + ' pts</b></div>'
     : '<div class="wbm-pen-empty"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M5 13l4 4L19 7"/></svg>Sin penalizaciones activas</div>';
 
   var sigs = wbmSignalItems(d);
