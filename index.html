@@ -681,10 +681,20 @@
             📉 <b>Divergencia RSI</b> — El precio hace máximos pero el impulso no los confirma<br>
             🪫 <b>Divergencia OBV</b> — La suba viene con cada vez menos volumen — sin nafta<br>
             🐘 <b>Churning en máximos</b> — Volumen alto sin avance: posible distribución institucional<br>
+            🧨 <b>Agotamiento OBV + Div. RSI</b> — Los dos agotamientos juntos — castigo más severo que cualquiera solo<br>
+            🌫️ <b>Agotamiento OBV</b> — Cerca de un máximo pero con velas chicas y volumen seco vs. el día de impulso<br>
             🎈 <b>Sobreextensión</b> — Muy lejos de su media para su volatilidad — riesgo de reversión<br>
             🩸 <b>Distribución activa</b> — Mayoría de días negativos con volumen en las caídas<br>
             💥 <b>Reversión con volumen</b> — Caída fuerte de hoy con volumen inusual<br>
-            ⛔ <b>Breakout fallido</b> — Rompió y volvió por debajo del pivot
+            ⛔ <b>Breakout fallido</b> — Rompió y volvió por debajo del pivot<br>
+            🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>
+            🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>
+            🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>
+            🌪️ <b>Volatilidad sin dirección</b> — Velas grandes que no se traducen en avance real: mucho ruido, poca eficiencia<br>
+            <span style="display:block;margin-top:4px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</span>
+            🫨 <b>Sacudón previo</b> — Liquidez tomada tras una compresión — anula la volatilidad sin dirección de arriba<br>
+            👀 <b>Rebote en observación</b> — Rebotó en la SMA10 recién hoy, todavía sin confirmar<br>
+            💣 <b>Bomba</b> — Rompió un máximo previo con eficiencia confirmada
           </div>
         </div>
       </div>
@@ -16703,7 +16713,7 @@ window.renderWarrenScore = function() {
           <td style="text-align:center">${pilarBadge(pd, 20, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
           <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
-            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana','🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó — alto riesgo de fracaso','💣':'BOMBA: rompió el máximo previo con eficiencia confirmada (ver Episodic Pivots & Bombs)','🌫️':'Agotamiento OBV: sigue cerca de un máximo reciente pero con velas chicas y volumen seco vs. el día de impulso','🧨':'Agotamiento OBV + Divergencia RSI a la vez: mismo patrón que 🌫️ pero reforzado con divergencia de RSI — castigo más severo','🪤':'Pendiente SMA50 pronunciada con buen RS Score: el precio ya rebotó pero la media de 50 todavía no confirma — riesgo elevado de que vuelva a caer (ver caso AVGO en wb_research/)'}[f]||f;
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana','🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó — alto riesgo de fracaso','💣':'BOMBA: rompió el máximo previo con eficiencia confirmada (ver Episodic Pivots & Bombs)','🌫️':'Agotamiento OBV: sigue cerca de un máximo reciente pero con velas chicas y volumen seco vs. el día de impulso','🧨':'Agotamiento OBV + Divergencia RSI a la vez: mismo patrón que 🌫️ pero reforzado con divergencia de RSI — castigo más severo','🪤':'Pendiente SMA50 pronunciada con buen RS Score: el precio ya rebotó pero la media de 50 todavía no confirma — riesgo elevado de que vuelva a caer (ver caso AVGO en wb_research/)','🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real (choppiness alto + baja eficiencia)'}[f]||f;
             const esPositivo = f === '🫨' || f === '👀' || f === '💣';
             const flagStyle = esPositivo
               ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
@@ -16946,11 +16956,19 @@ var WBM_PEN_LABEL = {
   '🎈':'Sobreextensión', '🩸':'Distribución activa', '💥':'Reversión con volumen',
   '⛔':'Breakout fallido', '🌊':'Caso B: deambulando sin romper el máximo',
   '🧨':'Agotamiento OBV + Divergencia RSI', '🌫️':'Agotamiento OBV',
-  '🪤':'Pendiente SMA50 pronunciada (buen RS Score, la media todavía no confirma)'
+  '🪤':'Pendiente SMA50 pronunciada (buen RS Score, la media todavía no confirma)',
+  '🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real'
 };
 var WBM_PEN_PTS = {'🎈':6, '🩸':15, '💥':8, '⛔':10, '🧨':12, '🌫️':5};
 
-function wbmPenaltyItems(d, flags){
+/* restaChop: pts variables (resta a Pilar C, ver _restaVolatilidadSinDireccionVXX)
+   -- mismo motivo por el que 🌊/🪤 tampoco están en WBM_PEN_PTS, se calculan
+   aparte porque no son un valor fijo. Antes de esto 🌪️ no tenía ningún
+   branch acá -- WBM_PEN_LABEL sí lo tenía pero el loop nunca lo alcanzaba
+   (no hay rama "if (f==='🌪️')" ni cae en el fallback generico porque los
+   puntos son variables), asi que en mobile la card de Penalizaciones lo
+   descartaba en silencio aunque el flag estuviera activo. */
+function wbmPenaltyItems(d, flags, restaChop){
   var items = [];
   var agot = [];
   (flags||[]).forEach(function(f){
@@ -16966,6 +16984,10 @@ function wbmPenaltyItems(d, flags){
     }
     if (f==='🪤'){
       items.push({emoji:'🪤', label:WBM_PEN_LABEL['🪤'], pts: Math.round((+d['Pend SMA50 Pts'])||0)});
+      return;
+    }
+    if (f==='🌪️'){
+      items.push({emoji:'🌪️', label:WBM_PEN_LABEL['🌪️'], pts: Math.round(restaChop||0)});
       return;
     }
     if (WBM_PEN_LABEL[f]) items.push({emoji:f, label:WBM_PEN_LABEL[f], pts:WBM_PEN_PTS[f]});
@@ -17257,7 +17279,7 @@ window.wbmOpenDetail = function(ticker){
     : '<div class="wbm-gate-item"><div class="wbm-gate-check" style="background:var(--red-bg);border-color:rgba(240,96,90,0.4)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>' +
       '<div class="wbm-gate-text">' + _wbmEsc(fallas.join(', ')) + '</div><div class="wbm-gate-val" style="color:var(--red)">' + gateVal + '</div></div>';
 
-  var items = wbmPenaltyItems(d, flags);
+  var items = wbmPenaltyItems(d, flags, det.restaChop);
   _wbmEl('wbm-pen-card').innerHTML = items.length
     ? items.map(function(p){
         return '<div class="wbm-pen-item"><span class="wbm-pen-emoji">' + p.emoji + '</span>' +
