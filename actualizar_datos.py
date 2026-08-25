@@ -1060,8 +1060,9 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         if vol_prom_20 <= 0:
             return NULO
 
-        # 2) Retroceso violento PERO CONTENIDO + 4) Volumen alto + 5) Reciente.
-        # Para cada candidato (vela o par) dentro de la ventana de escaneo:
+        # 2) Retroceso violento PERO CONTENIDO + 4) Volumen alto + confirmacion
+        # de cierre + 5) Reciente. Para cada candidato (vela o par) dentro de
+        # la ventana de escaneo:
         #   a) se ubica el ULTIMO MINIMO LOCAL CONFIRMADO (pivote con margen,
         #      no cualquier vela) y el maximo posterior a ese minimo -- eso
         #      define "el ultimo tramo alcista".
@@ -1069,6 +1070,10 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         #      retroceso del 50% de un movimiento insignificante no es nada.
         #   c) el retroceso de la sacudida contra ese tramo tiene que ser
         #      >=50% (violento).
+        #   4b) el dia (o par) del evento tiene que cerrar por ENCIMA DEL
+        #      CIERRE ANTERIOR al evento, no solo de su propia apertura --
+        #      ver comentario en el loop, mas abajo, para el caso real (TTE)
+        #      que motivo este agregado.
         #   d) CONTENIDO -- tres limites, TODOS obligatorios: la caida
         #      medida con el LOW no supera el 10% desde el cierre previo al
         #      evento (una mecha que perfora y recupera cuenta); el CIERRE
@@ -1137,8 +1142,18 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
                     tramo_dolares, pico_valor = r
                     if tramo_dolares >= 1.5 * atr_dolares:  # (b)
                         retroceso = (pico_valor - low_evento_vela) / tramo_dolares
-                        vol_vela_ok = volume[i] >= 1.3 * vol_prom_20  # Condicion 4 -- SIN CAMBIOS
-                        if retroceso >= 0.5 and vol_vela_ok:  # (c) + volumen
+                        vol_vela_ok = volume[i] >= 1.3 * vol_prom_20  # Condicion 4a -- volumen
+                        # Condicion 4b (2026-08, caso TTE) -- el dia del evento tiene que
+                        # cerrar POR ENCIMA DEL CIERRE ANTERIOR (Var Dia % positivo), no
+                        # solo por encima de su propia apertura. Una mecha que recupera
+                        # intradia pero sigue cerrando mas abajo que ayer no es una
+                        # reaccion compradora real, es la misma baja con una mecha --
+                        # sin esto, TTE quedaba con Sacudon Activo el 25/8 usando el
+                        # 24/8 como evento: ese dia cerro +0.6% arriba de SU PROPIA
+                        # apertura, pero -0.6% por debajo del cierre del 21/8 (y encima
+                        # con el volumen mas alto de la semana en juego).
+                        cierre_confirma = close[i] > close[i - 1]
+                        if retroceso >= 0.5 and vol_vela_ok and cierre_confirma:  # (c) + volumen + confirmacion
                             sacudida_idx = i
                             idx_inicio = i
                             magnitud_bruta = max(high[i] - low[i], abs(low[i] - close[i - 1]))
@@ -1154,8 +1169,14 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
                         tramo_dolares, pico_valor = r
                         if tramo_dolares >= 1.5 * atr_dolares:  # (b)
                             retroceso = (pico_valor - low_evento_par) / tramo_dolares
-                            vol_par_ok = (volume[i - 1] + volume[i]) / 2 >= 1.3 * vol_prom_20  # Condicion 4 -- SIN CAMBIOS
-                            if retroceso >= 0.5 and vol_par_ok:  # (c) + volumen
+                            vol_par_ok = (volume[i - 1] + volume[i]) / 2 >= 1.3 * vol_prom_20  # Condicion 4a -- volumen
+                            # Condicion 4b, mismo criterio que la vela individual: el
+                            # cierre del PAR (el mas reciente, i) tiene que quedar por
+                            # encima del cierre de ANTES de que arrancara el par (i-2) --
+                            # confirma que las 2 ruedas juntas, netas, fueron una
+                            # reaccion compradora y no una baja de 2 dias con una mecha.
+                            cierre_confirma = close[i] > close[i - 2]
+                            if retroceso >= 0.5 and vol_par_ok and cierre_confirma:  # (c) + volumen + confirmacion
                                 sacudida_idx = i
                                 idx_inicio = i - 1
                                 magnitud_bruta = max(
