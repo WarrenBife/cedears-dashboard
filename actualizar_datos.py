@@ -1692,32 +1692,52 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         pct_dec = sum(1 for k in range(pairs) if pcts[k] > pcts[k+1]) / pairs
         vol_dec = sum(1 for k in range(pairs) if vols[k] > vols[k+1]) / pairs
 
-        last_pct   = pcts[-1]
-        dist_pivot = (float(c[-1]) - techo) / techo * 100
+        last_pct = pcts[-1]
 
-        # ── Base "ya rota" (2026-08) -- si el precio YA CERRÓ por encima
-        # del techo con margen desde la última contracción confirmada,
-        # aunque la ruptura (o la caída posterior) todavía no haya
-        # formado un pivote confirmado, la base está usada, no vigente.
-        # Sin esto, un papel que rompió, corrió lejos y volvió a bajar
-        # hasta cerca del techo viejo (por casualidad, no por contracción
-        # real) puntúa como si la base siguiera fresca -- el detector de
-        # pivotes (order=3) tiene un "punto ciego" de unos días donde el
-        # movimiento más reciente todavía no formó mínimo confirmado, y
-        # cae de vuelta en contracciones viejas y desactualizadas (caso
-        # real: CIBR, base jun-jul vigente hasta el 3/8, rompió y corrió
-        # +8.5% hasta el 14/8, volvió a bajar -- seguía puntuando 94 el
-        # 20/8 con el techo de junio). Margen 3%, medido desde el mínimo
-        # de la última contracción hasta hoy.
+        # ── Pivote real de la base vs. "techo" de calidad de resistencia
+        # (2026-08, caso TTE) -- `techo` se elige por cantidad de toques en
+        # una banda de tolerancia (TOL_TOQUE, ~2%) y puede terminar siendo
+        # un nivel de MESES atrás que sólo "roza" el rango de la base
+        # vigente sin que el precio lo haya tocado de verdad ahí (caso TTE:
+        # techo elegido en $90.40 -- tocado en junio -- porque el techo
+        # REAL de la base jul-ago, $88.66, cae adentro del 2% de tolerancia
+        # sin que el precio haya llegado a $90.40 en jul-ago). Sirve para
+        # puntuar "cuán validada está la resistencia" (bono de score más
+        # abajo), pero medir la ruptura contra ESE nivel en vez del techo
+        # real de la base que está puntuando (`pivot_base`, el máximo de
+        # la última contracción que sobrevivió todos los filtros) dejaba
+        # bases ya rotas sin detectar -- la ruptura real (sobre $88.66)
+        # nunca llegaba a los 3% de margen medidos desde $90.40. `pivot_base`
+        # es lo que se usa de acá en más para Dist Pivot, "ya rota" y el
+        # campo Techo exportado; `techo`/`techo_toques` siguen existiendo
+        # sólo para el bono de "calidad de resistencia" del score.
+        pivot_base = contractions[-1]['high']
+        dist_pivot = (float(c[-1]) - pivot_base) / pivot_base * 100
+
+        # ── Base "ya rota" (2026-08, caso CIBR) -- si el precio YA CERRÓ
+        # por encima del pivote real con margen desde la última contracción
+        # confirmada, aunque la ruptura (o la caída posterior) todavía no
+        # haya formado un pivote confirmado, la base está usada, no
+        # vigente. Sin esto, un papel que rompió, corrió lejos y volvió a
+        # bajar hasta cerca del techo viejo (por casualidad, no por
+        # contracción real) puntúa como si la base siguiera fresca -- el
+        # detector de pivotes (order=3) tiene un "punto ciego" de unos días
+        # donde el movimiento más reciente todavía no formó mínimo
+        # confirmado, y cae de vuelta en contracciones viejas y
+        # desactualizadas. Margen 3%, medido desde el mínimo de la última
+        # contracción hasta hoy -- si la ruptura se queda DENTRO de ese
+        # margen (caso TTE: rompió el pivote real por ~2.5%, no más), el
+        # VCP sigue considerándose activo a propósito: es una ruptura
+        # sana de la propia base, no una que la dejó atrás.
         UMBRAL_YA_ROTA = 0.03
         ultimo_li_idx = contractions[-1]['li_idx']
-        ya_rota = bool(np.any(c[ultimo_li_idx:] > techo * (1 + UMBRAL_YA_ROTA)))
+        ya_rota = bool(np.any(c[ultimo_li_idx:] > pivot_base * (1 + UMBRAL_YA_ROTA)))
         if ya_rota:
             return {
                 'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': n_c,
                 'VCP Tightness': round(last_pct, 2), 'VCP Dist Pivot %': round(dist_pivot, 2),
                 'VCP Vol Decreasing': vol_dec >= 0.5, 'VCP Techo Toques': techo_toques,
-                'VCP Techo': round(techo, 2),
+                'VCP Techo': round(pivot_base, 2),
             }
 
         score = 0
@@ -1750,7 +1770,7 @@ def _detectar_vcp_raw(hist, pivot_order=3):
             'VCP Dist Pivot %':   round(dist_pivot, 2),
             'VCP Vol Decreasing': vol_dec >= 0.5,
             'VCP Techo Toques':   techo_toques,
-            'VCP Techo':          round(techo, 2),
+            'VCP Techo':          round(pivot_base, 2),
         }
     except:
         return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
