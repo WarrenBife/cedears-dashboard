@@ -2483,14 +2483,14 @@ def _penalizacion_sma50_pendiente(rs_score, sma50_slope_pct):
 # 10-20 ruedas -- vs. ~29% de fracaso del resto. Confirmado en split
 # por ticker (misma direccion en ambas mitades). Es la señal mas fuerte
 # de toda esta racha de investigaciones.
-RSI_CONFIRMACION_RSI_TECHO      = 70.0  # RSI que cuenta como "sobrecompra" en la ventana previa
+RSI_CONFIRMACION_RSI_TECHO      = 65.0  # RSI que cuenta como "sobrecompra" en la ventana previa
 RSI_CONFIRMACION_LOOKBACK_PICO  = 15    # ruedas hacia atras para buscar el maximo de RSI/precio
 RSI_CONFIRMACION_VENTANA_ESPERA = 10    # tope de ruedas hacia atras para reconstruir el "dia 0" del episodio
 
 def _rsi_sobrecompra_sin_confirmar(hist):
     """True si HOY el RSI esta en la franja de puntaje pleno (45-60) del
     componente RSI de Pilar C, pero llego ahi viniendo de sobrecompra
-    (RSI>=70 en los ultimos 15 dias) -- sin importar cuanto haya caido el
+    (RSI>=65 en los ultimos 15 dias) -- sin importar cuanto haya caido el
     precio desde ese maximo, alcanza con que haya caido algo -- Y TODAVIA
     no mostro 2 dias verdes seguidos desde que entro a esa zona. Si es
     True, el frontend debe dar 0 pts al componente de RSI en vez del
@@ -2510,7 +2510,15 @@ def _rsi_sobrecompra_sin_confirmar(hist):
     # Se probó también, para caidas chicas, exigir solo 1 dia verde (en
     # vez de 2 seguidos) -- descartado: mismo problema que ya se había
     # encontrado para caidas grandes, ~100% confirma con 1 solo dia
-    # verde en cualquier bucket de caida, no filtra nada."""
+    # verde en cualquier bucket de caida, no filtra nada.
+    #
+    # Mismo caso TTE, segunda vuelta: con la caida minima ya sacada,
+    # TTE seguia sin gatillar porque su pico de RSI (67,94) no llegaba
+    # a RSI_CONFIRMACION_RSI_TECHO=70. Backtest complementario (mismo
+    # cache/metodologia, sin CAIDA_MIN) mostró que bajar el techo a 65
+    # sostiene la señal igual de fuerte (23.425 eventos, 88,0%/41,3%
+    # fracaso sin/con confirmar, confirmado en ambas mitades de
+    # tickers) -- se baja RSI_CONFIRMACION_RSI_TECHO de 70.0 a 65.0."""
     try:
         close = hist['Close'].values
         rsi = _rsi14_serie_completa(hist['Close']).values
