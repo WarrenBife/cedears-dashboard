@@ -6790,9 +6790,14 @@ function buildV7(){
     cw.appendChild(cv);
   }
 
-  /* Controles play + slider */
-  if(!document.getElementById('rrg-sec-controls')){
-    panel.insertAdjacentHTML('beforeend',
+  /* Controles play + slider -- se insertan pegados al chart-wrap (afterend),
+     no al final del panel (beforeend): desde que el Cuadrante de Rotación se
+     unificó con "Recién a Líderes" y "Aceleración inusual" en un solo panel
+     (2026-08), el final del panel ya no es el final del gráfico, así que
+     "beforeend" los mandaba abajo de todo. Pedido del usuario 2026-08: que
+     quede inmediatamente debajo de las estelas de ETFs. */
+  if(cw && !document.getElementById('rrg-sec-controls')){
+    cw.insertAdjacentHTML('afterend',
       `<div class="rrg-sec-controls" id="rrg-sec-controls">
         <button class="rrg-play-btn" id="rrg-play-btn" onclick="wbRrgPlay()">▶ Play</button>
         <input type="range" id="rrg-slider" min="0" max="100" value="100"
