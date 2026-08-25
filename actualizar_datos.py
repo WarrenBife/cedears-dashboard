@@ -2844,6 +2844,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "VCP Vol Decreasing":  vcp['VCP Vol Decreasing'],
             "VCP Techo Toques":    vcp['VCP Techo Toques'],
             "VCP Techo":           vcp.get('VCP Techo'),
+            "VCP Ya Rompio":       vcp.get('VCP Ya Rompio'),
             "Días + 10s":          dias_pos_10,
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
