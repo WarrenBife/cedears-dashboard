@@ -8057,8 +8057,16 @@ function _pilarCv50(d){
     ? 0
     : _tri(d['RSI 14'], 30, 45, 60, 70) * 8.25;
 
+  // Bono VCP -- solo si el patrón TODAVÍA no rompió (2026-08, caso TTE).
+  // VCP Detected sigue en true un tiempo despues de romper (a propósito,
+  // ver pivot_base/ya_rota en detectar_vcp -- una ruptura sana dentro del
+  // margen del 3% no invalida la base), pero el bono de Pilar C premia la
+  // COMPRESIÓN previa a la ruptura, no la ruptura en sí -- una vez que ya
+  // rompió, ese papel ya ejecutó lo que el patrón anticipaba y no debería
+  // seguir cobrando el mismo bono que uno todavía comprimiendo a punto de
+  // romper (para eso está "Breakout Fresh"/Despegue Fresco, otra señal).
   let ptsVcp = 0;
-  if (_bool(d['VCP Detected'])) {
+  if (_bool(d['VCP Detected']) && !_bool(d['VCP Ya Rompio'])) {
     let pv = _lineal(d['VCP Score'], 0, 100, 0, 4.4);
     if (_bool(d['VCP Vol Decreasing'])) pv += 1.1;
     ptsVcp = Math.min(pv, 5.5);

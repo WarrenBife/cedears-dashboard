@@ -1781,12 +1781,27 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         UMBRAL_YA_ROTA = 0.03
         ultimo_li_idx = contractions[-1]['li_idx']
         ya_rota = bool(np.any(c[ultimo_li_idx:] > pivot_base * (1 + UMBRAL_YA_ROTA)))
+
+        # ── "Ya rompió" vs. "todavía no rompió" (2026-08, caso TTE) --
+        # distinto de ya_rota (que con margen del 3% decide si la base
+        # sigue vigente o se descarta entera). Acá no hay margen: es un
+        # simple "¿el precio cerró alguna vez por encima del pivote real
+        # desde el mínimo de la última contracción?". El patrón VCP premia
+        # la COMPRESIÓN previa a una ruptura -- una vez que la ruptura ya
+        # pasó (esté vigente o no, esté dentro del margen del 3% o no), ese
+        # papel ya ejecutó lo que el patrón anticipaba y no debería seguir
+        # cobrando el mismo bono que un papel todavía comprimiendo, a
+        # punto de romper. El frontend usa este campo para cortar el bono
+        # de Pilar C en cuanto la ruptura ya ocurrió, aunque VCP Detected
+        # siga en True (vigente, dentro del margen de ya_rota).
+        ya_rompio = bool(np.any(c[ultimo_li_idx:] > pivot_base))
+
         if ya_rota:
             return {
                 'VCP Score': 0, 'VCP Detected': False, 'VCP Contractions': n_c,
                 'VCP Tightness': round(last_pct, 2), 'VCP Dist Pivot %': round(dist_pivot, 2),
                 'VCP Vol Decreasing': vol_dec >= 0.5, 'VCP Techo Toques': techo_toques,
-                'VCP Techo': round(pivot_base, 2),
+                'VCP Techo': round(pivot_base, 2), 'VCP Ya Rompio': True,
             }
 
         score = 0
@@ -1820,11 +1835,12 @@ def _detectar_vcp_raw(hist, pivot_order=3):
             'VCP Vol Decreasing': vol_dec >= 0.5,
             'VCP Techo Toques':   techo_toques,
             'VCP Techo':          round(pivot_base, 2),
+            'VCP Ya Rompio':      ya_rompio,
         }
     except:
         return {'VCP Score': None, 'VCP Detected': False, 'VCP Contractions': 0,
                 'VCP Tightness': None, 'VCP Dist Pivot %': None, 'VCP Vol Decreasing': False,
-                'VCP Techo Toques': None, 'VCP Techo': None}
+                'VCP Techo Toques': None, 'VCP Techo': None, 'VCP Ya Rompio': False}
 
 
 def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
