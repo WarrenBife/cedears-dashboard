@@ -2484,17 +2484,33 @@ def _penalizacion_sma50_pendiente(rs_score, sma50_slope_pct):
 # por ticker (misma direccion en ambas mitades). Es la señal mas fuerte
 # de toda esta racha de investigaciones.
 RSI_CONFIRMACION_RSI_TECHO      = 70.0  # RSI que cuenta como "sobrecompra" en la ventana previa
-RSI_CONFIRMACION_CAIDA_MIN      = 0.08  # caida minima de precio desde el maximo de esa ventana
 RSI_CONFIRMACION_LOOKBACK_PICO  = 15    # ruedas hacia atras para buscar el maximo de RSI/precio
 RSI_CONFIRMACION_VENTANA_ESPERA = 10    # tope de ruedas hacia atras para reconstruir el "dia 0" del episodio
 
 def _rsi_sobrecompra_sin_confirmar(hist):
     """True si HOY el RSI esta en la franja de puntaje pleno (45-60) del
     componente RSI de Pilar C, pero llego ahi viniendo de sobrecompra
-    (RSI>=70 en los ultimos 15 dias) con una caida de precio >=8% desde
-    ese maximo, Y TODAVIA no mostro 2 dias verdes seguidos desde que
-    entro a esa zona. Si es True, el frontend debe dar 0 pts al
-    componente de RSI en vez del valor normal de la triangular."""
+    (RSI>=70 en los ultimos 15 dias) -- sin importar cuanto haya caido el
+    precio desde ese maximo, alcanza con que haya caido algo -- Y TODAVIA
+    no mostro 2 dias verdes seguidos desde que entro a esa zona. Si es
+    True, el frontend debe dar 0 pts al componente de RSI en vez del
+    valor normal de la triangular.
+    #
+    # 2026-08, caso TTE: originalmente exigia una caida de precio >=8%
+    # desde el maximo (RSI_CONFIRMACION_CAIDA_MIN, caso de origen BABA,
+    # commit 934c204). El usuario preguntó por que el filtro no aplicaba
+    # a caidas chicas -- backtest a escala (308 tickers, 8 años, mismo
+    # cache que el informe original, 12.448 eventos "dia0") mostró que
+    # la regla de 2 dias verdes seguidos separa igual de fuerte en
+    # caidas de 0-3% (88,7% fracaso sin confirmar vs. 39,3% confirmando)
+    # que en caidas >=8% (85,4% vs. 44,0%) -- el umbral de caida minima
+    # no aportaba nada, era la regla de 2 verdes seguidos la que hacia
+    # todo el trabajo. Confirmado con split por mitades de tickers
+    # (semilla fija, 154/154), misma direccion y magnitud en ambas.
+    # Se probó también, para caidas chicas, exigir solo 1 dia verde (en
+    # vez de 2 seguidos) -- descartado: mismo problema que ya se había
+    # encontrado para caidas grandes, ~100% confirma con 1 solo dia
+    # verde en cualquier bucket de caida, no filtra nada."""
     try:
         close = hist['Close'].values
         rsi = _rsi14_serie_completa(hist['Close']).values
@@ -2524,8 +2540,8 @@ def _rsi_sobrecompra_sin_confirmar(hist):
             if max_precio <= 0:
                 break
             caida = (max_precio - close[k]) / max_precio
-            if caida < RSI_CONFIRMACION_CAIDA_MIN:
-                break
+            if caida <= 0:
+                break  # sin caida real (precio todavia en el maximo), no hay episodio
             dia0 = k
         if dia0 is None:
             return False  # no viene de este patron -- el gate no aplica
