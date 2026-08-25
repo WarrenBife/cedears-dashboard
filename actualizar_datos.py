@@ -1794,7 +1794,39 @@ def _detectar_vcp_raw(hist, pivot_order=3):
         # punto de romper. El frontend usa este campo para cortar el bono
         # de Pilar C en cuanto la ruptura ya ocurrió, aunque VCP Detected
         # siga en True (vigente, dentro del margen de ya_rota).
-        ya_rompio = bool(np.any(c[ultimo_li_idx:] > pivot_base))
+        #
+        # Excepción (2026-08, mismo caso TTE, segundo pedido): si la
+        # ruptura vino con volumen fuerte (>= 1.2x el promedio de las 20
+        # ruedas previas), se interpreta como una ruptura "de calidad" --
+        # todavía vale seguir cobrando el bono de compresión mientras el
+        # papel no muestre un día negativo (cierre < cierre del día
+        # anterior) desde la ruptura en adelante. En cuanto aparece ese
+        # primer día negativo, "ya rompió" pasa a True y no vuelve atrás
+        # (no hace falta trackear más: en corridas futuras la ruptura ya
+        # va a estar más atrás en el tiempo, dentro de la ventana barrida
+        # más abajo, y el día negativo -- si existió -- ya va a estar
+        # incluido en c[ultimo_li_idx:]).
+        idx_ruptura = None
+        candidatos_ruptura = np.where(c[ultimo_li_idx:] > pivot_base)[0]
+        if len(candidatos_ruptura) > 0:
+            idx_ruptura = ultimo_li_idx + int(candidatos_ruptura[0])
+
+        ya_rompio = False
+        if idx_ruptura is not None:
+            vol_confirmado = False
+            if idx_ruptura >= 20:
+                vol_prom_20 = float(np.mean(v[idx_ruptura - 20:idx_ruptura]))
+                if vol_prom_20 > 0:
+                    vol_confirmado = v[idx_ruptura] >= 1.2 * vol_prom_20
+            if not vol_confirmado:
+                ya_rompio = True
+            else:
+                # Ruptura con volumen -- se mantiene el patrón hasta el
+                # primer día negativo (cierre < cierre previo) posterior.
+                dias_negativos = np.where(
+                    c[idx_ruptura + 1:] < c[idx_ruptura:-1]
+                )[0]
+                ya_rompio = len(dias_negativos) > 0
 
         if ya_rota:
             return {
