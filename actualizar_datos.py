@@ -1139,6 +1139,16 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
         # sacudida, es una baja real que hizo un nuevo piso mas abajo, y el
         # candidato entero se descarta (no se sigue buscando confirmacion
         # sobre un piso que ya quedo atras).
+        #
+        # La perdida del minimo PROPIO del evento se mide con el CIERRE de
+        # la vela siguiente, no con la mecha (2026-08, mismo hilo TTE):
+        # una mecha que perfora el low del dia del sacudon pero cierra de
+        # vuelta arriba no rompio nada de verdad -- es, si acaso, un
+        # retest que sostiene. Solo un CIERRE por debajo de ese minimo
+        # confirma que el piso se perdio en serio. Los otros dos niveles
+        # (minimo de 2 semanas, minimo de la base) siguen con su propia
+        # medida de siempre -- son referencias mas estructurales, no el
+        # piso puntual del propio dia del sacudon.
         MAX_DIAS_CONFIRMACION = 2
 
         def _buscar_confirmacion(idx_evento, low_evento, cierre_ref, minimo_2sem):
@@ -1150,7 +1160,7 @@ def detectar_sacudon(hist, base, atr14_pct_valor):
             importante (se descarta directamente, no busca mas alla)."""
             limite = min(idx_evento + MAX_DIAS_CONFIRMACION, n - 1)
             for j in range(idx_evento, limite + 1):
-                if low[j] < low_evento or close[j] < minimo_2sem or low[j] <= base['minimo']:
+                if close[j] < low_evento or close[j] < minimo_2sem or low[j] <= base['minimo']:
                     return None
                 if close[j] > cierre_ref:
                     return j
