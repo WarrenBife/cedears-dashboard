@@ -37,25 +37,31 @@ TICKERS = {
         "NTES", "PDD", "TCOM", "AI", "PATH", "UPST", "HOOD",
         "RKLB", "ASTS", "ALAB", "RGTI", "OKLO", "IREN",
         "IBIT", "ETHA", "ARKK", "CRWV", "TEM", "SATL",
-        "ANET", "SNDK", "NBIS", "ONDS"
+        "ANET", "SNDK", "NBIS", "ONDS",
+        "JMIA", "ADI", "BMNR", "BB", "CLS", "HUT", "JOYY",
+        "RIOT", "SWKS", "SDA", "TRIP", "XPEV", "YELP",
+        "CRWD", "KEEL", "WB", "NIO"
     ],
     "CEDEARs Finanzas": [
         "JPM", "BAC", "GS", "C", "WFC", "USB", "BK", "AXP",
         "V", "MA", "PYPL", "SCHW", "BX", "MS", "AIG",
         "BBD", "ITUB", "BSBR", "SAN", "BBV", "ING",
         "HSBC", "HDB", "IBN", "KB", "MFG", "MUFG", "NMR",
-        "XP", "PAGS", "STNE", "NU", "HOOD", "FISV", "O"
+        "XP", "PAGS", "STNE", "NU", "HOOD", "FISV", "O",
+        "AEG", "BCS", "BRK-B", "EFX", "LYG", "MRSH", "TRV"
     ],
     "CEDEARs Salud": [
         "JNJ", "PFE", "ABBV", "ABT", "MRK", "AMGN", "GILD", "BIIB",
         "MRNA", "BMY", "AZN", "NVS", "GSK", "LLY", "MDT",
-        "ISRG", "DHR", "TMO", "UNH", "CVS", "VRTX", "MDLZ", "HIMS"
+        "ISRG", "DHR", "TMO", "UNH", "CVS", "VRTX", "MDLZ", "HIMS",
+        "CAH"
     ],
     "CEDEARs Consumo & Retail": [
         "KO", "PEP", "MCD", "WMT", "COST", "TGT", "HD", "NKE",
         "SBUX", "DIS", "MO", "PM", "PG", "CL", "KMB", "UL",
         "DEO", "HSY", "MDLZ", "SYY", "TJX", "ROST", "URBN",
-        "ANF", "WBA", "DECK", "HMC", "TM", "CAJ", "TTM"
+        "ANF", "WBA", "DECK", "HMC", "TM", "CAJ", "TTM",
+        "AAP", "CAR", "CCL", "GT", "LVS", "ORLY"
     ],
     "CEDEARs Energía & Materiales": [
         "XOM", "CVX", "BP", "SHEL", "TTE", "OXY", "HAL", "SLB",
@@ -64,14 +70,16 @@ TICKERS = {
         "MUX", "HL", "CDE", "NG", "AUY", "GGB", "SID",
         "NUE", "SCCO", "MOS", "DOW", "LND", "BNG",
         "SUZ", "BAK", "UGP", "PBR", "PTR", "SNP",
-        "COP", "GLNG", "MP", "CCJ", "NEE"
+        "COP", "GLNG", "MP", "CCJ", "NEE",
+        "VST", "FSLR", "DD", "EQNR", "LAR", "LAC", "NXE", "TEN", "TX"
     ],
     "CEDEARs Industria & Aero": [
         "BA", "CAT", "MMM", "GE", "HON", "RTX", "LMT", "HWM",
         "DE", "PCAR", "UNP", "FDX", "DAL", "AAL", "UAL",
         "GM", "F", "STLA", "HOG", "ERJ", "TSLA",
         "RACE", "HPQ", "IP", "AVY", "IFF", "GLW",
-        "ECL", "EMR", "JCI", "PKS", "CX", "ARCO"
+        "ECL", "EMR", "JCI", "PKS", "CX", "ARCO",
+        "PBI", "SNA", "SPCE", "XRX"
     ],
     "CEDEARs ETFs Renta Variable": [
         "SPY", "QQQ", "DIA", "IWM", "VIG", "VEA",
@@ -91,18 +99,21 @@ TICKERS = {
     "CEDEARs Brasil": [
         "VALE", "PBR", "ITUB", "BBD", "BSBR", "SUZ", "GGB",
         "BAK", "BRFS", "EBR", "ELP", "SBS", "UGP",
-        "ABEV", "PAGS", "STNE", "XP", "CAAP"
+        "ABEV", "PAGS", "STNE", "XP", "CAAP",
+        "VIV", "TIMB"
     ],
     "CEDEARs Europa & Asia": [
         "ASML", "SAP", "ADBE", "AZN", "NVS", "GSK", "BAYER",
         "BAYN", "BAS", "EOAN", "NEC1", "MBG", "BSN",
         "VOD", "T", "TMUS", "VZ", "NGG", "ORAN",
         "PHG", "ING", "BBV", "SAN",
-        "TTE", "ENI", "SHEL", "BP",
+        "TTE", "E", "SHEL", "BP",
         "RIO", "BHP", "LFC", "SNP", "PTR",
         "HMC", "TM", "SONY", "MUFG", "MFG", "NMR",
         "TSM", "SMSN", "INFY", "HDB", "IBN",
-        "BABA", "JD", "BIDU", "NTES", "PDD", "SE"
+        "BABA", "JD", "BIDU", "NTES", "PDD", "SE",
+        "AMX", "ERIC", "FMX", "KEP", "KOF", "NOK",
+        "PAC", "ASR", "PSO", "TIIAY", "TV", "AKO-B"
     ]
 }
 
@@ -120,6 +131,9 @@ ETF_SECTOR = {
     "PATH": "XLK", "PLTR": "XLK", "QCOM": "XLK", "RGTI": "XLK",
     "SHOP": "XLK", "SNDK": "XLK", "SNOW": "XLK", "TEAM": "XLK",
     "TWLO": "XLK", "TXN": "XLK", "ZM": "XLK",
+    "ADI": "XLK", "BMNR": "XLK", "BB": "XLK", "CLS": "XLK",
+    "HUT": "XLK", "RIOT": "XLK", "SWKS": "XLK", "CRWD": "XLK",
+    "KEEL": "XLK",
 
     # Financiero
     "AIG": "XLF", "AXP": "XLF", "BAC": "XLF", "BBAR": "XLF",
@@ -129,6 +143,7 @@ ETF_SECTOR = {
     "PYPL": "XLF", "SCHW": "XLF", "SPGI": "XLF", "SUPV": "XLF",
     "UPST": "XLF", "USB": "XLF", "V": "XLF", "WFC": "XLF",
     "XYZ": "XLF",
+    "BRK-B": "XLF", "EFX": "XLF", "MRSH": "XLF", "TRV": "XLF",
 
     # Salud
     "ABBV": "XLV", "ABT": "XLV", "AMGN": "XLV", "BIIB": "XLV", "BMY": "XLV",
@@ -136,11 +151,13 @@ ETF_SECTOR = {
     "ISRG": "XLV", "JNJ": "XLV", "LLY": "XLV", "MDT": "XLV",
     "MRK": "XLV", "MRNA": "XLV", "PFE": "XLV", "TEM": "XLV",
     "TMO": "XLV", "UNH": "XLV", "VRTX": "XLV",
+    "CAH": "XLV",
 
     # Energia
     "BKR": "XLE", "COP": "XLE", "CVX": "XLE", "HAL": "XLE",
     "OXY": "XLE", "PSX": "XLE", "SLB": "XLE", "VIST": "XLE",
     "XOM": "XLE", "YPF": "XLE",
+    "FSLR": "XLE", "TEN": "XLE",
 
     # Consumo discrecional
     "ABNB": "XLY", "AMZN": "XLY", "ANF": "XLY", "ARCO": "XLY",
@@ -148,6 +165,8 @@ ETF_SECTOR = {
     "F": "XLY", "GM": "XLY", "HD": "XLY", "HOG": "XLY",
     "MCD": "XLY", "MELI": "XLY", "NKE": "XLY", "ROST": "XLY",
     "SBUX": "XLY", "TJX": "XLY", "TSLA": "XLY", "URBN": "XLY",
+    "JMIA": "XLY", "AAP": "XLY", "CAR": "XLY", "CCL": "XLY",
+    "GT": "XLY", "LVS": "XLY", "ORLY": "XLY", "TRIP": "XLY",
 
     # Consumo basico
     "CL": "XLP", "COST": "XLP", "HSY": "XLP", "KMB": "XLP",
@@ -161,21 +180,24 @@ ETF_SECTOR = {
     "FDX": "XLI", "GE": "XLI", "HON": "XLI", "HWM": "XLI",
     "JCI": "XLI", "LMT": "XLI", "MMM": "XLI", "PCAR": "XLI",
     "RTX": "XLI", "UAL": "XLI", "UBER": "XLI", "UNP": "XLI",
+    "PBI": "XLI", "SNA": "XLI", "XRX": "XLI",
 
     # Materiales
     "AVY": "XLB", "BIOX": "XLB", "DOW": "XLB", "ECL": "XLB",
     "FCX": "XLB", "IFF": "XLB", "IP": "XLB", "LOMA": "XLB",
     "MOS": "XLB", "MP": "XLB", "NEM": "XLB", "NUE": "XLB",
     "SCCO": "XLB",
+    "DD": "XLB", "LAR": "XLB", "LAC": "XLB", "TX": "XLB",
 
     # Comunicaciones
     "DIS": "XLC", "GOOGL": "XLC", "META": "XLC", "NFLX": "XLC",
     "PINS": "XLC", "RBLX": "XLC", "ROKU": "XLC", "SNAP": "XLC",
     "SPOT": "XLC", "T": "XLC", "TMUS": "XLC", "VZ": "XLC",
+    "YELP": "XLC",
 
     # Utilities
     "CEG": "XLU", "CEPU": "XLU", "NEE": "XLU", "PAM": "XLU",
-    "TGS": "XLU",
+    "TGS": "XLU", "VST": "XLU",
 
     # Real Estate
     "IRS": "XLRE", "O": "XLRE",
@@ -185,10 +207,12 @@ ETF_SECTOR = {
     "GGB": "EWZ", "ITUB": "EWZ", "LND": "EWZ", "PAGS": "EWZ",
     "PBR": "EWZ", "SBS": "EWZ", "SID": "EWZ", "STNE": "EWZ",
     "SUZ": "EWZ", "UGP": "EWZ", "VALE": "EWZ", "XP": "EWZ",
+    "VIV": "EWZ", "TIMB": "EWZ",
 
     # China
     "BABA": "FXI", "BIDU": "FXI", "JD": "FXI", "NTES": "FXI",
     "PDD": "FXI", "TCOM": "FXI",
+    "JOYY": "FXI", "NIO": "FXI", "SDA": "FXI", "WB": "FXI", "XPEV": "FXI",
 
     # Japon
     "HMC": "EWJ", "MFG": "EWJ", "MUFG": "EWJ", "NMR": "EWJ",
@@ -201,13 +225,19 @@ ETF_SECTOR = {
     "PHG": "EFA", "RACE": "EFA", "RIO": "EFA", "SAN": "EFA",
     "SAP": "EFA", "SHEL": "EFA", "STLA": "EFA", "TTE": "EFA",
     "UL": "EFA", "VOD": "EFA",
+    "AEG": "EFA", "BCS": "EFA", "LYG": "EFA", "E": "EFA",
+    "EQNR": "EFA", "ERIC": "EFA", "NOK": "EFA", "PSO": "EFA",
+    "TIIAY": "EFA",
 
     # Emergentes ex-China/Brasil/Japon (India, Taiwan, Corea, Singapur)
     "HDB": "EEM", "IBN": "EEM", "INFY": "EEM", "KB": "EEM",
     "NU": "EEM", "SE": "EEM", "TSM": "EEM",
+    "KEP": "EEM",
 
     # Mexico / Latam amplio
     "CX": "ILF",
+    "AMX": "ILF", "FMX": "ILF", "PAC": "ILF", "ASR": "ILF",
+    "TV": "ILF", "KOF": "ILF", "AKO-B": "ILF",
 
     # Mineras de oro y plata (sin sectorial propio en la spec)
     "AEM": "GDX", "AUY": "GDX", "CDE": "GDX", "GFI": "GDX",
@@ -215,10 +245,10 @@ ETF_SECTOR = {
     "MUX": "GDX", "NG": "GDX", "PAAS": "GDX",
 
     # Uranio / nuclear (sin sectorial propio en la spec)
-    "CCJ": "URA", "OKLO": "URA",
+    "CCJ": "URA", "OKLO": "URA", "NXE": "URA",
 
     # Aeroespacial / space (sin sectorial propio en la spec, incluye small caps de nicho)
-    "ASTS": "ITA", "RKLB": "ITA", "SATL": "ITA"
+    "ASTS": "ITA", "RKLB": "ITA", "SATL": "ITA", "SPCE": "ITA"
 }
 
 import yfinance as yf

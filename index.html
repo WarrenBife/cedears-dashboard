@@ -1056,7 +1056,22 @@ const NOMBRES = {
   'DIA':'Dow Jones ETF','FXI':'China Large-Cap ETF','TLT':'Treasury Bond ETF',
   'GDX':'Gold Miners ETF','SLV':'Silver ETF','ARGT':'Argentina ETF',
   'CIBR':'Cybersecurity ETF','CLOU':'Cloud Computing ETF','BOTZ':'AI & Robotics ETF',
-  'KRE':'Regional Banks ETF','XOP':'Oil & Gas E&P ETF','ICLN':'Clean Energy ETF'
+  'KRE':'Regional Banks ETF','XOP':'Oil & Gas E&P ETF','ICLN':'Clean Energy ETF',
+  'VST':'Vistra Corp.','FSLR':'First Solar','JMIA':'Jumia Technologies','AAP':'Advance Auto Parts',
+  'AEG':'Aegon N.V.','AMX':'América Móvil','ADI':'Analog Devices','CAR':'Avis Budget Group',
+  'BCS':'Barclays plc','BRK-B':'Berkshire Hathaway','BMNR':'Bitmine Immersion Tech.','BB':'BlackBerry Ltd.',
+  'CAH':'Cardinal Health','CCL':'Carnival Corp.','CLS':'Celestica Inc.','DD':'DuPont de Nemours',
+  'EFX':'Equifax Inc.','EQNR':'Equinor ASA','FMX':'Femsa','GT':'Goodyear Tire & Rubber',
+  'PAC':'Aeropuerto del Pacífico','ASR':'Aeropuerto del Sureste','TV':'Grupo Televisa','HUT':'Hut 8 Corp.',
+  'JOYY':'JOYY Inc.','KEP':'Korea Electric Power','LVS':'Las Vegas Sands','LAR':'Lithium Americas (Argentina)',
+  'LAC':'Lithium Americas Corp.','LYG':'Lloyds Banking Group','ERIC':'Ericsson','NXE':'NexGen Energy',
+  'NIO':'NIO Inc.','ORLY':"O'Reilly Automotive",'PSO':'Pearson plc','PBI':'Pitney Bowes',
+  'RIOT':'Riot Platforms','SWKS':'Skyworks Solutions','SNA':'Snap-on Inc.','SDA':'SunCar Technology',
+  'TIIAY':'Telecom Italia','VIV':'Telefônica Brasil','TEN':'Tenaris S.A.','TIMB':'TIM S.A.',
+  'TRIP':'Tripadvisor Inc.','SPCE':'Virgin Galactic','XPEV':'XPeng Inc.','YELP':'Yelp Inc.',
+  'CRWD':'CrowdStrike Holdings','MRSH':'Marsh McLennan','KEEL':'Keel Infrastructure','AKO-B':'Embotelladora Andina',
+  'KOF':'Coca-Cola FEMSA','NOK':'Nokia Corp.','TX':'Ternium S.A.','TRV':'Travelers Cos.',
+  'WB':'Weibo Corp.','XRX':'Xerox Holding'
 };
 const N = t => NOMBRES[t] || t;
 
@@ -3036,7 +3051,11 @@ const CEDEAR_RATIOS = {
   "IEUR":0.09090909,"IBB":0.03703704,"VEA":0.1,"IVE":0.025,"IVW":0.05,
   "XLC":0.05263158,"XLY":0.02325581,"XLB":0.05555556,"XLI":0.03571429,
   "XLK":0.02173913,"XLV":0.03448276,"XLP":0.0625,"XLRE":0.11111111,
-  "XYZ":0.05,"ADS":0.04545455,"AAP":0.07142857,"HIMS":0.25
+  "XYZ":0.05,"ADS":0.04545455,"AAP":0.07142857,"HIMS":0.25,
+  "VST":0.03846154,"JMIA":1,"BRK-B":0.04545455,"BMNR":0.125,
+  "CLS":0.05,"DD":0.2,"EQNR":0.16666667,"HUT":5,"JOYY":0.2,
+  "TEN":1,"SPCE":2,"XPEV":0.25,"CRWD":0.01265823,"MRSH":0.0625,
+  "KEEL":5,"AKO-B":1
 };
 // Para ADRs argentinos (YPF, GGAL, BMA, etc.) el ratio es 1:1
 function getRatioCedear(ticker) {
@@ -5689,7 +5708,22 @@ var WB_NOMBRES={
   'XLK':'The Technology Select Sector SPDR Fund','XLP':'The Consumer Staples Select Sector SPDR Fund','XLRE':'The Real Estate Select Sector SPDR Fund',
   'XLU':'Utilities Select Sector SPDR Fund','XLV':'The Health Care Select Sector SPDR Fund','XLY':'The Consumer Discretionary Select Sector SPDR Fund',
   'XOM':'EXXON MOBIL CORPORATION','XOP':'SPDR S&P Oil & Gas Exploration & Production ETF','XP':'XP INC','XYZ':'BLOCK, INC',
-  'YPF':'YPF S.A.','ZM':'ZOOM COMMUNICATIONS INC'
+  'YPF':'YPF S.A.','ZM':'ZOOM COMMUNICATIONS INC',
+  'VST':'VISTRA CORPORATION','FSLR':'FIRST SOLAR INC.','JMIA':'JUMIA TECHNOLOGIES AG','AAP':'ADVANCE AUTO PARTS INC',
+  'AEG':'AEGON N.V.','AMX':'AMERICA MOVIL','ADI':'ANALOG DEVICES','CAR':'AVIS BUDGET GROUP INC.',
+  'BCS':'BARCLAYS BANK PLC','BRK-B':'BERKSHIRE HATHAWAY INC.','BMNR':'BITMINE IMMERSION TECHNOLOGIES, INC.','BB':'BLACKBERRY LIMITED',
+  'CAH':'CARDINAL HEALTH INC','CCL':'CARNIVAL CORP','CLS':'CELESTICA INC','DD':'DUPONT DE NEMOURS INC.',
+  'EFX':'EQUIFAX INC.','EQNR':'EQUINOR ASA','FMX':'FOMENTO ECONOMICO MEXICANO - FEMSA','GT':'GOODYEAR TIRE & RUBBER CO./THE',
+  'PAC':'GRUPO AEROPORTUARIO DEL PACIFICO, S.A.B. DE C.V.','ASR':'GRUPO AEROPORTUARIO DEL SURESTE, S.A.B. DE C.V.','TV':'GRUPO TELEVISA S.A.','HUT':'HUT 8 MINING CORP.',
+  'JOYY':'JOYY INC.','KEP':'KOREA ELECTRIC POWER CORP.','LVS':'LAS VEGAS SANDS CORP','LAR':'LITHIUM AMERICAS (ARGENTINA) CORP',
+  'LAC':'LITHIUM AMERICAS CORP','LYG':'LLOYDS BANKING GROUP PLC','ERIC':'LM ERICSSON TELEPHONE CO.','NXE':'NEXGEN ENERGY LTD',
+  'NIO':'NIO INC.','ORLY':"O'REILLY AUTOMOTIVE INC",'PSO':'PEARSON PLC','PBI':'PITNEY BOWES INC',
+  'RIOT':'RIOT PLATFORMS','SWKS':'SKYWORKS SOLUTIONS','SNA':'SNAP-ON INC','SDA':'SUNCAR TECHNOLOGY GROUP INC',
+  'TIIAY':'TELECOM ITALIA S.P.A.','VIV':'TELEFÔNICA BRASIL S.A.','TEN':'TENARIS S.A.','TIMB':'TIM PARTICIPAÇÕES S.A.',
+  'TRIP':'TRIPADVISOR, INC.','SPCE':'VIRGIN GALACTIC','XPEV':'XPENG INC','YELP':'YELP INC.',
+  'CRWD':'CROWDSTRIKE HOLDINGS INC','MRSH':'MARSH MCLENNAN COMPANIES INC.','KEEL':'KEEL INFRASTRUCTURE CORP.','AKO-B':'EMBOTELLADORA ANDINA S.A.',
+  'KOF':'COCA-COLA FEMSA, S.A.B. DE C.V.','NOK':'NOKIA CORPORATION','TX':'TERNIUM S.A.','TRV':'THE TRAVELERS COS. INC.',
+  'WB':'WEIBO CORPORATION','XRX':'XEROX HOLDING CORPORATION'
 };
 function _n(v){ return (v!=null&&v!=='')?+v:null; }
 function _b(v){
