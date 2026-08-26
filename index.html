@@ -4679,6 +4679,7 @@ if ('serviceWorker' in navigator) {
     return {score:Math.round(p1+p2+p3), p1:p1, p2:p2, p3:p3, deltaRs:deltaRs,
       contactoRuedas:contactoRuedas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto};
   }
+  window.calcEMA200Reversal = calcEMA200Reversal;
   window.wbRenderEMA200Reversal = function(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
     var rsMinEl=$('ema200-rs-min');
@@ -8496,7 +8497,10 @@ try {
   .wbm-d-logo{width:32px;height:32px;border-radius:50%;object-fit:contain;flex-shrink:0;
     background:rgba(255,255,255,0.06);border:1px solid rgba(34,201,138,0.3);
     box-shadow:0 0 0 1px rgba(34,201,138,0.15),0 0 14px rgba(34,201,138,0.25);}
-  .wbm-d-tick{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;}
+  .wbm-d-tick{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .wbm-d-rank{display:inline-block;padding:1.5px 7px;border-radius:20px;background:rgba(79,142,247,0.12);
+    border:1px solid rgba(79,142,247,0.35);color:var(--blue);font-family:'DM Mono',monospace;
+    font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .wbm-d-name{font-size:10.5px;color:var(--muted);margin-top:1px;}
   .wbm-d-price-col{margin-left:auto;text-align:right;}
   .wbm-d-price{font-family:'DM Mono',monospace;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
@@ -8707,6 +8711,33 @@ function wbmSignalItems(d){
   return items;
 }
 
+/* ── "También destaca en" -- va en la parte superior de la card,
+   independiente del Warren Score: avisa si el ticker aparece HOY en
+   alguno de los 3 paneles cross-universo del dashboard. Mismos
+   criterios que usa cada panel para listar candidatos, para que la
+   card nunca diga algo que el panel de origen no confirme:
+   - 🎯 Rebotes en la EMA200 (calcEMA200Reversal, expuesto en window
+     desde wb-v2-js -- devuelve null si no califica).
+   - 🧬 Bases VCP de Alta Calidad (WB UPGRADE V9): VCP Score ≥60.
+   - 📊 Volumen inusual hoy: Vol Inusual % >50 (mismo umbral que usa
+     el resto de la app -- quickFilter 'vol', contador 'st-vol', etc.). ── */
+function wbmCrossPanelItems(d){
+  var items = [];
+  if (typeof calcEMA200Reversal === 'function') {
+    var r = calcEMA200Reversal(d);
+    if (r) items.push({emoji:'🎯', label:'Rebotes en la EMA200 — score ' + r.score});
+  }
+  var vcpScore = Number(d['VCP Score']);
+  if (!isNaN(vcpScore) && vcpScore >= 60) {
+    items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore)});
+  }
+  var volInu = d['Vol Inusual %'];
+  if (volInu !== null && volInu !== undefined && volInu > 50) {
+    items.push({emoji:'📊', label:'Volumen inusual hoy — +' + Math.round(volInu) + '%'});
+  }
+  return items;
+}
+
 /* ── Métricas del detalle, separadas por pilar (Tendencia / Fuerza RS /
    Contracción / Setup) -- mismo agrupamiento que los 4 pilares del
    Warren Score, con los campos crudos que alimentan a cada uno. ── */
@@ -8909,7 +8940,16 @@ window.wbmOpenDetail = function(ticker){
   var dLogo = _wbmEl('wbm-d-logo');
   dLogo.style.display = '';
   dLogo.src = 'https://financialmodelingprep.com/image-stock/' + encodeURIComponent(ticker) + '.png';
-  _wbmEl('wbm-d-tick').textContent = ticker;
+  _wbmEl('wbm-d-tick-text').textContent = ticker;
+  var ranks = wbmComputeRanks();
+  var puesto = ranks[ticker];
+  var rankEl = _wbmEl('wbm-d-rank');
+  if (puesto) {
+    rankEl.style.display = '';
+    rankEl.textContent = '#' + puesto + ' de ' + Object.keys(ranks).length;
+  } else {
+    rankEl.style.display = 'none';
+  }
   _wbmEl('wbm-d-name').textContent = (typeof N === 'function' ? N(ticker) : ticker) + (d['Sector'] ? ' · ' + d['Sector'] : '');
   _wbmEl('wbm-d-price').textContent = d['Precio'] != null ? '$' + _wbmFmt(d['Precio'], 2) : '—';
   var varDia = d['Var Día %'];
@@ -8987,6 +9027,18 @@ window.wbmOpenDetail = function(ticker){
     sigWrap.style.display = 'none';
   }
 
+  var crossItems = wbmCrossPanelItems(d);
+  var crossWrap = _wbmEl('wbm-cross-card-wrap');
+  if (crossItems.length) {
+    crossWrap.style.display = '';
+    _wbmEl('wbm-cross-card').innerHTML = crossItems.map(function(s){
+      return '<div class="wbm-sig-item"><span class="wbm-sig-emoji">' + s.emoji + '</span>' +
+        '<span class="wbm-sig-text">' + _wbmEsc(s.label) + '</span></div>';
+    }).join('');
+  } else {
+    crossWrap.style.display = 'none';
+  }
+
   wbmDrawFrChart(ticker);
 
   _wbmEl('wbm-metrics-body').innerHTML = wbmBuildMetricsSections(d);
@@ -9059,10 +9111,11 @@ window.ocultarGrafico = function(){};
         '<div class="wbm-d-head">' +
           '<button class="wbm-back-btn" onclick="wbmCloseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
           '<img class="wbm-d-logo" id="wbm-d-logo" onerror="this.style.display=\'none\'">' +
-          '<div><div class="wbm-d-tick" id="wbm-d-tick"></div><div class="wbm-d-name" id="wbm-d-name"></div></div>' +
+          '<div><div class="wbm-d-tick"><span id="wbm-d-tick-text"></span><span class="wbm-d-rank" id="wbm-d-rank" style="display:none"></span></div><div class="wbm-d-name" id="wbm-d-name"></div></div>' +
           '<div class="wbm-d-price-col"><div class="wbm-d-price" id="wbm-d-price"></div><div class="wbm-d-var" id="wbm-d-var"></div></div>' +
         '</div>' +
         '<div class="wbm-d-scroll">' +
+          '<div class="wbm-card" id="wbm-cross-card-wrap" style="display:none"><div class="wbm-card-label">También destaca en</div><div id="wbm-cross-card"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Warren Score</div><div class="wbm-ws-row">' +
             '<div class="wbm-gauge-wrap"><svg viewBox="0 0 100 100" width="88" height="88">' +
               '<circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg3)" stroke-width="9"></circle>' +
