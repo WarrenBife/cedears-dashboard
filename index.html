@@ -8120,9 +8120,16 @@ function _pilarCv50(d){
     ? 1.0
     : 1 - 0.5 * Math.max(0, Math.min(1, (netoAtrs - 0.8) / 1.7));
 
+  // Lado izquierdo del triangular sacado (2026-08-26, pedido del
+  // usuario): antes una contracción MUY fuerte (ratio<0.25) caía a 0
+  // pts, como si "demasiado quieto" fuera malo -- no tiene sentido,
+  // más contracción nunca debería restar. Ahora el puntaje se mantiene
+  // constante en el máximo desde 0 hasta 0.70 (picoI=izq=0, sin rampa
+  // de subida), y recién a partir de 0.70 empieza a caer hacia 1.05
+  // igual que antes.
   const ptsContraccion = (ratio === null || ratio === undefined)
     ? null
-    : _tri(ratio, 0.25, 0.40, 0.70, 1.05) * 15.25 * factorDireccion;
+    : _tri(ratio, 0, 0, 0.70, 1.05) * 15.25 * factorDireccion;
 
   const ptsRSI = _bool(d['RSI Sobrecompra Sin Confirmar'])
     ? 0
