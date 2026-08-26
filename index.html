@@ -8035,7 +8035,7 @@ try {
 'use strict';
 try {
 
-var WB_SCORE_VERSION_50 = '4.8';
+var WB_SCORE_VERSION_50 = '4.9';
 
 /* ── Gates, Pilar A, Pilar B, Pilar D, restas, churning -- SIN
    CAMBIOS, copias verbatim de V49 ── */
@@ -8092,9 +8092,18 @@ function _pilarBv6V50(d){
   const { pts: ptsFuerza } = _fuerzaUnificadaV50(rs, d['RS Semana ant.']);
   return Math.min(ptsFuerza + ptsFR, 25);
 }
-/* ── Pilar C -- ÚNICO CAMBIO del bloque: ptsRSI da 0 si
-   'RSI Sobrecompra Sin Confirmar' viene en True (ver comentario de
-   cabecera). Resto de Pilar C idéntico a V49. ── */
+/* ── Pilar C -- v4.9 (2026-08-26): se saca el Bono ER (pedido del
+   usuario -- validado contra datos reales: solo 5 de 368 tickers lo
+   tenían activo, la mayoría con valores mínimos <0.5 pts, señal
+   demasiado angosta para pesar 10 pts fijos). Los 10 pts se
+   redistribuyen DENTRO de Pilar C, mismo tope total (35): +4 a
+   Contracción (11.25→15.25), +3 a RSI (8.25→11.25), +3 al bono VCP
+   (5.5→8.5, escalado proporcional entre la parte lineal por VCP Score
+   y el bonus fijo por volumen decreciente: 4.4→6.8, 1.1→1.7). El
+   campo 'Bono ER Pts' sigue calculándose en el pipeline (Python) y
+   mostrándose como métrica informativa en la card mobile -- solo deja
+   de sumar puntos al score. Resto de Pilar C sin cambios respecto a
+   V50 (ptsRSI en 0 si 'RSI Sobrecompra Sin Confirmar'). ── */
 function _pilarCv50(d){
   const sacudon = _bool(d['Sacudon Activo']);
   const actual = d['Contraccion Volatilidad'];
@@ -8113,11 +8122,11 @@ function _pilarCv50(d){
 
   const ptsContraccion = (ratio === null || ratio === undefined)
     ? null
-    : _tri(ratio, 0.25, 0.40, 0.70, 1.05) * 11.25 * factorDireccion;
+    : _tri(ratio, 0.25, 0.40, 0.70, 1.05) * 15.25 * factorDireccion;
 
   const ptsRSI = _bool(d['RSI Sobrecompra Sin Confirmar'])
     ? 0
-    : _tri(d['RSI 14'], 30, 45, 60, 70) * 8.25;
+    : _tri(d['RSI 14'], 30, 45, 60, 70) * 11.25;
 
   // Bono VCP -- solo si el patrón TODAVÍA no rompió (2026-08, caso TTE).
   // VCP Detected sigue en true un tiempo despues de romper (a propósito,
@@ -8129,21 +8138,20 @@ function _pilarCv50(d){
   // romper (para eso está "Breakout Fresh"/Despegue Fresco, otra señal).
   let ptsVcp = 0;
   if (_bool(d['VCP Detected']) && !_bool(d['VCP Ya Rompio'])) {
-    let pv = _lineal(d['VCP Score'], 0, 100, 0, 4.4);
-    if (_bool(d['VCP Vol Decreasing'])) pv += 1.1;
-    ptsVcp = Math.min(pv, 5.5);
+    let pv = _lineal(d['VCP Score'], 0, 100, 0, 6.8);
+    if (_bool(d['VCP Vol Decreasing'])) pv += 1.7;
+    ptsVcp = Math.min(pv, 8.5);
   }
 
   const disponibleSinContraccion = ptsRSI + ptsVcp;
   let base;
   if (ptsContraccion === null) {
-    base = Math.min(disponibleSinContraccion * (25 / 13.75), 25);
+    base = Math.min(disponibleSinContraccion * (35 / 19.75), 35);
   } else {
-    base = Math.min(ptsContraccion + disponibleSinContraccion, 25);
+    base = Math.min(ptsContraccion + disponibleSinContraccion, 35);
   }
 
-  const bonoER = Math.max(0, Math.min(10, +d['Bono ER Pts'] || 0));
-  return base + bonoER;
+  return base;
 }
 function _pilarDv7V50(d){
   const distMin = d['Dist Mín52W %'];
@@ -8264,8 +8272,10 @@ function _penalizacionesV50(d){
   return { pen, flags };
 }
 
-/* ── calcWarrenDetalleV50 -- misma firma, Warren Score v4.8: ptsRSI=0
-   si viene de sobrecompra sin confirmar, todo lo demás IDÉNTICO a V49 ── */
+/* ── calcWarrenDetalleV50 -- misma firma, Warren Score v4.9: Pilar C
+   ya no suma Bono ER (redistribuido dentro del propio Pilar C, ver
+   cabecera de _pilarCv50). v4.8 (ptsRSI=0 si sobrecompra sin
+   confirmar) sigue vigente, sin cambios. ── */
 window.calcWarrenDetalleV50 = function(d){
   const fallas = _evalGatesV50(d);
   const sacudon = _bool(d['Sacudon Activo']);
