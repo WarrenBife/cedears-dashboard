@@ -8848,8 +8848,10 @@ function wbmBuildMetricsSections(d){
   if (contrVol != null) boxes += wbmMetricBox('Ratio de contracción', _wbmFmt(contrVol,2));
   var volRatio = d['Vol 5d/40d'];
   if (volRatio != null) boxes += wbmMetricBox('Ratio de volumen (5d/40d)', _wbmFmt(volRatio,2));
-  var bonoEr = d['Bono ER Pts'];
-  if (bonoEr != null) boxes += wbmMetricBox('Bono de eficiencia', _wbmFmt(bonoEr,1) + '/10', (+bonoEr)>0?'var(--green)':'var(--text)');
+  // Bono de eficiencia (Bono ER Pts) sacado -- Warren Score v4.9, ya no
+  // suma al score (ver _pilarCv50), mostrarlo acá confundía porque
+  // parecía seguir afectando el /10 de Pilar C. El campo sigue
+  // calculándose en el pipeline, solo se dejó de mostrar en la card.
   var sContraccion = wbmMetricSection('Contracción', WBM_COLORS.pc, boxes);
 
   // Setup (Pilar D)
