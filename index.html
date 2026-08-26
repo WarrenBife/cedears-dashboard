@@ -8545,8 +8545,10 @@ try {
 
   .wbm-sig-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
   .wbm-sig-item:last-of-type{border-bottom:none;}
+  .wbm-sig-item[onclick]:active{background:rgba(255,255,255,0.04);}
   .wbm-sig-emoji{font-size:14px;flex-shrink:0;width:20px;text-align:center;}
   .wbm-sig-text{flex:1;font-size:11.5px;color:var(--green);}
+  .wbm-sig-arrow{flex-shrink:0;color:var(--muted);font-size:14px;}
 
   .wbm-fr-svg{width:100%;height:90px;display:block;}
   .wbm-fr-caption{font-size:9.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
@@ -8720,16 +8722,20 @@ function wbmSignalItems(d){
      desde wb-v2-js -- devuelve null si no califica).
    - 🧬 Bases VCP de Alta Calidad (WB UPGRADE V9): VCP Score ≥60.
    - 📊 Volumen inusual hoy: Vol Inusual % >50 (mismo umbral que usa
-     el resto de la app -- quickFilter 'vol', contador 'st-vol', etc.). ── */
+     el resto de la app -- quickFilter 'vol', contador 'st-vol', etc.).
+   `panelId` (cuando está presente) hace clickeable el ítem -- cierra
+   la card y lleva al cuadro/ranking de origen, ver wbmGoToPanel(). No
+   se agrega en Volumen inusual: ese panel es un gráfico (renderVolInusual,
+   canvas #vinuChart), no un ranking/lista al que tenga sentido saltar. ── */
 function wbmCrossPanelItems(d){
   var items = [];
   if (typeof calcEMA200Reversal === 'function') {
     var r = calcEMA200Reversal(d);
-    if (r) items.push({emoji:'🎯', label:'Rebotes en la EMA200 — score ' + r.score});
+    if (r) items.push({emoji:'🎯', label:'Rebotes en la EMA200 — score ' + r.score, panelId:'wb-ema200-panel'});
   }
   var vcpScore = Number(d['VCP Score']);
   if (!isNaN(vcpScore) && vcpScore >= 60) {
-    items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore)});
+    items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore), panelId:'wb-vcpq-panel'});
   }
   var volInu = d['Vol Inusual %'];
   if (volInu !== null && volInu !== undefined && volInu > 50) {
@@ -9032,8 +9038,10 @@ window.wbmOpenDetail = function(ticker){
   if (crossItems.length) {
     crossWrap.style.display = '';
     _wbmEl('wbm-cross-card').innerHTML = crossItems.map(function(s){
-      return '<div class="wbm-sig-item"><span class="wbm-sig-emoji">' + s.emoji + '</span>' +
-        '<span class="wbm-sig-text">' + _wbmEsc(s.label) + '</span></div>';
+      var click = s.panelId ? ' style="cursor:pointer" onclick="wbmGoToPanel(\'' + s.panelId + '\')"' : '';
+      var arrow = s.panelId ? '<span class="wbm-sig-arrow">›</span>' : '';
+      return '<div class="wbm-sig-item"' + click + '><span class="wbm-sig-emoji">' + s.emoji + '</span>' +
+        '<span class="wbm-sig-text">' + _wbmEsc(s.label) + '</span>' + arrow + '</div>';
     }).join('');
   } else {
     crossWrap.style.display = 'none';
@@ -9056,6 +9064,18 @@ window.wbmCloseDetail = function(){
   document.body.classList.remove('wbm-detail-open');
   document.body.style.top = '';
   window.scrollTo(0, window._wbmSavedScrollY || 0);
+};
+
+/* ── Ir al panel de origen de un ítem de "También destaca en" (Rebotes
+   EMA200 / Bases VCP de Alta Calidad) -- cierra la card (que ya hace su
+   propio scrollTo al restaurar la posición previa) y recién después
+   lleva al panel, en un timeout corto para no pisarse con ese scroll. ── */
+window.wbmGoToPanel = function(panelId){
+  wbmCloseDetail();
+  setTimeout(function(){
+    var panel = document.getElementById(panelId);
+    if (panel) panel.scrollIntoView({behavior:'smooth', block:'start'});
+  }, 60);
 };
 
 /* ── Unificar la card de ticker: hoy CUALQUIER ticker del dashboard
