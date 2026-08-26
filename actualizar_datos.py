@@ -1961,6 +1961,62 @@ def calcular_sesiones_10(close, volume):
             vol_neg  += v
     return dias_pos, dias_neg, round(vol_pos), round(vol_neg)
 
+# Umbrales de "Distribución activa" (🩸) -- redefinidos 2026-08-26 tras
+# backtest a escala (308 tickers, 8 años, cache wb_research/_series_cache_8y.pkl,
+# informe wb_research/analisis_mu_fcx_bhp/INFORME_eficiencia_kaufman_dia_maximo.md).
+# Pregunta del usuario: la penalización, calculada sobre TODO el
+# universo sin importar la distancia al máximo, ¿es eficiente cerca de
+# máximos de 52 semanas o llega tarde? Resultado: cuando dispara "cerca
+# de máximos" (banda amplia 0/-20%), en promedio el ticker YA está a
+# -10.7% del máximo (mediana -10.5%) -- 52.6% de los disparos ocurre
+# con más de -10% ya perdido. Desglosado por banda de distancia:
+#   0 a -5%    : SÍ discrimina (fracaso10 47.3% con vs 44.3% sin)
+#   -5 a -20%  : se INVIERTE (rinde MEJOR con la señal activa que sin
+#                ella -- venta con volumen ahí es más agotamiento
+#                vendedor / capitulación que distribución real)
+# Por eso DISTRIB_MAX52_MIN acota la penalización a esa banda.
+# Además, dentro de esa banda se probó un grid de (ventana, mín. días
+# negativos) x 2 definiciones de "día negativo" (cierre<cierre_ant. vs
+# cierre<apertura/vela roja) -- la definición por vela roja resultó
+# más robusta en TODAS las combinaciones (splits por mitad de tickers
+# mucho más parejos, mismo o mejor spread, con más eventos). La mejor
+# combinación de tamaño de muestra/discriminación/consistencia fue
+# ventana=8, mín. 6 días con vela roja (spread fracaso10 +3.6pts,
+# n=8519, split +3.7/+3.4pts -- el más parejo de todo el grid).
+DISTRIB_MAX52_MIN   = -5.0  # Dist Máx52W % debe ser >= a esto
+DISTRIB_VENTANA      = 8
+DISTRIB_DIAS_MIN     = 6
+DISTRIB_VOL_RATIO    = 0.8
+
+def distribucion_activa_vela(hist, dist_max52):
+    """True si hay 'distribución activa' (🩸) según la redefinición de
+    2026-08-26: ticker a <5% de su máximo de 52 semanas, con al menos
+    6 de las últimas 8 velas cerrando por debajo de su propia apertura
+    (vela roja -- no cierre<cierre anterior, ver comentario arriba), y
+    el volumen acumulado en velas verdes por debajo del 80% del
+    volumen acumulado en velas rojas de esa misma ventana."""
+    if dist_max52 is None or dist_max52 < DISTRIB_MAX52_MIN:
+        return False
+    try:
+        if len(hist) < DISTRIB_VENTANA:
+            return False
+        c = hist['Close'].tail(DISTRIB_VENTANA).values
+        o = hist['Open'].tail(DISTRIB_VENTANA).values
+        v = hist['Volume'].tail(DISTRIB_VENTANA).values
+        dias_neg = 0
+        vol_pos = vol_neg = 0.0
+        for i in range(DISTRIB_VENTANA):
+            if c[i] < o[i]:
+                dias_neg += 1
+                vol_neg  += float(v[i])
+            elif c[i] > o[i]:
+                vol_pos  += float(v[i])
+        if dias_neg < DISTRIB_DIAS_MIN or vol_neg <= 0:
+            return False
+        return (vol_pos / vol_neg) < DISTRIB_VOL_RATIO
+    except Exception:
+        return False
+
 def clasificar_market_cap(mc):
     if mc is None:     return "—"
     if mc >= 200e9:    return "Mega Cap"
@@ -2751,6 +2807,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # Sesiones 10 ruedas
         dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
 
+        # Distribución activa (🩸) -- redefinida 2026-08-26, ver comentario
+        # en distribucion_activa_vela(). Campo separado de "Días ± 10s" /
+        # "Vol días ± 10s" a propósito -- esos siguen alimentando la
+        # columna "10s" del scanner, el filtro de volumen y las
+        # estadísticas de amplitud, sin cambios.
+        distrib_activa = distribucion_activa_vela(hist, dist_max52)
+
         # Vol 5d/40d: ratio volumen promedio últimas 5 ruedas vs últimas 40
         vol_5d_40d = None
         if len(volume) >= 40:
@@ -2903,6 +2966,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
             "Vol días - 10s":      vol_neg_10,
+            "Distribucion Activa Vela": distrib_activa,
             "Vol 5d/40d":              vol_5d_40d,
             "Breakout Fresh":          brk['Breakout Fresh'],
             "Breakout Days Ago":       brk['Breakout Days Ago'],

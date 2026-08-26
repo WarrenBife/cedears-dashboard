@@ -8219,11 +8219,11 @@ function _churningResistenciaV50(d){
          (velocidadAtrs > 3);
 }
 
-/* ── Penalizaciones -- SIN CAMBIOS, copia verbatim de V49 ── */
+/* ── Penalizaciones -- 🩸 redefinido 2026-08-26 (ver comentario abajo),
+   resto SIN CAMBIOS respecto a V49. ── */
 function _penalizacionesV50(d){
   let pen = 0; const flags = [];
   const d50 = d['Dist SMA50 %'], rsi = d['RSI 14'];
-  const vp = d['Vol días + 10s'], vn = d['Vol días - 10s'];
   const atrP = d['ATR14 %'];
 
   const sobreExt = (atrP !== null && atrP !== undefined && atrP > 0)
@@ -8231,8 +8231,21 @@ function _penalizacionesV50(d){
     : (d50 !== null && d50 > 25);
   if (sobreExt || (rsi !== null && rsi > 80)) { pen -= 6; flags.push('🎈'); }
 
-  const ratio = (vp !== null && vn !== null && vn > 0) ? vp / vn : null;
-  if ((d['Días - 10s'] ?? 0) >= 7 && ratio !== null && ratio < 0.8) { pen -= 15; flags.push('🩸'); }
+  // 🩸 Distribución activa -- redefinida tras backtest a escala (308
+  // tickers, 8 años): la versión anterior (10 ruedas, >=7 con cierre<
+  // cierre_anterior, sin importar la distancia al máximo) resultó casi
+  // nula en general y hasta INVERTIDA más allá de 5% del máximo de 52
+  // semanas (venta con volumen ahí es más agotamiento vendedor que
+  // distribución real). Nueva versión, calculada en el pipeline
+  // (distribucion_activa_vela(), actualizar_datos.py): solo aplica a
+  // <5% del máximo, ventana de 8 ruedas, >=6 con cierre<apertura
+  // (vela roja, no cierre<cierre anterior -- más robusto en el
+  // backtest, splits por mitad de tickers mucho más parejos en TODAS
+  // las combinaciones probadas), volumen verde <80% del volumen rojo.
+  // Campo separado de 'Días ± 10s'/'Vol días ± 10s' a propósito -- esos
+  // siguen sin cambios para la columna "10s" del scanner, el filtro de
+  // volumen y las estadísticas de amplitud.
+  if (_bool(d['Distribucion Activa Vela'])) { pen -= 15; flags.push('🩸'); }
 
   const varDia = d['Var Día %'], vol = d['Vol Inusual %'];
   if (varDia !== null && varDia < -3 && vol !== null && vol > 50) { pen -= 8; flags.push('💥'); }
