@@ -8181,7 +8181,18 @@ function _pilarDv7V50(d){
   const pos = d['Base Posición %'];
   const ptsPos = (pos !== null && pos !== undefined) ? _lineal(pos, 20, 50, 0, 5) : 0;
 
-  return Math.min(ptsExt + ptsSemanas + ptsPos, 20);
+  // Piso de Pilar D (2026-08-27): validado a escala (307 tickers/8 años,
+  // 30.367 muestras sin gates) que dentro de Score>=70, un Pilar D<10
+  // predice peor resultado a 10 ruedas de forma consistente en 10/10
+  // splits (spread de fracaso 2,8-10,4pp, mediana de retorno siempre
+  // negativa/plana en el grupo bajo vs. siempre positiva en el alto). La
+  // señal se diluye a 20 ruedas y desaparece a 40 -- es una señal de
+  // timing de setup, no estructural, pero suficientemente sólida para
+  // gatear. Pedido del usuario: si Pilar D no llega a 10 pts, no suma
+  // nada (mismo estilo binario que "RSI Sobrecompra Sin Confirmar" en
+  // Pilar C).
+  const totalD = Math.min(ptsExt + ptsSemanas + ptsPos, 20);
+  return totalD < 10 ? 0 : totalD;
 }
 function _restaVerticalidadV50(d){
   const atrP = d['ATR14 %'], avPico = d['Avance Pico 15r %'];
