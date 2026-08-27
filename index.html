@@ -8171,8 +8171,12 @@ function _pilarDv7V50(d){
     ptsExt = _tri(distMin, 25, 35, 110, 220) * 5;
   }
 
+  // Rampa de madurez de base: antes arrancaba en semana 4 (0 pts hasta ahí),
+  // ahora es lineal desde semana 1 -- una base recién iniciada ya suma algo
+  // en vez de valer 0 hasta el umbral. Meseta 7-26 y bajada hasta 55 sin
+  // cambios. Pedido del usuario 2026-08-27.
   const semanas = d['Base Semanas'];
-  const ptsSemanas = (semanas !== null && semanas !== undefined) ? _tri(semanas, 4, 7, 26, 55) * 10 : 0;
+  const ptsSemanas = (semanas !== null && semanas !== undefined) ? _tri(semanas, 1, 7, 26, 55) * 10 : 0;
 
   const pos = d['Base Posición %'];
   const ptsPos = (pos !== null && pos !== undefined) ? _lineal(pos, 20, 50, 0, 5) : 0;
