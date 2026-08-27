@@ -3977,7 +3977,12 @@ if ('serviceWorker' in navigator) {
     rrgP,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
     P.warren, mkGrid(epP, ema200P),
-    snapP,
+    /* snapP (Retorno Top 10 de la semana) oculto a pedido del usuario
+       2026-08-27 -- de momento, no permanente. Para reactivarlo, volver
+       a poner "snapP," acá. El panel se sigue construyendo (mkPanel de
+       más arriba) y wbRenderSnap() sigue siendo inofensivo si no está
+       en el layout (ambos chequean $('wb-snap-panel')/$('wb-snap-body')
+       antes de hacer nada). */
     mkZone('🔬 &nbsp;Análisis — profundizá'),
     mkGrid(P.trend, P.sv), mkGrid(P.vinu, P.scan),
     P.cmp
