@@ -669,7 +669,7 @@
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): Bollinger BandWidth contraído, volumen secándose, RSI en zona neutra (40–70), + bono de eficiencia (hasta 10 pts) si rompió un máximo previo con pausa eficiente confirmada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
               <th data-tooltip="Pilar D — Setup estructural (máx 20 pts): extensión del avance normalizada, madurez de la base, profundidad y posición."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen, breakout fallido, Caso B (hasta -25 pts), Agotamiento OBV (-5 pts sola, -12 pts combinada con divergencia RSI), o pendiente SMA50 pronunciada con buen RS Score (hasta -8 pts, ver 🪤)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
-              <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido · 🪤 Pendiente SMA50 pronunciada" style="text-align:center">Adv.</th>
+              <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🕯️ No demand en ruptura · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido · 🪤 Pendiente SMA50 pronunciada" style="text-align:center">Adv.</th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -681,7 +681,7 @@
             🪫 <b>Divergencia OBV</b> — La suba viene con cada vez menos volumen — sin nafta<br>
             🐘 <b>Churning en máximos</b> — Volumen alto sin avance: posible distribución institucional<br>
             🧨 <b>Agotamiento OBV + Div. RSI</b> — Los dos agotamientos juntos — castigo más severo que cualquiera solo<br>
-            🌫️ <b>Agotamiento OBV</b> — Cerca de un máximo pero con velas chicas y volumen seco vs. el día de impulso<br>
+            🕯️ <b>No demand en ruptura</b> — Rompió el máximo de 40 ruedas y siguió subiendo, pero con velas sin cuerpo y volumen seco: avanza por falta de oferta, no por demanda real<br>
             🎈 <b>Sobreextensión</b> — Muy lejos de su media para su volatilidad — riesgo de reversión<br>
             🩸 <b>Distribución activa</b> — Mayoría de días negativos con volumen en las caídas<br>
             💥 <b>Reversión con volumen</b> — Caída fuerte de hoy con volumen inusual<br>
@@ -8280,10 +8280,29 @@ function _penalizacionesV50(d){
     if (casoBPts > 0) { pen -= casoBPts; flags.push('🌊'); }
   }
 
+  // 🌫️ Agotamiento OBV SOLO: eliminado 2026-08-26. Backtest a escala
+  // (308 tickers, 8 años): estaba activo ~14% de TODOS los días del
+  // histórico y su spread de fracaso10 vs. baseline era +0,4 pts --
+  // ruido, no señal, restando 5 pts a una población enorme. El combo
+  // con Div RSI (🧨) se mantiene por ahora, pendiente de su propio
+  // análisis. Ver no_demand_ruptura() en actualizar_datos.py para el
+  // detector que lo reemplaza en la práctica.
   if (_bool(d['OBV RSI Combo Penaliza'])) {
     pen -= 12; flags.push('🧨');
-  } else if (_bool(d['OBV Penaliza'])) {
-    pen -= 5; flags.push('🌫️');
+  }
+
+  // 🕯️ "No demand en ruptura" -- rompió el máximo de 40 ruedas y siguió
+  // subiendo, pero con cuerpos de vela chicos y volumen seco (el precio
+  // avanza por falta de oferta, no por demanda real). Estado pegajoso
+  // hasta 2 velas verdes consecutivas -- todo calculado en el pipeline,
+  // ver no_demand_ruptura() en actualizar_datos.py.
+  // Validado a escala: solo -> +6,0 pts de spread (5/5 splits);
+  // combinado con Agotamiento OBV -> +14,6 pts, retorno mediano -0,90%
+  // (5/5 splits, la señal más fuerte validada). Caso de origen: AVGO
+  // 4/8-14/8/2026, dispara el 7/8 con -13,87% por delante a 10 ruedas.
+  if (_bool(d['No Demand Activo'])) {
+    if (_bool(d['OBV Penaliza'])) { pen -= 15; flags.push('🕯️'); }
+    else                          { pen -= 8;  flags.push('🕯️'); }
   }
 
   const pendSma50Pts = +d['Pend SMA50 Pts'] || 0;
@@ -8451,7 +8470,7 @@ window.renderWarrenScore = function() {
           <td style="text-align:center">${pilarBadge(pd, 20, 'ws-pd')}</td>
           <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
           <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
-            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana','🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó — alto riesgo de fracaso','💣':'BOMBA: rompió el máximo previo con eficiencia confirmada (ver Episodic Pivots & Bombs)','🌫️':'Agotamiento OBV: sigue cerca de un máximo reciente pero con velas chicas y volumen seco vs. el día de impulso','🧨':'Agotamiento OBV + Divergencia RSI a la vez: mismo patrón que 🌫️ pero reforzado con divergencia de RSI — castigo más severo','🪤':'Pendiente SMA50 pronunciada con buen RS Score: el precio ya rebotó pero la media de 50 todavía no confirma — riesgo elevado de que vuelva a caer (ver caso AVGO en wb_research/)','🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real (choppiness alto + baja eficiencia)'}[f]||f;
+            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana','🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó — alto riesgo de fracaso','💣':'BOMBA: rompió el máximo previo con eficiencia confirmada (ver Episodic Pivots & Bombs)','🌫️':'Agotamiento OBV: sigue cerca de un máximo reciente pero con velas chicas y volumen seco vs. el día de impulso','🧨':'Agotamiento OBV + Divergencia RSI a la vez — castigo más severo','🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas y siguió subiendo, pero con velas sin cuerpo y volumen seco — avanza por falta de oferta, no por demanda real. Sigue activo hasta que aparezcan 2 velas verdes seguidas','🪤':'Pendiente SMA50 pronunciada con buen RS Score: el precio ya rebotó pero la media de 50 todavía no confirma — riesgo elevado de que vuelva a caer (ver caso AVGO en wb_research/)','🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real (choppiness alto + baja eficiencia)'}[f]||f;
             const esPositivo = f === '🫨' || f === '👀' || f === '💣';
             const flagStyle = esPositivo
               ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
@@ -8699,6 +8718,7 @@ var WBM_PEN_LABEL = {
   '🎈':'Sobreextensión', '🩸':'Distribución activa', '💥':'Reversión con volumen',
   '⛔':'Breakout fallido', '🌊':'Caso B: deambulando sin romper el máximo',
   '🧨':'Agotamiento OBV + Divergencia RSI', '🌫️':'Agotamiento OBV',
+  '🕯️':'No demand en ruptura: siguió subiendo sin cuerpo de vela ni volumen',
   '🪤':'Pendiente SMA50 pronunciada (buen RS Score, la media todavía no confirma)',
   '🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real'
 };
@@ -8731,6 +8751,10 @@ function wbmPenaltyItems(d, flags, restaChop){
     }
     if (f==='🌪️'){
       items.push({emoji:'🌪️', label:WBM_PEN_LABEL['🌪️'], pts: Math.round(restaChop||0)});
+      return;
+    }
+    if (f==='🕯️'){
+      items.push({emoji:'🕯️', label:WBM_PEN_LABEL['🕯️'], pts: _bool(d['OBV Penaliza']) ? 15 : 8});
       return;
     }
     if (WBM_PEN_LABEL[f]) items.push({emoji:f, label:WBM_PEN_LABEL[f], pts:WBM_PEN_PTS[f]});

@@ -1543,6 +1543,105 @@ def agotamiento_obv_v2(hist, hist_spy):
         return {'obv_penaliza': False, 'obv_dias': None, 'obv_fecha_inicio': None, 'combo_penaliza': False}
 
 
+# ── "No demand en ruptura" (🕯️) -- Warren Score, 2026-08-26 ──────────
+# Caso de origen: AVGO 4/8-14/8/2026, señalado por el usuario. El 4/8
+# rompió el máximo de cierre de 40 ruedas con una vela fuerte (+15,19,
+# vol 29,5M) y los 3 días siguientes SIGUIÓ SUBIENDO (cierres 418,28 ->
+# 420,57 -> 427,76, nuevos máximos) pero con cuerpos de vela ridículos
+# (-3,42 / +0,02 / -0,64) y el volumen derritiéndose (0,57x / 0,47x /
+# 0,50x del día de la ruptura). Es el "no demand" clásico de VSA: el
+# precio avanza porque no hay oferta, no porque haya demanda real.
+#
+# Validado a escala (308 tickers, 8 años, cache wb_research/
+# _series_cache_8y.pkl). Grid de (días, cuerpo_max, vol_max) probado
+# entero -- el patrón es monótono: 2 días no dice nada (ruido, spread
+# -2 a +0,3 pts, splits 0-2/3), 3 días discrimina (+3,8 pts, 3/3),
+# 4 días es fuerte (+10,8 a +12,6 pts, 3/3, retorno mediano NEGATIVO).
+# Se eligió 3 días porque es el que detecta el caso ancla AVGO (dispara
+# el 7/8, seis ruedas ANTES del quiebre del 14/8, con -13,87% por
+# delante a 10 ruedas) manteniendo consistencia 3/3 en splits.
+#
+# ESTADO PEGAJOSO (pedido del usuario): una vez que dispara NO se apaga
+# porque la vela siguiente tenga más cuerpo -- en AVGO el 10/8 el cuerpo
+# creció (-4,59) pero ya era la caída. Sigue activo hasta que aparezcan
+# 2 VELAS VERDES CONSECUTIVAS (misma condición de confirmación ya
+# validada para el gate de RSI, ver _rsi_sobrecompra_sin_confirmar).
+# Esto lleva el spread de +3,8 a +8,2 pts con retorno mediano -0,38%.
+# Definiciones de recuperación más exigentes (verde con volumen, etc.)
+# arrastran el estado 18-21 ruedas y DILUYEN la señal a cero -- siguen
+# penalizando mucho después de que el daño pasó.
+ND_VENTANA_MAX   = 40    # ruedas del máximo de cierre que se rompe
+ND_DIAS          = 3     # ruedas de "no demand" tras la ruptura
+ND_CUERPO_X      = 0.6   # cuerpo máx. vs. promedio de 20 ruedas
+ND_VOL_X         = 0.8   # volumen máx. vs. el día de la ruptura
+ND_MAX_DURACION  = 40    # tope de seguridad del estado pegajoso
+
+def no_demand_ruptura(hist):
+    """Devuelve dict con 'nd_activo' (bool) y 'nd_dias' (ruedas desde que
+    disparó). Ver comentario de cabecera para el diseño y la validación."""
+    resultado = {'nd_activo': False, 'nd_dias': None}
+    try:
+        n = len(hist)
+        if n < ND_VENTANA_MAX + 30:
+            return resultado
+        c = hist['Close'].values
+        o = hist['Open'].values
+        v = hist['Volume'].values
+        cuerpo = c - o
+
+        # Se recorre hacia adelante desde una ventana acotada, igual que
+        # agotamiento_obv_v2: sin estado persistido entre corridas, se
+        # reconstruye el episodio vigente desde el histórico.
+        idx_ini = max(ND_VENTANA_MAX + 25, n - ND_MAX_DURACION - ND_DIAS - 5)
+        activo = False
+        inicio_idx = None
+
+        for t in range(idx_ini, n):
+            if activo:
+                # ¿recuperación? 2 velas verdes consecutivas
+                if t > inicio_idx and cuerpo[t] > 0 and cuerpo[t - 1] > 0:
+                    activo = False
+                    inicio_idx = None
+                elif (t - inicio_idx) >= ND_MAX_DURACION:
+                    activo = False
+                    inicio_idx = None
+                if activo:
+                    continue
+
+            idx_bo = t - ND_DIAS
+            if idx_bo < ND_VENTANA_MAX + 1:
+                continue
+            cuerpo_avg = np.abs(cuerpo[t - 19:t + 1]).mean()
+            if cuerpo_avg <= 0:
+                continue
+            # 1) el día de la ruptura supera el máximo de cierre de 40 ruedas,
+            #    con vela verde real
+            max_prev = c[idx_bo - ND_VENTANA_MAX:idx_bo].max()
+            if not (c[idx_bo] > max_prev) or cuerpo[idx_bo] <= 0:
+                continue
+            # 2) sigue arriba de ese cierre hoy
+            if not (c[t] > c[idx_bo]):
+                continue
+            # 3) cada rueda desde la ruptura: no devolvió el nivel, cuerpo
+            #    chico y volumen seco
+            ok = True
+            for j in range(idx_bo + 1, t + 1):
+                if c[j] < c[idx_bo]: ok = False; break
+                if abs(cuerpo[j]) > ND_CUERPO_X * cuerpo_avg: ok = False; break
+                if v[j] > ND_VOL_X * v[idx_bo]: ok = False; break
+            if not ok:
+                continue
+            activo = True
+            inicio_idx = t
+
+        if activo and inicio_idx is not None:
+            resultado['nd_activo'] = True
+            resultado['nd_dias'] = (n - 1) - inicio_idx
+        return resultado
+    except Exception:
+        return {'nd_activo': False, 'nd_dias': None}
+
+
 def churn_maximos(hist):
     """Churning en máximos: ≥3 días en las últimas 10 ruedas con cierre en mitad inferior y volumen ≥50% sobre el promedio de esas 10 ruedas."""
     try:
@@ -2921,6 +3020,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # en wb_research/
         agot_obv = agotamiento_obv_v2(hist, hist_spy)
 
+        # "No demand en ruptura" (🕯️) -- ver comentario de cabecera de
+        # no_demand_ruptura(). Caso de origen AVGO 4/8-14/8/2026.
+        nd = no_demand_ruptura(hist)
+
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
@@ -3021,6 +3124,8 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "OBV Penaliza Dias":       agot_obv['obv_dias'],
             "OBV Penaliza Fecha Inicio": agot_obv['obv_fecha_inicio'],
             "OBV RSI Combo Penaliza":  agot_obv['combo_penaliza'],
+            "No Demand Activo":        nd['nd_activo'],
+            "No Demand Dias":          nd['nd_dias'],
             "Pend SMA50 Pts":          pend_sma50_pts,
             "RSI Sobrecompra Sin Confirmar": rsi_sin_confirmar,
             "_rs_score_semanal":       rs_semanal,
