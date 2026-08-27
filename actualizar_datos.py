@@ -783,6 +783,30 @@ def detectar_base(df):
         if len(tramo) < 10:
             return NULL
 
+        # ¿Ya rompió y volvió? (2026-08-27, caso KO) -- si el precio cerró
+        # alguna vez por encima del techo Y DESPUÉS volvió a cerrar por
+        # debajo, la base ya se resolvió (con fracaso, sea o no un falso
+        # breakout) -- no sigue "construyéndose" contra el techo viejo.
+        # Sin esto, un poke de 2-3 días que revierte no llega al umbral de
+        # `ruedas_sobre_pivote > 15` de más abajo (pensado para una
+        # ruptura SOSTENIDA, no para esto) y la base sigue midiéndose
+        # desde el pivote de origen como si nada -- caso real KO: Base
+        # Posición % llegó a 118.6% (por encima del rango de la base) los
+        # días que estuvo arriba del techo, y en cuanto volvió adentro
+        # seguía reportando la misma base vieja de semanas atrás. Mismo
+        # concepto que `ya_rota` en detectar_vcp() (caso CIBR), pero sin
+        # margen de tolerancia: acá cualquier cierre por encima cuenta,
+        # porque a diferencia del VCP (que premia una ruptura sana DE esa
+        # base) esta función solo mide si la base sigue vigente o no.
+        # Si el breakout se sostiene (nunca vuelve a cerrar abajo), no
+        # aplica -- sigue el camino normal más abajo.
+        sobre_pivote = tramo['close'] > pivote_alto
+        if sobre_pivote.any():
+            idx_primera_ruptura = tramo[sobre_pivote].index[0]
+            despues = tramo.loc[idx_primera_ruptura:]
+            if (despues['close'] <= pivote_alto).any():
+                return NULL
+
         min_base = tramo['low'].min()
         profundidad = (pivote_alto - min_base) / pivote_alto * 100
 
