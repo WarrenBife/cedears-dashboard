@@ -8217,16 +8217,19 @@ function _restaVerticalidadV50(d){
   const velocidadAtrs = avPico / atrP;
   return { resta: _lineal(velocidadAtrs, 5, 11, 0, 8), velocidadAtrs };
 }
+// Resta por Choppiness/Eficiencia SACADA (2026-08-28): dentro de Score>=70,
+// aislada del resto de banderas de agotamiento, predice al REVÉS de forma
+// consistente y creciente con el horizonte (10r: +2,3pp mejor con la
+// bandera activa; 15r: +3,4pp; 20r: +3,4pp, sobre 8 años). Por año es más
+// parejo (3 de 7 al revés, 4 de 7 bien) pero con swings enormes y sin
+// patrón claro (+11 a +16pp en los años "mal" vs -1 a -16pp en los
+// "bien") -- la firma típica de ruido, no de señal real (mismo patrón que
+// "🌫️ Agotamiento OBV SOLO", ya sacado antes). Validado a escala que sacarla
+// no empeora nada (neutro a levemente mejor en Score>=70/80, 2026 y 8 años)
+// y en los 19 casos de referencia del usuario: 83 días cambian, TODOS para
+// arriba, ninguno para abajo.
 function _restaVolatilidadSinDireccionV50(d){
-  const chop = d['Choppiness'], efi = d['Eficiencia 10d'];
-  if (chop === null || chop === undefined || efi === null || efi === undefined) {
-    return { resta: 0, chop: null, efi: null, activa: false };
-  }
-  if (!(chop > 1.3 && efi < 0.35)) return { resta: 0, chop, efi, activa: false };
-  const fChop = _lineal(chop, 1.3, 2.0, 0, 1);
-  const fEfi  = _lineal(efi, 0.35, 0, 0, 1);
-  const severidad = (fChop + fEfi) / 2;
-  return { resta: severidad * 5, chop, efi, activa: true };
+  return { resta: 0, chop: d['Choppiness'], efi: d['Eficiencia 10d'], activa: false };
 }
 function _churningResistenciaV50(d){
   const distRes  = d['Dist Resistencia ATRs'];
