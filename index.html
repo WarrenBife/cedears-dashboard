@@ -8382,15 +8382,18 @@ window.calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  const UMBRAL_ATR = 6;
-  const _atr14g = d['ATR14 %'], _d50g = d['Dist SMA50 %'];
-  if (_atr14g !== null && _atr14g !== undefined && _atr14g > 0 &&
-      _d50g  !== null && _d50g  !== undefined) {
-    const _estirado   = _d50g / _atr14g > UMBRAL_ATR;
-    const _sinPausa   = d['Base Semanas'] === null || d['Base Semanas'] === undefined || +d['Base Semanas'] < 2;
-    const _agotandose = _bool(d['Div RSI']) || _bool(d['Div OBV']) || _bool(d['Churn Máximos']);
-    if (_estirado && (_sinPausa || _agotandose)) score = Math.min(score, 40);
-  }
+  // Cap "estirado sin pausa/agotándose" (capeaba a 40 si Dist SMA50/ATR14
+  // > 6 Y (sin base de 2+ semanas O Div RSI/OBV/Churn activo) -- SACADO
+  // 2026-08-28, caso PANW: el ratio oscilaba justo alrededor de 6 día por
+  // medio (ruido de precio normal) y el disparador solía ser 🪫 solo, que
+  // ya está probado que no predice nada. Validado a escala (48.000
+  // muestras/8 años) que además el gate estaba INVERTIDO: el grupo que
+  // capeaba rendía IGUAL O MEJOR que el resto en las 3 ventanas (spread
+  // -1,2 a -1,8pp, no +). Era además redundante con Pilar A, que ya
+  // descuenta gradualmente la misma distancia SMA50/ATR (meseta plena
+  // hasta 4 ATRs, 0 pts desde 8 -- en 6 ya vale la mitad): este gate le
+  // sumaba un cachetazo binario extra por la misma señal que Pilar A ya
+  // penaliza de forma proporcional.
 
   return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, bomba, version: WB_SCORE_VERSION_50 };
 };
