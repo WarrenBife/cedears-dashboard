@@ -8382,22 +8382,17 @@ window.calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): además de
-  // llegar a Score>80, exige RS Score>=85 y ATR14%<=4 -- si no cumple,
-  // topea en 79. Validado con leave-one-year-out sobre 8 años reales
-  // (2019-2026, 306 tickers): sube P(subir a 10 ruedas) de ~50% a ~59%
-  // en 2026 específicamente (5/5 grupos de tickers, 4 horizontes 5-20r).
-  // Probado también reponderar Pilar A/B en vez de un gate aparte --
-  // no funciona: el hallazgo real es un requisito conjunto (RS alto Y
-  // ATR bajo A LA VEZ), que ninguna suma de puntos compensatoria puede
-  // representar sin dejar pasar casos que compensan una cosa con la
-  // otra. Costo conocido: deja de marcar 80+ en papeles muy volátiles
-  // ya extendidos (ej. MRVL/TSLA en sus tramos más extendidos) aunque
-  // terminen subiendo mucho -- de los 19 casos de referencia del
-  // usuario, 6 de 12 rangos que llegaban a 80+ lo conservan.
-  const rsGate = d['RS Score'], atrGate = d['ATR14 %'];
-  const entradaSana = (rsGate !== null && rsGate !== undefined && rsGate >= 85) &&
-                       (atrGate !== null && atrGate !== undefined && atrGate <= 4);
+  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): si el papel
+  // es muy volátil en términos absolutos (ATR14%>4), topea en 79. Sube
+  // P(subir a 10-20 ruedas) de ~50-52% a ~53-55% en 2026, validado con
+  // 5 grupos de tickers (5/5 u ok en 10/15r, 4/5 en 5/20r). Menos
+  // potente que combinarlo con RS Score>=85 (que llegaba a ~59% pero
+  // dejaba afuera 6 de 12 rangos de los 19 casos de referencia del
+  // usuario) -- a pedido del usuario, por ahora SOLO el filtro de ATR,
+  // sin el de RS Score: retiene 12 de 12 rangos (63/81 días), incluye
+  // MRVL/TSLA/AMD/GOOGL que el gate combinado dejaba afuera.
+  const atrGate = d['ATR14 %'];
+  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
   if (score > 80 && !entradaSana) score = 79;
 
   // Cap "estirado sin pausa/agotándose" (capeaba a 40 si Dist SMA50/ATR14
