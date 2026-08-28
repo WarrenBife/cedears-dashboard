@@ -942,6 +942,47 @@ def contraccion_volatilidad(hist):
         return None
 
 
+CONTRACCION_MIN_VENTANA = 7  # ruedas (hoy incluido) -- ver contraccion_volatilidad_min7()
+
+
+def contraccion_volatilidad_min7(hist, ventana=CONTRACCION_MIN_VENTANA):
+    """Contracción de volatilidad con memoria de `ventana` ruedas (Warren
+    Score Pilar C, 2026-08-27) -- pedido del usuario tras analizar 19
+    rupturas reales que él considera setups ideales (TSLA, INTC, MRVL,
+    MU, LRCX, HOOD, PANW, NVDA, B, URA, SLV, GOOGL, AMD, C, CAT).
+
+    Antes Pilar C solo miraba contraccion_volatilidad() de HOY: un día
+    de expansión aislado (típicamente el día mismo de la ruptura, o el
+    día siguiente) borraba de un plumazo hasta 15,25 pts de compresión
+    real que había recién 1-3 ruedas antes -- ese es justo el momento
+    que el usuario quiere que puntúe alto. Devuelve el MÍNIMO ratio
+    (más comprimido = mejor) de las últimas `ventana` ruedas, hoy
+    incluido -- recorriendo hist truncado día por día, igual que la
+    histéresis de detectar_vcp().
+
+    Validado contra los 19 casos: recupera casi todo el puntaje cuando
+    la expansión fue un evento de 1-2 días (caso C: 0 -> 14,0 de 15,3),
+    parcial cuando la expansión viene siendo gradual varios días (caso
+    AMD: 0 -> 10,5, no llega al pico de 14,6 porque ahí el factor de
+    direccionalidad -- sin tocar, a propósito -- también le resta por
+    el avance neto ya corrido). NO reemplaza el campo 'Contraccion
+    Volatilidad' (que sigue siendo el valor de HOY, para mostrar en la
+    ficha) -- este es un campo nuevo, separado, solo para el cálculo
+    del score."""
+    if hist is None or len(hist) < 30:
+        return None
+    n = len(hist)
+    mejor = None
+    for k in range(min(ventana, n - 29)):
+        idx_hasta = n - k
+        if idx_hasta < 30:
+            break
+        r = contraccion_volatilidad(hist.iloc[:idx_hasta])
+        if r is not None and (mejor is None or r < mejor):
+            mejor = r
+    return mejor
+
+
 def direccionalidad_5r(df):
     """Direccionalidad 5r -- Warren Score v4.0, Paso 1/2. Eficiencia de
     Kaufman (adimensional, 0-1) sobre el bloque de 5 cierres previos a la
@@ -2036,7 +2077,19 @@ def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
     hacia parpadear 'VCP Detected' 13-17 veces durante una base legitima
     (casos NVDA/MRVL). El resto de los campos (Score, Tightness, Dist Pivot,
     etc.) se devuelven crudos, sin suavizar -- solo el booleano 'Detected'
-    tiene memoria de corto plazo."""
+    tiene memoria de corto plazo.
+
+    'VCP Bono Pts' (2026-08-27, Warren Score Pilar C, pedido del usuario
+    tras analizar 19 rupturas reales -- ver contraccion_volatilidad_min7()
+    para la lista completa): sostiene el MEJOR bono de compresión (mismo
+    cálculo que el frontend: score/100*6.8 + 1.7 si el volumen viene
+    decreciendo, tope 8.5) de las mismas `ventana_hyst` ruedas que ya se
+    recorren acá arriba para la histéresis de 'Detected'. Antes el bono
+    se apagaba de golpe el mismo día que 'VCP Ya Rompió' pasaba a True
+    -- perdiendo hasta 8.5 pts justo cuando la ruptura recién está
+    arrancando, que es exactamente el momento que se quiere puntuar
+    alto. Casos reales donde esto pasaba: AMD (bono 6.9->0 el mismo día
+    que el ratio de contracción también se rompía) y NVDA."""
     actual = _detectar_vcp_raw(hist, pivot_order)
     if actual['VCP Score'] is None:
         return actual
@@ -2046,6 +2099,7 @@ def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
         return actual
     detected = False
     streak_on = streak_off = 0
+    mejor_bono = 0.0
     for k in range(ventana, -1, -1):
         idx_hasta = n - k
         if idx_hasta < 30:
@@ -2058,8 +2112,13 @@ def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
             streak_off += 1; streak_on = 0
         if streak_on  >= hyst_dias: detected = True
         if streak_off >= hyst_dias: detected = False
+        if s >= 55 and not raw.get('VCP Ya Rompio'):
+            bono = min(s / 100 * 6.8 + (1.7 if raw.get('VCP Vol Decreasing') else 0), 8.5)
+            if bono > mejor_bono:
+                mejor_bono = bono
     actual = dict(actual)
     actual['VCP Detected'] = detected
+    actual['VCP Bono Pts'] = round(mejor_bono, 2) if mejor_bono > 0 else None
     return actual
 
 def calcular_sesiones_10(close, volume):
@@ -2988,6 +3047,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # volumen (eso ya lo cubre Vol Trend en el Pilar D).
         contraccion_vol_vivo = contraccion_volatilidad(hist)
 
+        # Contracción con memoria de 7 ruedas -- Warren Score Pilar C,
+        # 2026-08-27, ver contraccion_volatilidad_min7() para el detalle.
+        # Campo separado del de arriba a propósito: 'Contraccion
+        # Volatilidad' sigue siendo el valor de HOY (se muestra en la
+        # ficha), este nuevo es solo para el cálculo del score.
+        contraccion_vol_min7 = contraccion_volatilidad_min7(hist)
+
         # Direccionalidad, avance neto y resistencia -- Warren Score v4.0
         # (Pasos 1 y 2). direccionalidad5r alimenta la condición de
         # "Churning en resistencia"; avance_neto_atrs alimenta el factor
@@ -3089,6 +3155,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "VCP Techo Toques":    vcp['VCP Techo Toques'],
             "VCP Techo":           vcp.get('VCP Techo'),
             "VCP Ya Rompio":       vcp.get('VCP Ya Rompio'),
+            "VCP Bono Pts":        vcp.get('VCP Bono Pts'),
             "Días + 10s":          dias_pos_10,
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
@@ -3112,6 +3179,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Vol Trend":               vol_trend_vivo,
             "Vol Trend Pre Sacudon":   sacudon['vol_trend_pre_sacudon'],
             "Contraccion Volatilidad": contraccion_vol_vivo,
+            "Contraccion Volatilidad Min7": contraccion_vol_min7,
             "Contraccion Vol Pre Sacudon": sacudon['contraccion_vol_pre_sacudon'],
             "Direccionalidad 5r":      direccionalidad5r,
             "Avance Neto Bloque 5r ATRs": avance_neto_atrs,

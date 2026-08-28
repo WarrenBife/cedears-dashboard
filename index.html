@@ -8111,7 +8111,20 @@ function _pilarBv6V50(d){
    V50 (ptsRSI en 0 si 'RSI Sobrecompra Sin Confirmar'). ── */
 function _pilarCv50(d){
   const sacudon = _bool(d['Sacudon Activo']);
-  const actual = d['Contraccion Volatilidad'];
+  // Contracción con memoria de 7 ruedas (2026-08-27, pedido del usuario
+  // tras analizar 19 rupturas reales: TSLA, INTC, MRVL, MU, LRCX, HOOD,
+  // PANW, NVDA, B, URA, SLV, GOOGL, AMD, C, CAT). Antes 'actual' era
+  // solo el ratio de HOY -- un día de expansión aislado (típicamente el
+  // día mismo de la ruptura) borraba de un plumazo hasta 15,25 pts de
+  // compresión real que hubo recién 1-3 ruedas antes, justo el momento
+  // que se quiere puntuar alto. 'Contraccion Volatilidad Min7' (nuevo,
+  // calculado en el pipeline con contraccion_volatilidad_min7()) ya
+  // trae el mínimo ratio de las últimas 7 ruedas -- fallback al de hoy
+  // si todavía no está poblado. La lógica de sacudón de acá abajo sigue
+  // igual, sin cambios (caso especial ya validado por separado).
+  const actual = d['Contraccion Volatilidad Min7'] != null
+    ? d['Contraccion Volatilidad Min7']
+    : d['Contraccion Volatilidad'];
   const pre = d['Contraccion Vol Pre Sacudon'];
   let ratio;
   if (sacudon && pre !== null && pre !== undefined) {
@@ -8140,20 +8153,16 @@ function _pilarCv50(d){
     ? 0
     : _tri(d['RSI 14'], 30, 45, 60, 70) * 11.25;
 
-  // Bono VCP -- solo si el patrón TODAVÍA no rompió (2026-08, caso TTE).
-  // VCP Detected sigue en true un tiempo despues de romper (a propósito,
-  // ver pivot_base/ya_rota en detectar_vcp -- una ruptura sana dentro del
-  // margen del 3% no invalida la base), pero el bono de Pilar C premia la
-  // COMPRESIÓN previa a la ruptura, no la ruptura en sí -- una vez que ya
-  // rompió, ese papel ya ejecutó lo que el patrón anticipaba y no debería
-  // seguir cobrando el mismo bono que uno todavía comprimiendo a punto de
-  // romper (para eso está "Breakout Fresh"/Despegue Fresco, otra señal).
-  let ptsVcp = 0;
-  if (_bool(d['VCP Detected']) && !_bool(d['VCP Ya Rompio'])) {
-    let pv = _lineal(d['VCP Score'], 0, 100, 0, 6.8);
-    if (_bool(d['VCP Vol Decreasing'])) pv += 1.7;
-    ptsVcp = Math.min(pv, 8.5);
-  }
+  // Bono VCP -- premia la COMPRESIÓN previa a la ruptura, no la ruptura
+  // en sí (2026-08, caso TTE): por eso se apagaba apenas 'VCP Ya
+  // Rompió' pasaba a true. Pero eso mismo perdía hasta 8,5 pts de
+  // golpe justo el día que la ruptura recién arranca (2026-08-27,
+  // casos AMD/NVDA) -- que es exactamente el momento que se quiere
+  // puntuar alto. 'VCP Bono Pts' (nuevo, calculado en detectar_vcp())
+  // ya sostiene el mejor bono de los últimos ~7 días mientras la base
+  // seguía detectada y sin romper en ese día puntual -- si nunca hubo
+  // una base así en la ventana, viene en null y el bono es 0.
+  const ptsVcp = d['VCP Bono Pts'] != null ? d['VCP Bono Pts'] : 0;
 
   const disponibleSinContraccion = ptsRSI + ptsVcp;
   let base;
