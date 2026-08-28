@@ -8304,7 +8304,17 @@ function _penalizacionesV50(d){
     pen -= 6; flags.push('🧊');
   }
 
-  if (_bool(d['Caso B Penalizado'])) {
+  // 🌊 Caso B se anula con RS Score>85 (2026-08-28, caso MRVL: sacudón de
+  // 2 ruedas justo antes de duplicarse el precio en un mes, penalización
+  // máxima -25 pts en el peor momento posible). Validado a escala (609
+  // disparos reales/8 años): con RS Score>85 el fracaso a 10-40 ruedas
+  // es 38-40% con mediana +2,2/+3,5/+5,7% -- vs. 51-53% de fracaso y
+  // mediana negativa con RS Score<=85. Spread de 12-13pp, consistente
+  // en las 3 ventanas y en split por mitades (11,8-21,4pp), 114 tickers
+  // distintos en la muestra -- de las señales más limpias validadas.
+  // Un papel que ya lidera al mercado con un sacudón corto es un animal
+  // distinto de uno débil deambulando sin romper.
+  if (_bool(d['Caso B Penalizado']) && (d['RS Score'] === null || d['RS Score'] === undefined || d['RS Score'] <= 85)) {
     const casoBPts = +d['Caso B Pts'] || 0;
     if (casoBPts > 0) { pen -= casoBPts; flags.push('🌊'); }
   }
