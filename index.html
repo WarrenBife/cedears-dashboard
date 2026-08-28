@@ -8284,10 +8284,23 @@ function _penalizacionesV50(d){
     if ((d['VCP Dist Pivot %'] ?? 0) < 0) { pen -= 10; flags.push('⛔'); }
   }
 
+  // Peso diferenciado (2026-08-28): dentro de Score>=70, Div RSI aislado
+  // predice mucho peor de forma CONSTANTE en 10/15/20 ruedas (P(subir)
+  // ~40-41% vs ~51% base, sin diluirse) -- Div OBV aislado solo es real
+  // a 10 ruedas y se diluye después. Antes las dos pesaban lo mismo (4pts
+  // solas, 10pts combinadas). Validado: los días que quedan por debajo de
+  // 70 con el nuevo peso rinden peor de forma consistente (P(subir)
+  // 37-44% vs 50-51% de los que quedan), afectando solo ~1,4% de la
+  // población Score>=70 -- quirúrgico, sin regresión en los 19 casos de
+  // referencia del usuario.
   const divRsi = _bool(d['Div RSI']), divObv = _bool(d['Div OBV']), churn = _bool(d['Churn Máximos']);
   const nAgot  = (divRsi ? 1 : 0) + (divObv ? 1 : 0) + (churn ? 1 : 0);
   if (nAgot >= 1) {
-    pen -= nAgot === 1 ? 4 : 10;
+    let pesoAgot = 0;
+    if (divRsi) pesoAgot += 8;
+    if (divObv) pesoAgot += 4;
+    if (churn)  pesoAgot += 4;
+    pen -= Math.min(pesoAgot, 14);
     if (divRsi) flags.push('📉');
     if (divObv) flags.push('🪫');
     if (churn)  flags.push('🐘');
