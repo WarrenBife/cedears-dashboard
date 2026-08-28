@@ -760,51 +760,93 @@ def detectar_base(df):
     try:
         if df is None or len(df) < 30:
             return NULL
+        # ATR de hoy, ANTES de renombrar columnas (atr14_pct espera
+        # 'High'/'Low'/'Close' con mayúscula) -- alimenta las dos
+        # tolerancias nuevas de más abajo.
+        atr_hoy = atr14_pct(df)
+
         # Renombrar columnas a minúsculas para uniformidad
         df = df.copy()
         df.columns = [c.lower() for c in df.columns]
-        if 'close' not in df.columns or 'high' not in df.columns:
+        if 'close' not in df.columns or 'high' not in df.columns or 'open' not in df.columns:
             return NULL
 
+        # Techo de referencia -- 2026-08-28, pedido del usuario (casos
+        # reales LRCX/B/URA/GOOGL): antes se usaba la MECHA (High) del
+        # máximo absoluto de la ventana, sin tolerancia -- una mecha de
+        # un solo día que superaba por centavos (a veces <0.5 ATR) un
+        # techo real de semanas atrás reseteaba el reloj de toda la base
+        # a "recién arrancada" (validado: los 4 casos tenían tramos de
+        # apenas 6-8 ruedas por esto, cuando la base real tenía 30+).
+        # Dos cambios sobre el mismo paso:
+        #   1) CUERPO de la vela (max(open,close)), no la mecha -- una
+        #      mecha sola no confirma un nivel nuevo.
+        #   2) si ese "nuevo" techo cae dentro de una tolerancia
+        #      adaptada al ATR de un techo MÁS VIEJO (misma fórmula que
+        #      TOL_TOQUE de detectar_vcp: max(2%, 0.008×ATR14%)), se
+        #      considera el MISMO nivel y se extiende el inicio de la
+        #      base hacia ese techo viejo en vez de resetear el reloj
+        #      por ruido de un día.
         VENTANA = 130  # ~26 semanas
-        reciente = df.tail(VENTANA)
-        pivote_alto = reciente['high'].max()
-        fecha_pivote = reciente['high'].idxmax()
+        cuerpo_max = df[['open', 'close']].max(axis=1)
+        reciente = cuerpo_max.tail(VENTANA)
+        pivote_alto = reciente.max()
+        fecha_pivote = reciente.idxmax()
 
         # Si el máximo está en las últimas 5 ruedas, retroceder al máximo previo
         if fecha_pivote >= df.index[-5]:
-            reciente2 = df.iloc[:-5].tail(VENTANA)
+            reciente2 = cuerpo_max.iloc[:-5].tail(VENTANA)
             if len(reciente2) < 10:
                 return NULL
-            pivote_alto = reciente2['high'].max()
-            fecha_pivote = reciente2['high'].idxmax()
+            pivote_alto = reciente2.max()
+            fecha_pivote = reciente2.idxmax()
+
+        # Tope: la extensión hacia atrás no puede llevar la base más allá
+        # de VENTANA ruedas desde hoy -- sin esto, una cadena de techos
+        # "iguales" (dentro de tolerancia unos de otros) se encadena sin
+        # límite real y termina en bases de más de un año (caso real
+        # detectado en regresión: MELI se iba a 63 semanas). Coincide
+        # además con el límite donde la rampa de puntaje de Pilar D ya no
+        # suma nada extra (semana 55).
+        limite_fecha = df.index[max(0, len(df) - 1 - VENTANA)]
+        tol_techo = max(0.02, 0.008 * atr_hoy) if atr_hoy else 0.025
+        for _ in range(20):  # tope de seguridad extra, no debería necesitar tantas vueltas
+            anterior = cuerpo_max.loc[:fecha_pivote].iloc[:-1].tail(VENTANA)
+            anterior = anterior[anterior.index >= limite_fecha]
+            if anterior.empty or pivote_alto <= 0:
+                break
+            max_ant = anterior.max()
+            fecha_ant = anterior.idxmax()
+            if abs(pivote_alto - max_ant) / pivote_alto <= tol_techo or max_ant >= pivote_alto:
+                fecha_pivote = fecha_ant
+                pivote_alto = max(pivote_alto, max_ant)
+            else:
+                break
 
         tramo = df.loc[fecha_pivote:]
         if len(tramo) < 10:
             return NULL
 
-        # ¿Ya rompió y volvió? (2026-08-27, caso KO) -- si el precio cerró
-        # alguna vez por encima del techo Y DESPUÉS volvió a cerrar por
-        # debajo, la base ya se resolvió (con fracaso, sea o no un falso
-        # breakout) -- no sigue "construyéndose" contra el techo viejo.
-        # Sin esto, un poke de 2-3 días que revierte no llega al umbral de
-        # `ruedas_sobre_pivote > 15` de más abajo (pensado para una
-        # ruptura SOSTENIDA, no para esto) y la base sigue midiéndose
-        # desde el pivote de origen como si nada -- caso real KO: Base
-        # Posición % llegó a 118.6% (por encima del rango de la base) los
-        # días que estuvo arriba del techo, y en cuanto volvió adentro
-        # seguía reportando la misma base vieja de semanas atrás. Mismo
-        # concepto que `ya_rota` en detectar_vcp() (caso CIBR), pero sin
-        # margen de tolerancia: acá cualquier cierre por encima cuenta,
-        # porque a diferencia del VCP (que premia una ruptura sana DE esa
-        # base) esta función solo mide si la base sigue vigente o no.
+        # ¿Ya rompió y volvió? (2026-08-27, caso KO; umbral de 1 ATR
+        # agregado 2026-08-28) -- si el precio cerró alguna vez por
+        # encima del techo CON AL MENOS 1 ATR DE MARGEN, Y DESPUÉS volvió
+        # a cerrar por debajo de ese mismo umbral, la base ya se resolvió
+        # (con fracaso, sea o no un falso breakout) -- no sigue
+        # "construyéndose" contra el techo viejo. El margen de 1 ATR
+        # evita que una subida mínima (menos de un día normal de
+        # volatilidad) ya cuente como ruptura real -- sin esto, casos
+        # como LRCX/GOOGL (que con el techo corregido por cuerpo de vela
+        # superaban ese techo por menos de 1 ATR) quedaban marcados como
+        # "ya rota y volvió" por una diferencia que es puro ruido.
+        # Mismo concepto que `ya_rota` en detectar_vcp() (caso CIBR).
         # Si el breakout se sostiene (nunca vuelve a cerrar abajo), no
         # aplica -- sigue el camino normal más abajo.
-        sobre_pivote = tramo['close'] > pivote_alto
+        umbral_ruptura = pivote_alto * (1 + atr_hoy / 100) if atr_hoy else pivote_alto
+        sobre_pivote = tramo['close'] > umbral_ruptura
         if sobre_pivote.any():
             idx_primera_ruptura = tramo[sobre_pivote].index[0]
             despues = tramo.loc[idx_primera_ruptura:]
-            if (despues['close'] <= pivote_alto).any():
+            if (despues['close'] <= umbral_ruptura).any():
                 return NULL
 
         min_base = tramo['low'].min()
@@ -816,10 +858,12 @@ def detectar_base(df):
 
         cierre = float(df['close'].iloc[-1])
 
-        # ¿Rompió hace más de ~3 semanas?
-        ruedas_sobre_pivote = int((tramo['close'] > pivote_alto).sum())
+        # ¿Rompió hace más de ~3 semanas? (mismo umbral_ruptura de arriba,
+        # por consistencia -- antes de 2026-08-28 usaba pivote_alto sin
+        # margen)
+        ruedas_sobre_pivote = int((tramo['close'] > umbral_ruptura).sum())
         if ruedas_sobre_pivote > 15:
-            idx_bo = tramo[tramo['close'] > pivote_alto].index[0]
+            idx_bo = tramo[tramo['close'] > umbral_ruptura].index[0]
             tramo = df.loc[fecha_pivote:idx_bo]
 
         semanas = len(tramo) / 5.0
