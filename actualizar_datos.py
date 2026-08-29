@@ -2172,6 +2172,560 @@ def detectar_vcp(hist, pivot_order=3, hyst_dias=2, ventana_hyst=6):
     actual['VCP Bono Pts'] = round(mejor_bono, 2) if mejor_bono > 0 else None
     return actual
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# VCP2 -- detector alternativo (2026-08-29), EN PARALELO al de arriba.
+#
+# Adaptacion del script "vcp_minervini" que trajo el usuario (ZigZag
+# adaptativo + busqueda combinatoria de contracciones + motor de ciclo
+# de vida forming/armed/executed/success/fail_before/fail_after, en vez
+# del pivote fijo de 3 velas que usa detectar_vcp de arriba). Genera
+# campos NUEVOS ('VCP2 ...'), no toca ni reemplaza los 'VCP ...' de
+# produccion -- pensado para comparar en vivo antes de decidir si
+# reemplaza al detector actual. Validado contra los 19 casos ideales
+# del usuario y contra detectar_vcp() de arriba antes de integrar.
+#
+# Ajustes sobre el script original del usuario (evaluados con casos
+# reales, no aplicados a ciegas):
+#   1. Sin Trend Template propio (require_trend) -- los Gates del Warren
+#      Score ya hacen ese filtro, mas laxo (rechazaba a TSLA, un caso
+#      real validado, por no cumplir los 8 puntos clasicos).
+#   2. Perder la SMA50 una vez durante la formacion YA NO cancela el
+#      patron (mataba a MU, que termino en +24%).
+#   3. Sacudon con RS Score>85 (undercut del stop O dia de distribucion
+#      antes de romper) no cancela el patron -- misma logica ya validada
+#      en el Warren Score (Caso B se anula con RS>85, caso de origen
+#      MRVL, que es justo el caso que esto salva).
+#   4. "Cimas consistentes" (el fix de ACN en produccion) NO se porto:
+#      evaluado contra ACN y TSLA, es redundante con "ya rota" (mas
+#      abajo) para el primero y le rompia el patron entero al segundo.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _vcp2_atr(high, low, close, n=14):
+    prev_close = np.roll(close, 1)
+    prev_close[0] = close[0]
+    tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
+    atr = np.full(len(tr), np.nan)
+    if len(tr) >= n:
+        atr = pd.Series(tr).rolling(n, min_periods=n).mean().values
+    return atr
+
+
+def _vcp2_zigzag_swings(high, low, close, zigzag_pct=0.04, atr_mult=1.5, atr_period=14):
+    """Swings con umbral adaptativo max(zigzag_pct, atr_mult*ATR/precio) --
+    a diferencia del pivote fijo de 3 velas de arriba, un swing recien se
+    confirma cuando el precio se aleja un umbral que escala con la
+    volatilidad del papel."""
+    atr_s = _vcp2_atr(high, low, close, atr_period)
+    n = len(close)
+    if n < 20:
+        return []
+
+    def thresh_at(i, px):
+        a = atr_s[i]
+        atr_pct = (atr_mult * a / px) if np.isfinite(a) and px > 0 else 0.0
+        return max(zigzag_pct, atr_pct)
+
+    swings = []
+    mode = None
+    ext_i, ext_px = 0, high[0]
+    if high[0] - low[0] == 0:
+        ext_px = close[0]
+
+    for i in range(1, n):
+        t = thresh_at(i, ext_px if ext_px else close[i])
+        if mode is None:
+            if high[i] > ext_px:
+                ext_i, ext_px, mode = i, high[i], 'up'
+            elif low[i] < (low[0] if i == 1 else ext_px):
+                ext_i, ext_px, mode = i, low[i], 'down'
+            continue
+        if mode == 'up':
+            if high[i] >= ext_px:
+                ext_i, ext_px = i, high[i]
+            elif ext_px > 0 and (ext_px - low[i]) / ext_px >= t:
+                swings.append((ext_i, ext_px, 'H'))
+                mode = 'down'
+                ext_i, ext_px = i, low[i]
+        else:
+            if low[i] <= ext_px:
+                ext_i, ext_px = i, low[i]
+            elif ext_px > 0 and (high[i] - ext_px) / ext_px >= t:
+                swings.append((ext_i, ext_px, 'L'))
+                mode = 'up'
+                ext_i, ext_px = i, high[i]
+    return swings
+
+
+def _vcp2_mean_down_volume(close, open_, volume, start, end):
+    c_s = close[start:end + 1]; o_s = open_[start:end + 1]; v_s = volume[start:end + 1]
+    if len(c_s) == 0:
+        return float('nan'), float('nan')
+    mask = c_s < o_s
+    down_vol = float(v_s[mask].mean()) if mask.any() else float(v_s.mean())
+    return down_vol, float(v_s.mean())
+
+
+def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=120,
+                                min_contractions=2, max_contractions=5,
+                                min_t1_depth=0.08, max_t1_depth=0.35,
+                                contraction_ratio=0.70, min_contraction_bars=3,
+                                min_recover_frac=0.35):
+    """Arma pares High->Low y busca la ventana CONTIGUA que mejor puntua
+    (profundidades decrecientes + T1 en rango + lado derecho apretado +
+    mas larga + mas apretada). Busqueda libre (no anclada a la ultima
+    contraccion): probado anclarla para el caso ACN, pero pisaba la
+    ventana correcta de MRVL, que queda en el medio de la lista de
+    candidatos. 'Ya rota' en el orquestador de abajo resuelve el caso
+    ACN sin ese costo."""
+    if len(swings) < 3:
+        return []
+    n = len(df_c)
+    start_floor = max(0, n - lookback)
+    swings = [s for s in swings if s[0] >= start_floor]
+    if len(swings) < 3:
+        return []
+
+    i0 = 0
+    while i0 < len(swings) and swings[i0][2] != 'H':
+        i0 += 1
+    seq = swings[i0:]
+
+    raw = []
+    hl_pairs = [(a, b) for a, b in zip(seq, seq[1:]) if a[2] == 'H' and b[2] == 'L']
+    for idx, (a, b) in enumerate(hl_pairs):
+        high_i, high = a[0], a[1]
+        low_i, low = b[0], b[1]
+        next_h = next((s for s in seq if s[0] > low_i and s[2] == 'H'), None)
+        if next_h is None:
+            recover_i = low_i + int(np.argmax(df_h[low_i:]))
+            recover_high = float(df_h[recover_i])
+        else:
+            recover_i, recover_high = next_h[0], next_h[1]
+        recovered = (recover_high - low) / (high - low) if high > low else 0.0
+        is_last_pair = idx >= len(hl_pairs) - 1
+        if recovered < min_recover_frac and not is_last_pair:
+            continue
+        if (low_i - high_i) < min_contraction_bars:
+            continue
+        if high <= 0 or low_i <= high_i:
+            continue
+        depth = (high - low) / high
+        duration = low_i - high_i
+        if duration < 1 or depth <= 0:
+            continue
+        down_vol, all_vol = _vcp2_mean_down_volume(df_c, df_o, df_v, high_i, low_i)
+        raw.append({
+            't_index': 0, 'high': float(high), 'low': float(low),
+            'high_i': int(high_i), 'low_i': int(low_i),
+            'depth': float(depth), 'duration': int(duration),
+            'down_volume': down_vol, 'all_volume': all_vol,
+        })
+
+    if len(raw) < 2:
+        return raw
+
+    def sequence_quality(ts):
+        if len(ts) < 2:
+            return (0, 0, 0, 0, 0)
+        depths = [t['depth'] for t in ts]
+        contracts = all(depths[i + 1] <= contraction_ratio * depths[i] for i in range(len(depths) - 1))
+        t1_ok = min_t1_depth <= depths[0] <= max_t1_depth
+        tight_ok = depths[-1] <= 0.10
+        return (int(contracts and t1_ok), int(tight_ok), len(ts), ts[-1]['low_i'], -depths[-1])
+
+    best = []
+    best_q = sequence_quality(best)
+    for width in range(min_contractions, min(max_contractions, len(raw)) + 1):
+        for start in range(0, len(raw) - width + 1):
+            window = raw[start:start + width]
+            q = sequence_quality(window)
+            if q > best_q:
+                best_q = q
+                best = window
+    if not best:
+        best = raw[-min(len(raw), max_contractions):]
+
+    for i, c in enumerate(best, start=1):
+        c['t_index'] = i
+    return best
+
+
+def _vcp2_formation_score(contractions, df_v, vol_sma_period=50,
+                           contraction_ratio=0.70, max_final_depth=0.10,
+                           allow_undercut=0.02, max_final_vol_vs_sma=0.65,
+                           techo_toques=0):
+    flags = []
+    if len(contractions) < 2:
+        return 0.0, flags, None
+    depths = [c['depth'] for c in contractions]
+    score = 40.0
+    n = len(contractions)
+    score += {2: 6, 3: 14, 4: 16, 5: 8}.get(n, 0)
+
+    ratio_pts = 0.0
+    for a, b in zip(depths, depths[1:]):
+        r = b / a if a > 0 else 99
+        if r <= 0.50: ratio_pts += 10
+        elif r <= contraction_ratio: ratio_pts += 7
+        elif r <= 0.90:
+            ratio_pts += 2; flags.append(f'ratio_flojo={r:.2f}')
+        else: flags.append(f'no_contrajo={r:.2f}')
+    score += min(28, ratio_pts)
+
+    last = depths[-1]
+    if last <= 0.04: score += 14
+    elif last <= 0.06: score += 10
+    elif last <= max_final_depth: score += 6
+    else: flags.append('lado_derecho_ancho')
+
+    lows = [c['low'] for c in contractions]
+    hl = all(lows[i] >= lows[i - 1] * (1 - allow_undercut) for i in range(1, len(lows)))
+    if hl: score += 6
+    else: flags.append('undercut')
+
+    durs = [c['duration'] for c in contractions]
+    if all(durs[i] <= durs[i - 1] for i in range(1, len(durs))):
+        score += 5
+
+    vols = [c['down_volume'] for c in contractions if np.isfinite(c['down_volume'])]
+    if len(vols) >= 2 and all(vols[i] <= vols[i - 1] * 1.05 for i in range(1, len(vols))):
+        score += 8
+    else:
+        flags.append('vol_no_monotono')
+
+    vol_sma = float(pd.Series(df_v).rolling(vol_sma_period).mean().iloc[-1]) if len(df_v) >= vol_sma_period else float(np.mean(df_v))
+    vol_dec = None
+    if vol_sma > 0 and np.isfinite(contractions[-1]['all_volume']):
+        dry = contractions[-1]['all_volume'] / vol_sma
+        vol_dec = dry <= max_final_vol_vs_sma
+        if dry <= 0.40: score += 8
+        elif dry <= max_final_vol_vs_sma: score += 4
+        else: flags.append(f'sin_dryup={dry:.2f}')
+
+    # Bono chico de "calidad de resistencia" (mismo concepto que 'VCP
+    # Techo Toques' de arriba: no estructural, hasta 6 pts sobre 100).
+    if techo_toques >= 5: score += 6
+    elif techo_toques == 4: score += 5
+    elif techo_toques == 3: score += 4
+    elif techo_toques == 2: score += 2
+
+    return float(max(0.0, min(100.0, score))), flags, vol_dec
+
+
+def _vcp2_techo_toques(df_h, pivot_high, tol=0.02, order=3):
+    pivots = []
+    for i in range(order, len(df_h) - order):
+        w = df_h[i - order:i + order + 1]
+        if df_h[i] >= max(w):
+            pivots.append(df_h[i])
+    if pivot_high <= 0:
+        return 0
+    return sum(1 for v in pivots if abs(v - pivot_high) / pivot_high <= tol)
+
+
+def _vcp2_vol_sma_at(df_v, i, n):
+    lo = max(0, i - n + 1)
+    sl = df_v[lo:i + 1]
+    return float(sl.mean()) if len(sl) else float(df_v[i])
+
+
+def _vcp2_evaluate_lifecycle(df_o, df_h, df_l, df_c, df_v, last, pivot, stop,
+                              rs_score=None, allow_shakeout_rs_min=85,
+                              vol_sma_period=50, breakout_on_close=True,
+                              confirmation_days=3, fail_after_days=12,
+                              success_horizon=20, success_gain=0.08,
+                              min_hold_days=10, max_bars_to_breakout=18,
+                              fail_before_drift=0.08, distribution_vol_mult=1.50,
+                              stop_buffer=0.005):
+    """Camina dia a dia desde que se completa la ultima contraccion y
+    clasifica el patron en un ciclo de vida real (no un score estatico
+    unico): forming -> armed -> executed -> success, o fail_before /
+    fail_after. Excepcion de sacudon (2026-08-29): con RS Score>85, ni
+    perforar el stop ni un dia de distribucion cancelan el patron --
+    mismo caso ya validado en el Warren Score (Caso B, origen MRVL)."""
+    n = len(df_c)
+    start = last['low_i'] + 1
+    flags = []
+    shakeout_ok = rs_score is not None and rs_score > allow_shakeout_rs_min
+
+    if start >= n:
+        return {'lifecycle': 'forming', 'reason': 'ultima T recien completada', 'cancelled': False,
+                'breakout_i': None, 'outcome_i': None, 'mfe_pct': 0.0, 'mae_pct': 0.0,
+                'breakout_vol_ratio': None, 'flags': flags}
+
+    breakout_i = None
+    breakout_vol_ratio = None
+
+    for i in range(start, n):
+        close_i, high_i_, low_i_, open_i = df_c[i], df_h[i], df_l[i], df_o[i]
+        broke = (close_i > pivot) if breakout_on_close else (high_i_ > pivot)
+        if broke:
+            breakout_i = i
+            vsma = _vcp2_vol_sma_at(df_v, i, vol_sma_period)
+            breakout_vol_ratio = (float(df_v[i]) / vsma) if vsma > 0 else None
+            break
+
+        if low_i_ < stop * (1.0 - stop_buffer):
+            if shakeout_ok:
+                flags.append('undercut_perdonado_rs_alto')
+                stop = min(stop, float(low_i_))
+            else:
+                flags.append('undercut_stop_pre')
+                return {'lifecycle': 'fail_before', 'reason': 'perforo el low de la ultima T antes de romper el pivot',
+                        'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
+                        'mae_pct': round((float(low_i_) / pivot - 1) * 100, 2),
+                        'breakout_vol_ratio': None, 'flags': flags}
+
+        post_high = float(np.max(df_h[start:i + 1]))
+        if post_high > 0:
+            post_depth = (post_high - float(low_i_)) / post_high
+            if post_depth > last['depth'] * 1.05 and post_depth > 0.10:
+                flags.append('se_ensancho')
+                return {'lifecycle': 'fail_before', 'reason': 'nueva correccion mas profunda: el VCP dejo de contraer',
+                        'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
+                        'mae_pct': round((float(low_i_) / pivot - 1) * 100, 2),
+                        'breakout_vol_ratio': None, 'flags': flags}
+
+        vsma = _vcp2_vol_sma_at(df_v, i, vol_sma_period)
+        down = close_i < open_i
+        if down and vsma > 0 and float(df_v[i]) >= distribution_vol_mult * vsma:
+            if shakeout_ok:
+                flags.append('distribucion_perdonada_rs_alto')
+            else:
+                flags.append('distribution_day_pre')
+                return {'lifecycle': 'fail_before', 'reason': 'dia de distribucion antes de romper',
+                        'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
+                        'mae_pct': round((float(low_i_) / pivot - 1) * 100, 2),
+                        'breakout_vol_ratio': None, 'flags': flags}
+
+        bars_waited = i - last['low_i']
+        drift = (pivot - float(close_i)) / pivot
+        if bars_waited >= max_bars_to_breakout and drift >= fail_before_drift:
+            flags.append('timeout_drift')
+            return {'lifecycle': 'fail_before', 'reason': 'no rompio a tiempo y se alejo del pivot',
+                    'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
+                    'mae_pct': round(-drift * 100, 2), 'breakout_vol_ratio': None, 'flags': flags}
+
+    if breakout_i is None:
+        price = float(df_c[-1])
+        dist = (pivot - price) / pivot if pivot else 1
+        tight_now = last['depth'] <= 0.10
+        if dist <= 0.05 and tight_now:
+            lc, reason = 'armed', 'VCP armado: apriete vigente cerca del pivot'
+        else:
+            lc, reason = 'forming', 'VCP visible pero todavia no armado / lejos del pivot'
+        mae = (float(np.min(df_l[start:])) / pivot - 1) * 100
+        return {'lifecycle': lc, 'reason': reason, 'cancelled': False, 'breakout_i': None,
+                'outcome_i': None, 'mfe_pct': 0.0, 'mae_pct': round(mae, 2),
+                'breakout_vol_ratio': None, 'flags': flags}
+
+    if breakout_vol_ratio is not None and breakout_vol_ratio < 1.40:
+        flags.append('breakout_sin_volumen')
+    else:
+        flags.append('breakout_con_volumen')
+
+    end = min(n, breakout_i + success_horizon + 1)
+    mfe = (float(np.max(df_h[breakout_i:end])) / pivot - 1) * 100
+    mae = (float(np.min(df_l[breakout_i:end])) / pivot - 1) * 100
+    stop_line = stop * (1.0 - stop_buffer)
+
+    for j, idx in enumerate(range(breakout_i, end)):
+        if float(df_l[idx]) <= stop_line:
+            flags.append('stop_hit_post')
+            return {'lifecycle': 'fail_after', 'reason': 'rompio el pivot y despues pego el stop',
+                    'cancelled': True, 'breakout_i': breakout_i, 'outcome_i': idx,
+                    'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+                    'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+        if j > 0 and j <= confirmation_days and float(df_c[idx]) < pivot:
+            flags.append('perdio_pivot_confirmacion')
+            return {'lifecycle': 'fail_after', 'reason': 'rompio y volvio dentro de la base en la confirmacion',
+                    'cancelled': True, 'breakout_i': breakout_i, 'outcome_i': idx,
+                    'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+                    'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+        if j > confirmation_days and j <= fail_after_days and float(df_c[idx]) < pivot:
+            so_far = (float(np.max(df_h[breakout_i:idx + 1])) / pivot - 1)
+            if so_far < success_gain:
+                flags.append('reentry_a_la_base')
+                return {'lifecycle': 'fail_after', 'reason': 'rompio, no avanzo y reingreso a la base',
+                        'cancelled': True, 'breakout_i': breakout_i, 'outcome_i': idx,
+                        'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+                        'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+        if float(df_h[idx]) >= pivot * (1.0 + success_gain):
+            flags.append('target_alcanzado')
+            return {'lifecycle': 'success', 'reason': f'breakout confirmado: +{success_gain:.0%} desde el pivot',
+                    'cancelled': False, 'breakout_i': breakout_i, 'outcome_i': idx,
+                    'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+                    'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+        if j >= min_hold_days and float(df_c[idx]) > pivot:
+            flags.append('hold_sobre_pivot')
+            return {'lifecycle': 'success', 'reason': f'sostuvo el pivot {min_hold_days} sesiones',
+                    'cancelled': False, 'breakout_i': breakout_i, 'outcome_i': idx,
+                    'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+                    'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+
+    return {'lifecycle': 'executed', 'reason': 'cruzo el pivot; todavia en confirmacion',
+            'cancelled': False, 'breakout_i': breakout_i, 'outcome_i': None,
+            'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
+            'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+
+
+def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
+    NULL = {'VCP2 Score': None, 'VCP2 Detected': False, 'VCP2 Contractions': 0,
+            'VCP2 Tightness': None, 'VCP2 Dist Pivot %': None, 'VCP2 Vol Decreasing': False,
+            'VCP2 Techo Toques': None, 'VCP2 Techo': None, 'VCP2 Ya Rompio': False,
+            'VCP2 Lifecycle': 'no_pattern', 'VCP2 Solidity': 0.0, 'VCP2 MFE %': None, 'VCP2 MAE %': None}
+    try:
+        h = hist['High'].values.astype(float)
+        l = hist['Low'].values.astype(float)
+        c = hist['Close'].values.astype(float)
+        o = hist['Open'].values.astype(float)
+        v = hist['Volume'].values.astype(float)
+        if len(c) > 320:
+            h, l, c, o, v = h[-320:], l[-320:], c[-320:], o[-320:], v[-320:]
+        if len(c) < 60:
+            return dict(NULL, **{'VCP2 Score': None})
+
+        swings = _vcp2_zigzag_swings(h, l, c)
+        if len(swings) < 3:
+            return dict(NULL, **{'VCP2 Score': 0})
+
+        contractions = _vcp2_extract_contractions(o, h, l, c, v, swings)
+        if len(contractions) < 2:
+            return dict(NULL, **{'VCP2 Score': 0, 'VCP2 Contractions': len(contractions)})
+
+        t1 = contractions[0]
+        if not (0.08 <= t1['depth'] <= 0.35):
+            return dict(NULL, **{'VCP2 Score': 0, 'VCP2 Contractions': len(contractions)})
+        for a, b in zip(contractions, contractions[1:]):
+            if b['depth'] > 0.70 * a['depth']:
+                return dict(NULL, **{'VCP2 Score': 0, 'VCP2 Contractions': len(contractions)})
+
+        last = contractions[-1]
+        pivot = float(last['high'])
+        stop = float(last['low'])
+        toques = _vcp2_techo_toques(h, pivot, order=pivot_order)
+
+        formation, sflags, vol_dec = _vcp2_formation_score(contractions, v, techo_toques=toques)
+        life = _vcp2_evaluate_lifecycle(o, h, l, c, v, last, pivot, stop, rs_score=rs_score)
+
+        price = float(c[-1])
+        dist_pivot = (price - pivot) / pivot * 100 if pivot else None
+
+        lifecycle = life['lifecycle']
+        cancelled = bool(life['cancelled'])
+        ya_rompio = lifecycle in ('executed', 'success', 'fail_after')
+        # "Ya rota" (mismo margen 3% que detectar_vcp de arriba): una vez
+        # que el precio supero el pivote con margen, deja de sumar el
+        # mismo puntaje de formacion que uno todavia comprimiendo. 'VCP2
+        # Ya Rompio' sigue en True igual (lo necesita el bono via
+        # histeresis, que ya deja de acumular en cuanto esta bandera prende).
+        ya_rota = dist_pivot is not None and dist_pivot > 3.0
+
+        dist_abs = abs(pivot - price) / pivot if pivot else 1
+        if price >= pivot: loc = 15.0
+        elif dist_abs <= 0.02: loc = 14.0
+        elif dist_abs <= 0.05: loc = 10.0
+        elif dist_abs <= 0.08: loc = 5.0
+        else: loc = 1.0
+        if last['depth'] <= 0.04: loc += 4
+        elif last['depth'] <= 0.06: loc += 2
+        loc = min(20.0, loc)
+
+        vol_sma = float(pd.Series(v).rolling(50).mean().iloc[-1]) if len(v) >= 50 else float(np.mean(v))
+        dry = last['all_volume'] / vol_sma if vol_sma > 0 else 1
+        dem = 0.0
+        if dry <= 0.40: dem += 10
+        elif dry <= 0.65: dem += 6
+        elif dry <= 0.85: dem += 2
+        recent_range = range(max(0, len(c) - 5), len(c))
+        down_heavy = any((c[i] < o[i]) and vol_sma > 0 and v[i] >= 1.5 * vol_sma for i in recent_range)
+        if not down_heavy: dem += 5
+        dem = min(15.0, dem)
+
+        integ = 15.0
+        if float(np.min(l[last['low_i']:])) < stop * (1 - 0.005): integ -= 10
+        sma50_last = pd.Series(c).rolling(50).mean().iloc[-1]
+        if np.isfinite(sma50_last) and price < float(sma50_last): integ -= 8
+        if c[-1] < o[-1] and vol_sma > 0 and v[-1] >= 1.5 * vol_sma: integ -= 6
+        integ = max(0.0, integ)
+
+        exe = 0.0
+        if life.get('breakout_i') is not None:
+            ratio = life.get('breakout_vol_ratio') or 0.0
+            if ratio >= 1.40: exe += 10
+            elif ratio >= 1.0: exe += 4
+            if lifecycle == 'success': exe += 10
+            elif lifecycle == 'executed': exe += 4
+            elif lifecycle == 'fail_after': exe = 0.0
+
+        raw_solidity = formation * 0.55 + loc + dem + integ + exe
+        mult = {'forming': 0.80, 'armed': 1.00, 'executed': 1.05, 'success': 1.00,
+                'fail_before': 0.15, 'fail_after': 0.10}.get(lifecycle, 0.5)
+        solidity = raw_solidity * mult
+        if lifecycle in ('fail_before', 'fail_after'):
+            solidity = min(solidity, 20.0)
+        solidity = max(0.0, min(100.0, solidity))
+
+        detected = (formation >= 55) and not cancelled and not ya_rota and lifecycle in ('forming', 'armed', 'executed', 'success')
+
+        return {
+            'VCP2 Score':          round(formation, 1) if not (cancelled or ya_rota) else 0,
+            'VCP2 Detected':       bool(detected),
+            'VCP2 Contractions':   len(contractions),
+            'VCP2 Tightness':      round(last['depth'] * 100, 2),
+            'VCP2 Dist Pivot %':   round(dist_pivot, 2) if dist_pivot is not None else None,
+            'VCP2 Vol Decreasing': bool(vol_dec) if vol_dec is not None else False,
+            'VCP2 Techo Toques':   toques,
+            'VCP2 Techo':          round(pivot, 2),
+            'VCP2 Ya Rompio':      bool(ya_rompio),
+            'VCP2 Lifecycle':      lifecycle,
+            'VCP2 Solidity':       round(solidity, 1),
+            'VCP2 MFE %':          life.get('mfe_pct'),
+            'VCP2 MAE %':          life.get('mae_pct'),
+        }
+    except Exception:
+        return dict(NULL, **{'VCP2 Score': None})
+
+
+def detectar_vcp2(hist, rs_score=None, pivot_order=3, hyst_dias=2, ventana_hyst=6):
+    """Wrapper de histeresis para VCP2 -- mismo patron que detectar_vcp()
+    de arriba (probado en vivo: sin esto, VCP2 Detected parpadearia dia
+    a dia igual que le pasaba al detector viejo antes de este fix)."""
+    actual = _detectar_vcp2_raw(hist, rs_score, pivot_order)
+    if actual['VCP2 Score'] is None:
+        return actual
+    n = len(hist)
+    ventana = min(ventana_hyst, n - 60)
+    if ventana < hyst_dias:
+        return actual
+    detected = False
+    streak_on = streak_off = 0
+    mejor_bono = 0.0
+    for k in range(ventana, -1, -1):
+        idx_hasta = n - k
+        if idx_hasta < 60:
+            continue
+        raw = _detectar_vcp2_raw(hist.iloc[:idx_hasta], rs_score, pivot_order)
+        s = raw['VCP2 Score'] or 0
+        if s >= 55:
+            streak_on += 1; streak_off = 0
+        else:
+            streak_off += 1; streak_on = 0
+        if streak_on >= hyst_dias: detected = True
+        if streak_off >= hyst_dias: detected = False
+        if s >= 55 and not raw.get('VCP2 Ya Rompio'):
+            bono = min(s / 100 * 6.8 + (1.7 if raw.get('VCP2 Vol Decreasing') else 0), 8.5)
+            if bono > mejor_bono:
+                mejor_bono = bono
+    actual = dict(actual)
+    actual['VCP2 Detected'] = detected
+    actual['VCP2 Bono Pts'] = round(mejor_bono, 2) if mejor_bono > 0 else None
+    return actual
+
+# ═══════════════════ FIN VCP2 ═══════════════════════════════════════════
+
+
 def calcular_sesiones_10(close, volume):
     """
     Últimas 10 sesiones: días positivos/negativos y volumen acumulado por tipo.
@@ -3074,6 +3628,11 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # VCP
         vcp = detectar_vcp(hist)
 
+        # VCP2 -- detector alternativo en paralelo (2026-08-29), no
+        # reemplaza nada de lo de arriba. Ver comentario en la definicion
+        # de detectar_vcp2() mas arriba en este archivo.
+        vcp2 = detectar_vcp2(hist, rs_score=score_actual)
+
         # Base estructural (Warren Score v2 Pilar D)
         base = detectar_base(hist)
 
@@ -3207,6 +3766,20 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "VCP Techo":           vcp.get('VCP Techo'),
             "VCP Ya Rompio":       vcp.get('VCP Ya Rompio'),
             "VCP Bono Pts":        vcp.get('VCP Bono Pts'),
+            "VCP2 Score":           vcp2.get('VCP2 Score'),
+            "VCP2 Detected":        vcp2.get('VCP2 Detected'),
+            "VCP2 Contractions":    vcp2.get('VCP2 Contractions'),
+            "VCP2 Tightness":       vcp2.get('VCP2 Tightness'),
+            "VCP2 Dist Pivot %":    vcp2.get('VCP2 Dist Pivot %'),
+            "VCP2 Vol Decreasing":  vcp2.get('VCP2 Vol Decreasing'),
+            "VCP2 Techo Toques":    vcp2.get('VCP2 Techo Toques'),
+            "VCP2 Techo":           vcp2.get('VCP2 Techo'),
+            "VCP2 Ya Rompio":       vcp2.get('VCP2 Ya Rompio'),
+            "VCP2 Bono Pts":        vcp2.get('VCP2 Bono Pts'),
+            "VCP2 Lifecycle":       vcp2.get('VCP2 Lifecycle'),
+            "VCP2 Solidity":        vcp2.get('VCP2 Solidity'),
+            "VCP2 MFE %":           vcp2.get('VCP2 MFE %'),
+            "VCP2 MAE %":           vcp2.get('VCP2 MAE %'),
             "Días + 10s":          dias_pos_10,
             "Días - 10s":          dias_neg_10,
             "Vol días + 10s":      vol_pos_10,
