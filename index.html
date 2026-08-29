@@ -646,24 +646,17 @@
     <div class="panel">
       <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.">Warren Score</div><div class="panel-sub">Score compuesto 0–100 · 4 pilares + gates Stage 2</div></div></div>
       <div class="panel-filters" id="ws-filters-row">
-        <span class="pf-label">Filtro:</span>
-        <select id="ws-min" onchange="renderWarrenScore()">
-          <option value="all">Todos</option>
-          <option value="gates">Solo Gates OK</option>
-          <option value="50">Score ≥ 50</option>
-          <option value="60">Score ≥ 60</option>
-        </select>
-        <span class="pf-label" style="margin-left:6px;">Mostrar:</span>
-        <select id="ws-n" onchange="renderWarrenScore()"><option value="20">Top 20</option><option value="30">Top 30</option><option value="50">Top 50</option><option value="999">Todos</option></select>
+        <span class="pf-label">Sector:</span>
+        <select id="ws-sector" onchange="renderWarrenScore()"><option value="all">Todos</option></select>
       </div>
       <div class="panel-body" style="padding:0;">
-        <div style="max-height:500px;overflow-y:auto;" id="ws-table-wrap">
+        <div style="max-height:945px;overflow-y:auto;" id="ws-table-wrap">
           <table class="scanner-table" id="warren-table">
             <thead><tr>
               <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
               <th data-tooltip="Símbolo del activo" style="text-align:center">Ticker</th>
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
-              <th data-tooltip="Gates Stage 2: precio > EMA200 con pendiente +, precio ≥ SMA50 (2% de margen). El requisito de >20% sobre el mínimo 52W dejó de ser gate binario: si el VCP ya es alto (Score≥70) se exime, si no resta puntos gradualmente (ver flag 🔻).">Gates</th>
+              <th data-tooltip="Evolución del RS Score en las últimas semanas (rotacion_historia.json) — mismo gráfico de línea que Aceleración Inusual / Recién a Líderes. Verde si mejoró desde el inicio de la serie, rojo si empeoró." style="text-align:center">Evolución</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
               <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): Bollinger BandWidth contraído, volumen secándose, RSI en zona neutra (40–70), + bono de eficiencia (hasta 10 pts) si rompió un máximo previo con pausa eficiente confirmada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
@@ -8452,27 +8445,35 @@ window.wsRankSnapSave = function() {
 /* ── renderWarrenScore -- copia verbatim de V33 (misma tabla), solo
    actualiza el string de versión leído de localStorage (4.7 → 4.8) ── */
 window.renderWarrenScore = function() {
-  const filtro = document.getElementById('ws-min').value;
-  const topN   = parseInt(document.getElementById('ws-n').value);
   const searchEl = document.getElementById('ws-search');
   const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+
+  // Filtro único por sector (2026-08-29, pedido del usuario -- reemplaza
+  // a los viejos "Filtro" de score/gates y "Mostrar" de top N). Las
+  // opciones se arman solas la primera vez, con los sectores que
+  // realmente aparecen en DATOS (campo 'Sector', viene de yfinance).
+  const sectorSel = document.getElementById('ws-sector');
+  if (sectorSel && sectorSel.options.length <= 1 && typeof DATOS !== 'undefined' && DATOS && DATOS.length) {
+    Array.from(new Set(DATOS.map(d => d['Sector']).filter(s => s && s !== '—')))
+      .sort()
+      .forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sectorSel.appendChild(opt);
+      });
+  }
+  const sector = sectorSel ? sectorSel.value : 'all';
 
   let data = getDatosFiltrados()
     .map(d => ({ d, ...calcWarrenDetalle(d) }))
     .filter(x => x.score > 0)
-    .filter(x => {
-      if (filtro === 'gates') return x.fallas.length === 0;
-      if (filtro === '50')    return x.score >= 50;
-      if (filtro === '60')    return x.score >= 60;
-      return true;
-    });
+    .filter(x => sector === 'all' || x.d['Sector'] === sector);
 
   if (searchTerm) {
     data = data.filter(x => (x.d['Ticker'] || '').toLowerCase().indexOf(searchTerm) !== -1);
   }
 
   data = data.sort((a, b) => b.score - a.score);
-  if (!searchTerm) data = data.slice(0, topN);
 
   const scoreBadge = s => {
     const cls = s >= 70 ? 'pill-green' : s >= 50 ? 'pill-blue' : 'pill-amber';
@@ -8503,23 +8504,49 @@ window.renderWarrenScore = function() {
     '🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas con velas sin cuerpo y volumen seco. Activo hasta 2 velas verdes seguidas',
     '🪤':'Pendiente SMA50 pronunciada con buen RS Score: ya rebotó pero la media de 50 todavía no confirma'
   };
-  // Penalizaciones: mismo bar mobile + las banderas emoji al pie (antes iba
-  // en una columna "Adv." separada) -- referencias completas debajo de la
-  // tabla, en #ws-leg.
+  // Penalizaciones (2026-08-29, más chica y con los emojis al lado en vez
+  // de abajo): barrita angosta sin el box/borde de .wbm-pbar + número,
+  // banderas emoji a la derecha en la misma fila. Referencias completas
+  // debajo de la tabla, en #ws-leg.
   const penBadge = (pen, flags, ckId) => {
     if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
     const penPct = pen < 0 ? Math.min((-pen) / 25, 1) : 0;
-    const bar = `<div class="wbm-pbar"><div class="wbm-pbar-fill"><i style="width:${Math.round(penPct*100)}%;background:var(--red)"></i></div>` +
-      `<div class="wbm-pbar-val" style="color:${pen<0?'var(--red)':'var(--muted)'}">${pen<0?Math.round(pen):'—'}</div></div>`;
-    if (!flags.length) return bar;
-    const emojis = flags.map(f => {
-      const esPositivo = f === '🫨' || f === '👀' || f === '💣';
-      const flagStyle = esPositivo
-        ? 'font-size:12px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:0 2px;'
-        : 'font-size:12px;cursor:default';
-      return `<span title="${FLAG_TIP[f]||f}" style="${flagStyle}">${f}</span>`;
-    }).join('');
-    return bar + `<div style="margin-top:3px;letter-spacing:1px;white-space:nowrap">${emojis}</div>`;
+    const bar = `<div style="display:inline-flex;flex-direction:column;align-items:center;min-width:24px">` +
+      `<div style="width:20px;height:2px;border-radius:1px;background:var(--border2);overflow:hidden;margin-bottom:2px">` +
+      `<i style="display:block;height:100%;width:${Math.round(penPct*100)}%;background:var(--red)"></i></div>` +
+      `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:${pen<0?'var(--red)':'var(--muted)'}">${pen<0?Math.round(pen):'—'}</span></div>`;
+    const emojis = flags.length
+      ? flags.map(f => {
+          const esPositivo = f === '🫨' || f === '👀' || f === '💣';
+          const flagStyle = esPositivo
+            ? 'font-size:12px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:0 2px;'
+            : 'font-size:12px;cursor:default';
+          return `<span title="${FLAG_TIP[f]||f}" style="${flagStyle}">${f}</span>`;
+        }).join('')
+      : '';
+    return `<div style="display:flex;align-items:center;justify-content:center;gap:6px">${bar}<span style="letter-spacing:1px;white-space:nowrap">${emojis}</span></div>`;
+  };
+  // Evolución (2026-08-29, reemplaza a la columna "Gates"): mismo
+  // sparkline de RS Score semanal que Aceleración Inusual/Recién a
+  // Líderes (rotacion_historia.json, ya cargado en window._wbmRotHistoria
+  // para el detalle mobile) -- se reutiliza acá tal cual, sin depender
+  // del closure de esos paneles.
+  const evolChart = ticker => {
+    const serie = (window._wbmRotHistoria || [])
+      .filter(e => e.ticker === ticker && e.rs_score != null)
+      .sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
+    const vals = serie.map(e => e.rs_score);
+    if (vals.length < 2) return `<span style="color:var(--muted);font-size:10px">—</span>`;
+    const w = 64, h = 22, pad = 2;
+    const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1;
+    const pts = vals.map((v, i) => {
+      const x = pad + (i / (vals.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const col = vals[vals.length - 1] >= vals[0] ? 'var(--green)' : 'var(--red)';
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;margin:0 auto">` +
+      `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
   };
 
   const _allRanks = {};
@@ -8550,10 +8577,6 @@ window.renderWarrenScore = function() {
           else if (delta < 0) deltaHtml = `<span style="color:var(--red);font-size:9px;font-weight:700;line-height:1;white-space:nowrap">▼${Math.abs(delta)}</span>`;
           else                deltaHtml = `<span style="color:var(--muted);font-size:9px;line-height:1">—</span>`;
         }
-        const gatesOk  = fallas.length === 0;
-        const gatesHtml = gatesOk
-          ? `<span style="color:var(--green);font-size:12px">✓</span>`
-          : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
         const isBrk   = isValidBreakout(d);
         let trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
         let brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
@@ -8565,7 +8588,7 @@ window.renderWarrenScore = function() {
           <td style="text-align:center;color:var(--muted);font-size:11px;padding:0 6px;min-width:24px">${globalPos !== null ? globalPos : '—'}</td>
           <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:6px;"><img src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png" style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display='none'"><span class="ticker-badge" title="${N(ticker)}" onmouseenter="mostrarGrafico('${ticker}',this)" onmouseleave="ocultarGrafico()">${ticker}</span>${brkStar}</div></td>
           <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:4px;justify-content:center;">${scoreBadge(score)}${deltaHtml}</div></td>
-          <td style="text-align:center">${gatesHtml}</td>
+          <td style="text-align:center">${evolChart(ticker)}</td>
           <td style="text-align:center">${pilarBadge(pa, 20, 'ws-pa')}</td>
           <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
           <td style="text-align:center">${pilarBadge(pc, 35, 'ws-pc')}</td>
