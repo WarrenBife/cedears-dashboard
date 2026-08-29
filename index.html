@@ -668,8 +668,7 @@
               <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
               <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): Bollinger BandWidth contraído, volumen secándose, RSI en zona neutra (40–70), + bono de eficiencia (hasta 10 pts) si rompió un máximo previo con pausa eficiente confirmada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
               <th data-tooltip="Pilar D — Setup estructural (máx 20 pts): extensión del avance normalizada, madurez de la base, profundidad y posición."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
-              <th data-tooltip="Penalizaciones activas: sobreextensión, distribución activa, reversión con volumen, breakout fallido, Caso B (hasta -25 pts), Agotamiento OBV (-5 pts sola, -12 pts combinada con divergencia RSI), o pendiente SMA50 pronunciada con buen RS Score (hasta -8 pts, ver 🪤)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Pen.</label></th>
-              <th data-tooltip="Señales de agotamiento del avance activas: 📉 Div. RSI · 🪫 Div. OBV · 🐘 Churning · 🕯️ No demand en ruptura · 🎈 Sobreextensión · 🩸 Distribución · 💥 Reversión · ⛔ BO Fallido · 🪤 Pendiente SMA50 pronunciada" style="text-align:center">Adv.</th>
+              <th data-tooltip="Penalizaciones activas, con el puntaje restado y las banderas de qué las dispara (ver referencias debajo de la tabla). Desmarcá el check para sacarlas de la consideración."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Penalizaciones</label></th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
@@ -689,7 +688,6 @@
             🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>
             🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>
             🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>
-            🌪️ <b>Volatilidad sin dirección</b> — Velas grandes que no se traducen en avance real: mucho ruido, poca eficiencia<br>
             <span style="display:block;margin-top:4px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</span>
             🫨 <b>Sacudón previo</b> — Liquidez tomada tras una compresión — anula la volatilidad sin dirección de arriba<br>
             👀 <b>Rebote en observación</b> — Rebotó en la SMA10 recién hoy, todavía sin confirmar<br>
@@ -8481,11 +8479,47 @@ window.renderWarrenScore = function() {
     return `<span class="score-pill ${cls}" style="min-width:42px;font-size:12px;">${s}</span>`;
   };
   const _ck = id => { const el = document.getElementById(id); return !el || el.checked; };
+  // Formato mobile (2026-08-29, pedido del usuario): mismas barritas
+  // .wbm-pbar que ya usa la lista compacta del celular, en vez de la pill
+  // grande de antes -- misma info, ocupa menos y es consistente en los
+  // dos formatos.
   const pilarBadge = (v, max, ckId) => {
     if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
-    const pct = v / max;
-    const cls = pct >= 0.7 ? 'pill-green' : pct >= 0.4 ? 'pill-amber' : 'pill-red';
-    return `<span class="score-pill ${cls}" style="min-width:32px;font-size:11px;">${v.toFixed(1)}</span>`;
+    const pct = max > 0 ? v / max : 0;
+    const col = pct >= 0.7 ? 'var(--green)' : pct >= 0.4 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="wbm-pbar"><div class="wbm-pbar-fill"><i style="width:${Math.round(Math.min(1,pct)*100)}%;background:${col}"></i></div>` +
+      `<div class="wbm-pbar-val" style="color:${col}">${Math.round(v)}</div></div>`;
+  };
+  const FLAG_TIP = {
+    '🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen',
+    '⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)',
+    '🐘':'Churning en máximos',
+    '🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia',
+    '🧊':'Rebote falso en SMA10 / churning en resistencia — posible toma de ganancias',
+    '👀':'Rebotó en la SMA10 — en observación, todavía sin confirmar',
+    '🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó',
+    '💣':'BOMBA: rompió el máximo previo con eficiencia confirmada',
+    '🧨':'Agotamiento OBV + Divergencia RSI a la vez — castigo más severo',
+    '🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas con velas sin cuerpo y volumen seco. Activo hasta 2 velas verdes seguidas',
+    '🪤':'Pendiente SMA50 pronunciada con buen RS Score: ya rebotó pero la media de 50 todavía no confirma'
+  };
+  // Penalizaciones: mismo bar mobile + las banderas emoji al pie (antes iba
+  // en una columna "Adv." separada) -- referencias completas debajo de la
+  // tabla, en #ws-leg.
+  const penBadge = (pen, flags, ckId) => {
+    if (!_ck(ckId)) return `<span style="color:var(--muted);font-size:11px">—</span>`;
+    const penPct = pen < 0 ? Math.min((-pen) / 25, 1) : 0;
+    const bar = `<div class="wbm-pbar"><div class="wbm-pbar-fill"><i style="width:${Math.round(penPct*100)}%;background:var(--red)"></i></div>` +
+      `<div class="wbm-pbar-val" style="color:${pen<0?'var(--red)':'var(--muted)'}">${pen<0?Math.round(pen):'—'}</div></div>`;
+    if (!flags.length) return bar;
+    const emojis = flags.map(f => {
+      const esPositivo = f === '🫨' || f === '👀' || f === '💣';
+      const flagStyle = esPositivo
+        ? 'font-size:12px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:0 2px;'
+        : 'font-size:12px;cursor:default';
+      return `<span title="${FLAG_TIP[f]||f}" style="${flagStyle}">${f}</span>`;
+    }).join('');
+    return bar + `<div style="margin-top:3px;letter-spacing:1px;white-space:nowrap">${emojis}</div>`;
   };
 
   const _allRanks = {};
@@ -8504,7 +8538,7 @@ window.renderWarrenScore = function() {
 
   const body = document.getElementById('warren-body');
   body.innerHTML = data.length === 0
-    ? `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">${searchTerm ? 'Ningún ticker coincide con "' + searchEl.value.trim() + '"' : 'Sin resultados'}</td></tr>`
+    ? `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">${searchTerm ? 'Ningún ticker coincide con "' + searchEl.value.trim() + '"' : 'Sin resultados'}</td></tr>`
     : data.map(({ d, score, fallas, pa, pb, pc, pd, pen, flags, bomba }) => {
         const ticker   = d['Ticker'];
         const globalPos = _allRanks[ticker] || null;
@@ -8520,9 +8554,6 @@ window.renderWarrenScore = function() {
         const gatesHtml = gatesOk
           ? `<span style="color:var(--green);font-size:12px">✓</span>`
           : `<span style="color:var(--red);font-size:11px;cursor:default" title="${fallas.join('\n')}">✗ ${fallas.length}</span>`;
-        const penHtml  = pen < 0
-          ? `<span style="color:var(--red);font-size:11px" title="${flags.join(', ')}">${pen}</span>`
-          : `<span style="color:var(--muted);font-size:11px">—</span>`;
         const isBrk   = isValidBreakout(d);
         let trStyle = isBrk ? 'style="background:rgba(245,200,66,0.07);box-shadow:inset 3px 0 0 #f5c842;"' : '';
         let brkStar = isBrk ? ' <span style="font-size:10px" title="Despegue Fresco válido">🚀</span>' : '';
@@ -8539,15 +8570,7 @@ window.renderWarrenScore = function() {
           <td style="text-align:center">${pilarBadge(pb, 25, 'ws-pb')}</td>
           <td style="text-align:center">${pilarBadge(pc, 35, 'ws-pc')}</td>
           <td style="text-align:center">${pilarBadge(pd, 20, 'ws-pd')}</td>
-          <td style="text-align:center">${_ck('ws-pen') ? penHtml : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
-          <td style="text-align:center;min-width:52px">${flags.length ? flags.map(f => {
-            const tip = {'🎈':'Sobreextensión','🩸':'Distribución activa','💥':'Reversión con volumen','⛔':'Breakout fallido','📉':'Divergencia RSI','🪫':'Divergencia OBV (sin nafta)','🐘':'Churning en máximos','🫨':'Sacudón previo: liquidez tomada tras compresión — contexto favorable, no advertencia','🧊':'Churning en resistencia: volatilidad sin dirección contra un máximo previo — posible toma de ganancias','👀':'Rebotó en la SMA10 — en observación, revisar mañana','🌊':'Caso B: deambulando cerca de un máximo previo sin romperlo, con volumen que no bajó — alto riesgo de fracaso','💣':'BOMBA: rompió el máximo previo con eficiencia confirmada (ver Episodic Pivots & Bombs)','🌫️':'Agotamiento OBV: sigue cerca de un máximo reciente pero con velas chicas y volumen seco vs. el día de impulso','🧨':'Agotamiento OBV + Divergencia RSI a la vez — castigo más severo','🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas y siguió subiendo, pero con velas sin cuerpo y volumen seco — avanza por falta de oferta, no por demanda real. Sigue activo hasta que aparezcan 2 velas verdes seguidas','🪤':'Pendiente SMA50 pronunciada con buen RS Score: el precio ya rebotó pero la media de 50 todavía no confirma — riesgo elevado de que vuelva a caer (ver caso AVGO en wb_research/)','🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real (choppiness alto + baja eficiencia)'}[f]||f;
-            const esPositivo = f === '🫨' || f === '👀' || f === '💣';
-            const flagStyle = esPositivo
-              ? 'font-size:13px;cursor:default;background:rgba(34,201,138,0.15);border:1px solid rgba(34,201,138,0.4);border-radius:4px;padding:1px 3px;'
-              : 'font-size:13px;cursor:default';
-            return `<span title="${tip}" style="${flagStyle}">${f}</span>`;
-          }).join('') : ''}</td>
+          <td style="text-align:center;min-width:70px">${penBadge(pen, flags, 'ws-pen')}</td>
         </tr>`;
       }).join('');
 };
