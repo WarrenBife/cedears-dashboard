@@ -7530,8 +7530,8 @@ var wrap = document.createElement('div');
 wrap.innerHTML =
   '<div class="panel" id="wb-vcpq-panel">'+
     '<div class="panel-head">'+
-      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses.">🧬 Bases VCP de Alta Calidad</div>'+
-      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP Score ≥60 · independiente del Warren Score</div></div>'+
+      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Usa el mejor puntaje entre los dos detectores VCP (el clásico y VCP2, con ciclo de vida).">🧬 Bases VCP de Alta Calidad</div>'+
+      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP Score ≥60 (mejor de los 2 detectores) · independiente del Warren Score</div></div>'+
       '<label class="wb-vcpq-toggle"><input type="checkbox" id="wb-vcpq-filter70" onchange="wbRenderVcpQuality()">VCP≥70 recientes</label>'+
     '</div>'+
     '<div class="panel-body" style="overflow-x:auto">'+
@@ -7544,8 +7544,9 @@ wrap.innerHTML =
           '<th data-tooltip="Distancia % del precio actual al techo/pivote de la base.">Dist. Pivote</th>'+
           '<th data-tooltip="Precio del techo (pivote) de la base.">Techo</th>'+
           '<th data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
+          '<th data-tooltip="Ciclo de vida del patrón (detector VCP2): si ya rompió, si sostuvo la ruptura, o si falló antes/después de romper.">Estado</th>'+
         '</tr></thead>'+
-        '<tbody id="wb-vcpq-body"><tr><td colspan="8" class="wb-empty">Cargando…</td></tr></tbody>'+
+        '<tbody id="wb-vcpq-body"><tr><td colspan="9" class="wb-empty">Cargando…</td></tr></tbody>'+
       '</table>'+
     '</div>'+
   '</div>';
@@ -7575,8 +7576,13 @@ function vcpqGuardarHoy(datos){
     var hoy = hoyISO();
     if(!hist[hoy]) hist[hoy] = {};
     datos.forEach(function(d){
-      var t = d['Ticker'], vs = Number(d['VCP Score']);
-      if(t && !isNaN(vs)) hist[hoy][t] = vs;
+      // Mejor de los 2 detectores (ver _vcpqMejor mas abajo) -- asi la
+      // flecha de tendencia no queda inconsistente con lo que se
+      // muestra hoy en la tabla.
+      var t = d['Ticker'];
+      var vOld = Number(d['VCP Score']), vNew = Number(d['VCP2 Score']);
+      var vs = Math.max(isNaN(vOld)?-1:vOld, isNaN(vNew)?-1:vNew);
+      if(t && vs >= 0) hist[hoy][t] = vs;
     });
     var keys = Object.keys(hist).sort();
     while(keys.length > VCPQ_DIAS){ delete hist[keys.shift()]; }
@@ -7597,6 +7603,37 @@ function vcpqTendencia(ticker){
 }
 
 /* ═══ Render ═══ */
+// Mejor puntaje entre los dos detectores VCP (2026-08-29): se usa el
+// que dé MÁS alto, y todos los demás campos (Dist Pivot, Techo,
+// Contracciones, Vol↓) se leen de ESE MISMO detector para no mezclar
+// un techo de uno con una distancia del otro. Validado contra los 19
+// casos de referencia: VCP2 reconoce bases reales (MRVL, LRCX, MU,
+// GOOGL) que el detector viejo pierde del todo -- tomar el máximo
+// suma cobertura sin arriesgar los casos donde el viejo ya funcionaba.
+function _vcpqMejor(d){
+  var vOld = Number(d['VCP Score']), vNew = Number(d['VCP2 Score']);
+  var old = !isNaN(vOld) ? vOld : null, nuevo = !isNaN(vNew) ? vNew : null;
+  var usarNuevo = (nuevo !== null) && (old === null || nuevo > old);
+  if(usarNuevo){
+    return { score: nuevo, distPivot: d['VCP2 Dist Pivot %'], techo: d['VCP2 Techo'],
+             contr: d['VCP2 Contractions'], volDec: d['VCP2 Vol Decreasing'],
+             lifecycle: d['VCP2 Lifecycle'], fuente: 'VCP2' };
+  }
+  return { score: old, distPivot: d['VCP Dist Pivot %'], techo: d['VCP Techo'],
+           contr: d['VCP Contractions'], volDec: d['VCP Vol Decreasing'],
+           lifecycle: null, fuente: 'VCP' };
+}
+
+var VCPQ_LIFECYCLE_LBL = {
+  forming:'Formándose', armed:'Armado', executed:'Recién rompió',
+  success:'Rompió y confirmó', fail_before:'Falló antes de romper',
+  fail_after:'Rompió y falló', no_pattern:'—'
+};
+var VCPQ_LIFECYCLE_COL = {
+  forming:'var(--muted)', armed:'var(--blue)', executed:'var(--blue)',
+  success:'var(--green)', fail_before:'var(--red)', fail_after:'var(--red)'
+};
+
 function wbRenderVcpQuality(){
   if(!datosOK()) return;
   var body = document.getElementById('wb-vcpq-body');
@@ -7607,53 +7644,54 @@ function wbRenderVcpQuality(){
   var soloRecientes = document.getElementById('wb-vcpq-filter70');
   soloRecientes = !!(soloRecientes && soloRecientes.checked);
 
-  var rows = filtrados().filter(function(d){
-    var vs = Number(d['VCP Score']);
-    return !isNaN(vs) && vs >= 60;
-  });
+  var rows = filtrados()
+    .map(function(d){ return { d: d, m: _vcpqMejor(d) }; })
+    .filter(function(x){ return x.m.score !== null && x.m.score >= 60; });
 
   if(soloRecientes){
-    rows = rows.filter(function(d){
-      var vs = Number(d['VCP Score']);
-      var tr = vcpqTendencia(d['Ticker']);
-      return vs >= 70 || (tr.max !== null && tr.max >= 70);
+    rows = rows.filter(function(x){
+      var tr = vcpqTendencia(x.d['Ticker']);
+      return x.m.score >= 70 || (tr.max !== null && tr.max >= 70);
     });
   }
 
-  rows.sort(function(a,b){ return Number(b['VCP Score']) - Number(a['VCP Score']); });
+  rows.sort(function(a,b){ return b.m.score - a.m.score; });
   rows = rows.slice(0, 15);
 
   var countEl = document.getElementById('wb-vcpq-count');
   if(countEl) countEl.textContent = rows.length;
 
   if(!rows.length){
-    body.innerHTML = '<tr><td colspan="8" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
     return;
   }
 
-  body.innerHTML = rows.map(function(d){
-    var t  = d['Ticker'];
-    var vs = Number(d['VCP Score']);
+  body.innerHTML = rows.map(function(x){
+    var d = x.d, m = x.m, t = d['Ticker'];
+    var vs = m.score;
     var vsCls = vs>=80 ? 'pill-green' : vs>=70 ? 'pill-blue' : 'pill-amber';
     var tr = vcpqTendencia(t);
-    var dp = d['VCP Dist Pivot %'];
+    var dp = m.distPivot;
     var dpNum = (dp===null||dp===undefined) ? null : Number(dp);
     var dpTxt = dpNum===null ? '—' : (dpNum>=0?'+':'')+dpNum.toFixed(1)+'%';
     var dpCls = (dpNum!==null && Math.abs(dpNum)<=3) ? 'pill-green' : 'pill-blue';
-    var techo  = d['VCP Techo'];
+    var techo  = m.techo;
     var precio = d['Precio'];
-    var contr  = d['VCP Contractions'];
-    var volDec = _bool_v9(d['VCP Vol Decreasing']) ? '✅' : '—';
+    var contr  = m.contr;
+    var volDec = _bool_v9(m.volDec) ? '✅' : '—';
+    var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || (m.fuente==='VCP' ? '—' : '—');
+    var lcCol = VCPQ_LIFECYCLE_COL[m.lifecycle] || 'var(--muted)';
     return '<tr>'+
       '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
         '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
       '<td>'+(precio!=null ? Number(precio).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
-      '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
+      '<td><span class="score-pill '+vsCls+'" title="Fuente: '+m.fuente+'">'+vs.toFixed(0)+'</span></td>'+
       '<td title="'+tr.tip+'" style="color:'+tr.color+';font-weight:700;cursor:default">'+tr.arrow+'</td>'+
       '<td>'+(contr!=null ? contr : '—')+'</td>'+
       '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
       '<td>'+(techo!=null ? Number(techo).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
       '<td>'+volDec+'</td>'+
+      '<td style="color:'+lcCol+';font-weight:600;white-space:nowrap">'+lcLbl+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -8153,7 +8191,16 @@ function _pilarCv50(d){
   // ya sostiene el mejor bono de los últimos ~7 días mientras la base
   // seguía detectada y sin romper en ese día puntual -- si nunca hubo
   // una base así en la ventana, viene en null y el bono es 0.
-  const ptsVcp = d['VCP Bono Pts'] != null ? d['VCP Bono Pts'] : 0;
+  //
+  // 2026-08-29: se suma 'VCP2 Bono Pts' (detector alternativo, ZigZag
+  // adaptativo + ciclo de vida, ver detectar_vcp2() en actualizar_datos.py)
+  // tomando el MÁXIMO entre los dos -- validado contra los 19 casos de
+  // referencia que VCP2 reconoce bases reales que el detector viejo
+  // pierde del todo (MRVL, LRCX, MU, GOOGL quedaban con bono null pese a
+  // ser setups reales confirmados). Usar el máximo en vez de reemplazar
+  // significa que ningún caso que ya funcionaba con el detector viejo
+  // puede empeorar -- solo se gana cobertura.
+  const ptsVcp = Math.max(d['VCP Bono Pts'] || 0, d['VCP2 Bono Pts'] || 0);
 
   const disponibleSinContraccion = ptsRSI + ptsVcp;
   let base;
