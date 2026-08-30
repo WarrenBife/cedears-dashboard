@@ -2612,6 +2612,20 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
         price = float(c[-1])
         dist_pivot = (price - pivot) / pivot * 100 if pivot else None
 
+        # Revalidacion en vivo (2026-08-30): 'success'/'executed' es un
+        # veredicto que el walk de _vcp2_evaluate_lifecycle toma el dia que
+        # se gatilla (target +8% o dia 10 sobre el pivote) y nunca se volvia
+        # a revisar despues -- un breakout podia confirmar y semanas mas
+        # tarde perforar el stop original sin que el estado se actualizara
+        # (caso TJX: seguia "Rompio y confirmo" con el precio ya 15.75% por
+        # debajo del pivote, bien por debajo de su stop). Si HOY el precio
+        # cerro bajo el stop de la base, el patron ya fallo aunque en su
+        # momento haya llegado a confirmar.
+        if life['lifecycle'] in ('success', 'executed') and price <= stop * (1.0 - 0.005):
+            life = dict(life, lifecycle='fail_after', cancelled=True,
+                        reason='confirmo pero despues perforo el stop y revirtio',
+                        flags=list(life.get('flags', [])) + ['revirtio_post_confirmacion'])
+
         lifecycle = life['lifecycle']
         cancelled = bool(life['cancelled'])
         ya_rompio = lifecycle in ('executed', 'success', 'fail_after')
