@@ -105,7 +105,7 @@
   .panel::before{content:'';position:absolute;inset:0;border-radius:var(--r-lg);opacity:0;transition:opacity 0.45s;pointer-events:none;z-index:0;
     background:radial-gradient(620px circle at var(--mx,50%) var(--my,50%),rgba(34,201,138,0.05),transparent 70%);}
   .panel:hover::before{opacity:1;}
-  .panel-head,.panel-body,.panel-filters,.chart-wrap,.warren-table-wrap,.scanner-wrap,.sema-grid{position:relative;z-index:1;}
+  .panel-head,.panel-body,.panel-filters,.chart-wrap,.warren-table-wrap,.sema-grid{position:relative;z-index:1;}
   .panel-head{padding:14px 18px 11px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px;}
   .panel-title{font-size:13px;font-weight:600;color:var(--green);letter-spacing:0.03em;display:flex;align-items:center;gap:8px;}
   .panel-title::before{content:'';width:3px;height:13px;border-radius:2px;background:linear-gradient(180deg,var(--green),rgba(34,201,138,0.25));box-shadow:0 0 8px rgba(34,201,138,0.5);flex-shrink:0;}
@@ -116,7 +116,6 @@
   .pf-label{color:var(--muted);font-size:10px;white-space:nowrap;letter-spacing:0.04em;}
   .chart-wrap{position:relative;width:100%;}
 
-  .scanner-wrap{max-height:420px;overflow-y:auto;}
   .scanner-table{width:100%;border-collapse:collapse;}
   .scanner-table th{text-align:left;padding:8px 10px;color:var(--muted);font-size:9.5px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border2);white-space:nowrap;position:sticky;top:0;background:var(--bg2);z-index:2;}
   .scanner-table td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;font-variant-numeric:tabular-nums;}
@@ -775,61 +774,18 @@
     </div>
   </div>
 
-  <div class="grid-2">
-    <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Filtra activos que cotizan sobre EMA200 y SMA50, con RS Score elevado y baja volatilidad relativa. Representa las acciones en mejor forma técnica del universo">Scanner de calidad</div><div class="panel-sub">Sobre medias + RS alto + baja volatilidad</div></div></div>
-      <div class="panel-filters" style="flex-wrap:wrap;gap:8px;">
-        <span class="pf-label">RS mín:</span>
-        <input type="range" id="f-rs" min="0" max="100" value="60" style="width:70px" oninput="document.getElementById('f-rs-val').textContent=this.value;renderScanner()">
-        <span id="f-rs-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">60</span>
-        <span class="pf-label">Vol rel. máx:</span>
-        <input type="range" id="f-vol" min="0.1" max="3" step="0.1" value="1" style="width:70px" oninput="document.getElementById('f-vol-val').textContent=parseFloat(this.value).toFixed(1)+'x';renderScanner()">
-        <span id="f-vol-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:24px">1.0x</span>
-        <span class="pf-label">RSI mín:</span>
-        <input type="range" id="f-rsi-min" min="0" max="100" value="0" style="width:60px" oninput="document.getElementById('f-rsi-min-val').textContent=this.value;renderScanner()">
-        <span id="f-rsi-min-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">0</span>
-        <span class="pf-label">RSI máx:</span>
-        <input type="range" id="f-rsi-max" min="0" max="100" value="100" style="width:60px" oninput="document.getElementById('f-rsi-max-val').textContent=this.value;renderScanner()">
-        <span id="f-rsi-max-val" style="font-family:'DM Mono',monospace;font-size:10px;min-width:18px">100</span>
-        <label style="display:flex;align-items:center;gap:4px;color:var(--muted);font-size:11px;cursor:pointer;">
-          <input type="checkbox" id="f-vol-inusual" onchange="renderScanner()" style="accent-color:var(--amber)"> Solo vol inusual
-        </label>
-      </div>
-      <div class="scanner-wrap">
-        <table class="scanner-table">
-          <thead><tr id="scanner-thead">
-            <th data-tooltip="Símbolo del activo">Ticker</th>
-            <th onclick="sortScanner('Precio')" style="cursor:pointer" class="scanner-th" data-tooltip="Precio de cierre más reciente en USD">Precio <span id="sort-ind-Precio"></span></th>
-            <th onclick="sortScanner('Var Día %')" style="cursor:pointer" class="scanner-th" data-tooltip="Variación porcentual respecto al cierre anterior">Var% <span id="sort-ind-Var Día %"></span></th>
-            <th data-tooltip="Sector económico del activo">Sector</th><th data-tooltip="Categoría de capitalización de mercado: Large, Mid o Small Cap">MCap</th>
-            <th onclick="sortScanner('RS Score')" style="cursor:pointer" class="scanner-th" data-tooltip="RS Score: fuerza relativa del activo vs el universo (0–100). Mayor = mejor desempeño relativo">RS <span id="sort-ind-RS Score"></span></th>
-            <th onclick="sortScanner('delta-hoy')" style="cursor:pointer" class="scanner-th" data-tooltip="Cambio en RS Score respecto a ayer. Positivo = ganando fuerza relativa">Δ RS Hoy <span id="sort-ind-delta-hoy"></span></th>
-            <th onclick="sortScanner('delta-mes')" style="cursor:pointer" class="scanner-th" data-tooltip="Cambio en RS Score respecto al mes anterior. Positivo = tendencia de mejora">Δ RS 1m <span id="sort-ind-delta-mes"></span></th>
-            <th onclick="sortScanner('RSI 14')" style="cursor:pointer" class="scanner-th" data-tooltip="RSI de 14 ruedas. Sobrecompra >70 (rojo), sobreventa <30 (verde)">RSI <span id="sort-ind-RSI 14"></span></th>
-            <th onclick="sortScanner('Vol Relativa')" style="cursor:pointer" class="scanner-th" data-tooltip="Volatilidad relativa: desvío estándar últimas 5 ruedas vs histórico 1 año. <0.8 = comprimida">Vol Rel <span id="sort-ind-Vol Relativa"></span></th>
-            <th onclick="sortScanner('Vol Inusual %')" style="cursor:pointer" class="scanner-th" data-tooltip="Volumen inusual: % de desvío vs promedio de las últimas 20 ruedas. Mayor = más actividad inusual">Vol Inu <span id="sort-ind-Vol Inusual %"></span></th>
-            <th onclick="sortScanner('ses10')" style="cursor:pointer" class="scanner-th" data-tooltip="Días positivos vs negativos en las últimas 10 sesiones">10s ▲▼ <span id="sort-ind-ses10"></span></th>
-            <th onclick="sortScanner('volratio')" style="cursor:pointer" class="scanner-th" data-tooltip="Ratio de volumen en días alcistas / bajistas (últimas 10 sesiones). >1 = más volumen en días positivos">Vol ▲/▼ <span id="sort-ind-volratio"></span></th>
-            <th onclick="sortScanner('Dist EMA200 %')" style="cursor:pointer" class="scanner-th" data-tooltip="Distancia % del precio respecto a la EMA de 200 ruedas. Positivo = precio por encima">EMA200 <span id="sort-ind-Dist EMA200 %"></span></th>
-            <th onclick="sortScanner('Dist SMA50 %')" style="cursor:pointer" class="scanner-th" data-tooltip="Distancia % del precio respecto a la SMA de 50 ruedas. Positivo = precio por encima">SMA50 <span id="sort-ind-Dist SMA50 %"></span></th>
-          </tr></thead>
-          <tbody id="scanner-body"></tbody>
-        </table>
-      </div>
+  <div class="panel">
+    <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
+    <div class="panel-filters">
+      <span class="pf-label">Ordenar sectores:</span>
+      <select id="sema-sort" onchange="renderSemaforo()">
+        <option value="best-rs">Mejor RS del sector</option>
+        <option value="avg-rs">RS promedio</option>
+        <option value="nombre">Nombre A→Z</option>
+      </select>
     </div>
-    <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
-      <div class="panel-filters">
-        <span class="pf-label">Ordenar sectores:</span>
-        <select id="sema-sort" onchange="renderSemaforo()">
-          <option value="best-rs">Mejor RS del sector</option>
-          <option value="avg-rs">RS promedio</option>
-          <option value="nombre">Nombre A→Z</option>
-        </select>
-      </div>
-      <div style="padding:10px;max-height:460px;overflow-y:auto;">
-        <div id="sema-grid"></div>
-      </div>
+    <div style="padding:10px;max-height:460px;overflow-y:auto;">
+      <div id="sema-grid"></div>
     </div>
   </div>
 
@@ -1746,86 +1702,6 @@ function renderCartelera() {
     miniList('🔵 Sobrevendidos',  sobrevend,  d => rsiPill(d['RSI 14']));
 }
 
-let scannerSort = { col: 'RS Score', asc: false };
-
-function sortScanner(col) {
-  scannerSort = { col, asc: scannerSort.col === col ? !scannerSort.asc : false };
-  renderScanner();
-}
-
-function renderScanner() {
-  const rsMin        = parseFloat(document.getElementById('f-rs').value);
-  const volMax       = parseFloat(document.getElementById('f-vol').value);
-  const rsiMin       = parseFloat(document.getElementById('f-rsi-min').value);
-  const rsiMax       = parseFloat(document.getElementById('f-rsi-max').value);
-  const soloVinusual = document.getElementById('f-vol-inusual').checked;
-  const rsiFiltered  = rsiMin > 0 || rsiMax < 100;
-
-  let data = getDatosFiltrados().filter(d =>
-    d['RS Score'] !== null && d['RS Score'] >= rsMin &&
-    d['Vol Relativa'] !== null && d['Vol Relativa'] <= volMax &&
-    d['Dist EMA200 %'] !== null && d['Dist EMA200 %'] > 0 &&
-    d['Dist SMA50 %'] !== null && d['Dist SMA50 %'] > 0 &&
-    (!rsiFiltered || (d['RSI 14'] !== null && d['RSI 14'] >= rsiMin && d['RSI 14'] <= rsiMax))
-  );
-  if (soloVinusual) data = data.filter(d => d['Vol Inusual %'] !== null && d['Vol Inusual %'] > 50);
-
-  const { col, asc } = scannerSort;
-  data.sort((a, b) => {
-    let va, vb;
-    if (col === 'delta-hoy') {
-      va = (a['RS Score'] !== null && a['RS Ayer'] !== null) ? a['RS Score'] - a['RS Ayer'] : -Infinity;
-      vb = (b['RS Score'] !== null && b['RS Ayer'] !== null) ? b['RS Score'] - b['RS Ayer'] : -Infinity;
-    } else if (col === 'delta-mes') {
-      va = (a['RS Score'] !== null && a['RS Mes ant.'] !== null) ? a['RS Score'] - a['RS Mes ant.'] : -Infinity;
-      vb = (b['RS Score'] !== null && b['RS Mes ant.'] !== null) ? b['RS Score'] - b['RS Mes ant.'] : -Infinity;
-    } else if (col === 'ses10') {
-      va = (a['Días + 10s'] !== null && a['Días + 10s'] !== undefined) ? a['Días + 10s'] : -Infinity;
-      vb = (b['Días + 10s'] !== null && b['Días + 10s'] !== undefined) ? b['Días + 10s'] : -Infinity;
-    } else if (col === 'volratio') {
-      va = (a['Vol días + 10s'] && a['Vol días - 10s']) ? a['Vol días + 10s'] / a['Vol días - 10s'] : -Infinity;
-      vb = (b['Vol días + 10s'] && b['Vol días - 10s']) ? b['Vol días + 10s'] / b['Vol días - 10s'] : -Infinity;
-    } else {
-      va = a[col] ?? -Infinity;
-      vb = b[col] ?? -Infinity;
-    }
-    return asc ? va - vb : vb - va;
-  });
-
-  ['Precio','Var Día %','RS Score','delta-hoy','delta-mes','RSI 14','Vol Relativa','Vol Inusual %','ses10','volratio','Dist EMA200 %','Dist SMA50 %'].forEach(k => {
-    const el = document.getElementById('sort-ind-' + k);
-    if (el) el.textContent = col === k ? (asc ? '▲' : '▼') : '';
-  });
-
-  const pill = (v, hi, mid) => { if (v === null || v === undefined) return '<span class="score-pill pill-blue">—</span>'; const cls = v >= hi ? 'pill-green' : v >= mid ? 'pill-amber' : 'pill-red'; return `<span class="score-pill ${cls}">${typeof v === 'number' ? v.toFixed(1) : v}</span>`; };
-  const deltaCell = (cur, prev) => { if (cur === null || cur === undefined || prev === null || prev === undefined) return '<span style="color:var(--muted)">—</span>'; const d = cur - prev; if (d === 0) return '<span style="color:var(--muted)">—</span>'; return `<span class="${d > 0 ? 'trend-up' : 'trend-down'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}</span>`; };
-  const volInusualCell = (v) => { if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>'; if (v > 200) return `<span class="score-pill pill-red">+${v.toFixed(0)}%</span>`; if (v > 100) return `<span class="score-pill pill-amber">+${v.toFixed(0)}%</span>`; if (v > 50) return `<span class="score-pill pill-blue">+${v.toFixed(0)}%</span>`; return `<span style="color:var(--muted)">${v.toFixed(0)}%</span>`; };
-  const mcapPill = (v) => { if (!v || v === '—') return '—'; const cls = v === 'Mega Cap' ? 'pill-purple' : v === 'Large Cap' ? 'pill-blue' : v === 'Mid Cap' ? 'pill-green' : 'pill-amber'; return `<span class="score-pill ${cls}" style="font-size:9px">${v.replace(' Cap', '')}</span>`; };
-  const getPrecio = (d) => { if (d['Precio'] !== null && d['Precio'] !== undefined) { const cls = d['Var Día %'] >= 0 ? 'c-green' : 'c-red'; return `<span class="${cls}" style="font-family:'DM Mono',monospace">$${parseFloat(d['Precio']).toFixed(2)}</span>`; } return '—'; };
-  const getVar = (d) => { if (d['Var Día %'] !== null && d['Var Día %'] !== undefined) { const cls = d['Var Día %'] >= 0 ? 'c-green' : 'c-red'; return `<span class="${cls}">${d['Var Día %'] >= 0 ? '▲' : '▼'}${Math.abs(d['Var Día %']).toFixed(2)}%</span>`; } return '—'; };
-
-  const body = document.getElementById('scanner-body');
-  body.innerHTML = data.length === 0
-    ? '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>'
-    : data.map(d => `<tr>
-      <td><span class="ticker-badge" title="${N(d['Ticker'])}" onmouseenter="mostrarGrafico('${d['Ticker']}',this)" onmouseleave="ocultarGrafico()">${d['Ticker']}</span></td>
-      <td>${getPrecio(d)}</td>
-      <td>${getVar(d)}</td>
-      <td style="color:var(--muted);font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d['Sector'] || '—'}</td>
-      <td>${mcapPill(d['Market Cap Cat'])}</td>
-      <td>${pill(d['RS Score'], 70, 40)}</td>
-      <td>${deltaCell(d['RS Score'], d['RS Ayer'])}</td>
-      <td>${deltaCell(d['RS Score'], d['RS Mes ant.'])}</td>
-      <td>${pill(d['RSI 14'], 70, 50)}</td>
-      <td><span class="score-pill ${d['Vol Relativa'] < 0.6 ? 'pill-green' : d['Vol Relativa'] < 1 ? 'pill-amber' : 'pill-red'}">${d['Vol Relativa'] !== null ? d['Vol Relativa'].toFixed(2) + 'x' : '—'}</span></td>
-      <td>${volInusualCell(d['Vol Inusual %'])}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${(()=>{ const p=d['Días + 10s'],n=d['Días - 10s']; if(p===null||p===undefined)return '<span style="color:var(--muted)">—</span>'; return `<span style="color:var(--green)">▲${p}</span> <span style="color:var(--muted);">/</span> <span style="color:var(--red)">▼${n}</span>`; })()}</td>
-      <td>${(()=>{ const vp=d['Vol días + 10s'],vn=d['Vol días - 10s']; if(!vp||!vn||vn===0)return '<span style="color:var(--muted)">—</span>'; const r=vp/vn; const cls=r>1.5?'pill-green':r>1?'pill-amber':r<0.67?'pill-red':'pill-blue'; return `<span class="score-pill ${cls}">${r.toFixed(2)}x</span>`; })()}</td>
-      <td style="color:${d['Dist EMA200 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist EMA200 %'] !== null ? (d['Dist EMA200 %'] > 0 ? '+' : '') + d['Dist EMA200 %'].toFixed(1) + '%' : '—'}</td>
-      <td style="color:${d['Dist SMA50 %'] > 0 ? 'var(--green)' : 'var(--red)'}">${d['Dist SMA50 %'] !== null ? (d['Dist SMA50 %'] > 0 ? '+' : '') + d['Dist SMA50 %'].toFixed(1) + '%' : '—'}</td>
-    </tr>`).join('');
-}
-
 function renderBreakout() {
   const el = document.getElementById('brk-content');
   if (!el) return;
@@ -2105,7 +1981,6 @@ function renderTodo() {
   safe(renderSesionesVol);
   safe(renderVolInusual);
   safe(renderCartelera);
-  safe(renderScanner);
   safe(renderSemaforo);
   safe(renderBreakout);
   poblarComparador();
@@ -3474,7 +3349,6 @@ if ('serviceWorker' in navigator) {
   try{
     var wt = document.getElementById('warren-table');
     if(wt && wt.parentElement) marcarScrollX(wt.parentElement);
-    document.querySelectorAll('.scanner-wrap').forEach(marcarScrollX);
     marcarScrollX(document.getElementById('trendRankTable'));
     marcarScrollX(document.getElementById('cmp-tabla'));
     document.querySelectorAll('#view-planilla .pl-card, .pl-card').forEach(marcarScrollX);
@@ -3794,7 +3668,7 @@ if ('serviceWorker' in navigator) {
     resurg: panelOf('resurgChart'),  warren: panelOf('warren-table'),
     brk:    panelOf('brk-content'),  trend:  panelOf('trendRankTable'),
     sv:     panelOf('svChart'),      vinu:   panelOf('vinuChart'),
-    cart:   panelOf('cartelera-body'), scan: panelOf('scanner-body'),
+    cart:   panelOf('cartelera-body'),
     sema:   panelOf('sema-grid'),    cmp:    panelOf('cmp-tabla')
   };
   var statsRow = main.querySelector('.stats-row');
@@ -3975,7 +3849,7 @@ if ('serviceWorker' in navigator) {
        en el layout (ambos chequean $('wb-snap-panel')/$('wb-snap-body')
        antes de hacer nada). */
     mkZone('🔬 &nbsp;Análisis — profundizá'),
-    mkGrid(P.trend, P.sv), mkGrid(P.vinu, P.scan),
+    mkGrid(P.trend, P.sv), P.vinu,
     P.cmp
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
