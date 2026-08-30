@@ -3373,15 +3373,34 @@ def _penalizacion_sma50_pendiente(rs_score, sma50_slope_pct):
 RSI_CONFIRMACION_RSI_TECHO      = 65.0  # RSI que cuenta como "sobrecompra" en la ventana previa
 RSI_CONFIRMACION_LOOKBACK_PICO  = 15    # ruedas hacia atras para buscar el maximo de RSI/precio
 RSI_CONFIRMACION_VENTANA_ESPERA = 10    # tope de ruedas hacia atras para reconstruir el "dia 0" del episodio
+RSI_CONFIRMACION_ZONA_HI        = 70.0  # techo de la franja donde aplica el gate (ver nota 2026-08-30)
 
 def _rsi_sobrecompra_sin_confirmar(hist):
-    """True si HOY el RSI esta en la franja de puntaje pleno (45-60) del
+    """True si HOY el RSI esta en la franja 45-70 (ver nota 2026-08-30) del
     componente RSI de Pilar C, pero llego ahi viniendo de sobrecompra
     (RSI>=65 en los ultimos 15 dias) -- sin importar cuanto haya caido el
     precio desde ese maximo, alcanza con que haya caido algo -- Y TODAVIA
     no mostro 2 dias verdes seguidos desde que entro a esa zona. Si es
     True, el frontend debe dar 0 pts al componente de RSI en vez del
     valor normal de la triangular.
+    #
+    # 2026-08-30, caso RIO: el gate original solo cubria 45-60 (la franja
+    # de puntaje PLENO de la triangular de RSI), asumiendo que arriba de
+    # 60 la propia rampa de bajada (60->70) ya descontaba lo suficiente.
+    # No es asi -- la rampa es muy suave (a RSI=60,3 todavia da ~97% de
+    # los puntos). RIO tenia RSI=60,33 viniendo de 2 picos >65-78 en el
+    # ultimo mes sin 2 verdes seguidos de confirmacion, y el gate no
+    # aplicaba por 0,33 puntos de RSI de diferencia -- Pilar C le daba
+    # 24,8/35 pese a que las bandas de Bollinger no estaban ni cerca de
+    # contraidas. Extender la franja de 45-60 a 45-70 lo agarra
+    # (validado con datos reales de RIO). Probado contra los 19 casos de
+    # referencia del usuario (908 dias): 17 de 19 quedan EXACTAMENTE
+    # igual, los otros 2 (PANW ene-may 2026, B sep-nov 2025) solo pierden
+    # el pico puntual de un dia (-2,4 y -4,9 pts) y el maximo de la
+    # ventana de 15 ruedas lo toma otro dia cercano sin problema. Dentro
+    # de la franja nueva (60-70, 190 dias en el dataset de 19 casos) el
+    # gate separa igual de bien que en la franja original: 40,6% suben a
+    # 10r sin confirmar vs. 55,4% confirmando, 58,0% vs. 71,1% a 20r.
     #
     # 2026-08, caso TTE: originalmente exigia una caida de precio >=8%
     # desde el maximo (RSI_CONFIRMACION_CAIDA_MIN, caso de origen BABA,
@@ -3414,7 +3433,7 @@ def _rsi_sobrecompra_sin_confirmar(hist):
         if n < piso_min:
             return False
         hoy_rsi = rsi[-1]
-        if np.isnan(hoy_rsi) or not (45 <= hoy_rsi <= 60):
+        if np.isnan(hoy_rsi) or not (45 <= hoy_rsi <= RSI_CONFIRMACION_ZONA_HI):
             return False
 
         # Reconstruir el "dia 0" del episodio: el primer dia (mirando
@@ -3426,7 +3445,7 @@ def _rsi_sobrecompra_sin_confirmar(hist):
         dia0 = None
         for k in range(n - 1, limite, -1):
             rsi_k = rsi[k]
-            if np.isnan(rsi_k) or not (45 <= rsi_k <= 60):
+            if np.isnan(rsi_k) or not (45 <= rsi_k <= RSI_CONFIRMACION_ZONA_HI):
                 break
             ventana_prev = rsi[k - RSI_CONFIRMACION_LOOKBACK_PICO:k]
             if len(ventana_prev) == 0 or np.nanmax(ventana_prev) < RSI_CONFIRMACION_RSI_TECHO:
