@@ -3817,10 +3817,18 @@ if ('serviceWorker' in navigator) {
     '<div id="wb-snap-body" style="max-height:380px;overflow-y:auto"></div>',
     'Todos los lunes se guarda el Top 10 del Warren Score con el precio del momento. Acá ves cuánto subieron o bajaron desde ese último lunes.');
 
-  /* — Rebotes en la EMA200 (reemplaza a Despegue Fresco / antes "Regreso a la EMA200") — */
-  var ema200P = mkPanel('wb-ema200-panel','🎯 Rebotes en la EMA200',
-    'El pullback institucional: clímax de volumen en la media + fuerza relativa repuntando',
-    '<div class="panel-filters" style="margin:-14px -18px 12px;">'+
+  /* — Rebotes en la EMA200 (reemplaza a Despegue Fresco / antes "Regreso a la EMA200") —
+     2026-08-30: separado en 2 pestañas (caso SPOT, ver calcEMA200Reversal
+     más abajo -- 'contacto' con la media es simétrico y antes mezclaba
+     pullbacks reales con cruces de abajo hacia arriba bajo el mismo
+     "rebote"). Mismo score en las dos, solo cambia el filtro por 'tipo'. */
+  var ema200P = mkPanel('wb-ema200-panel','🎯 EMA200: Rebote / Cruce',
+    'Contacto con la media de largo plazo — desde arriba (rebote) o desde abajo (cruce)',
+    '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
+      '<button class="rrg-pill active" id="ema200-tab-rebote" onclick="wbEMA200SetTab(\'rebote\')">🔄 Rebote</button>'+
+      '<button class="rrg-pill" id="ema200-tab-cruce" onclick="wbEMA200SetTab(\'cruce\')">🚀 Cruce al alza</button>'+
+    '</div>'+
+    '<div class="panel-filters" style="margin:0 -18px 12px;">'+
       '<span class="pf-label">RS mín hoy:</span>'+
       '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
       '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
@@ -3829,10 +3837,8 @@ if ('serviceWorker' in navigator) {
       '<span id="ema200-semanas-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
     '<div id="wb-ema200-body" style="max-height:320px;overflow-y:auto"></div>'+
-    '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">'+
-      '<b>¿Qué mide el score?</b> Que el papel haya corregido hasta la EMA200 desde arriba (35 pts), que haya tocado con un clímax de volumen — volumen alto Y cierre fuerte en la vela, no un derrumbe (30 pts), y que la fuerza relativa esté repuntando después del toque, cuanto antes reaccione mejor (35 pts). Se cae del ranking si la media de largo plazo está en baja, o si tocó hace más de 10 ruedas sin que la fuerza relativa responda.'+
-    '</div>',
-    'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo, tocaron con absorción institucional (volumen alto cerrando fuerte) y están confirmando con la fuerza relativa. No es el Warren Score (pre-breakout) — es el "buy the dip" bien filtrado.');
+    '<div id="wb-ema200-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
+    'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo o la cruzaron de abajo hacia arriba, con absorción institucional (volumen alto cerrando fuerte) y fuerza relativa confirmando. No es el Warren Score (pre-breakout) — es el "buy the dip"/cruce bien filtrado.');
 
   /* — Reordenar todo — */
   var orden = [
@@ -4573,18 +4579,51 @@ if ('serviceWorker' in navigator) {
     var confirmo = b_(d['Precio Sobre Climax']) ? 5 : 0;
     var p3 = repunte + acelera + confirmo;
 
+    // Tipo (2026-08-30, caso SPOT): 'contacto' (EMA200R_CONTACTO_PCT, arriba
+    // en el pipeline) es simetrico -- dispara igual si el precio se acerca
+    // desde ARRIBA (un pullback real) o desde ABAJO (recien cruzo la media
+    // de abajo hacia arriba). Antes el panel mostraba los dos casos como si
+    // fueran lo mismo ("rebote"), aunque 'vinoArriba' ya castigaba a 0 el
+    // segundo caso dentro del score. SPOT: veinte ruedas atras estaba 3,31%
+    // POR DEBAJO de la EMA200 -- no vino de arriba, cruzo. distHace20>3 es
+    // el mismo umbral donde 'vinoArriba' empieza a sumar algo (ver arriba),
+    // asi que separar por ahi no inventa un corte nuevo. Si no vino de
+    // arriba, solo cuenta como "cruce" si HOY ya esta por encima de la
+    // media (si sigue por debajo, el cruce todavia no paso -- no entra en
+    // ninguna de las dos pestañas).
+    var distHoy = num(d['Dist EMA200 %']);
+    var tipo = (distHace20!=null && distHace20>3) ? 'rebote'
+             : (distHoy!=null && distHoy>0) ? 'cruce' : null;
+    if(tipo==null) return null;
+
     return {score:Math.round(p1+p2+p3), p1:p1, p2:p2, p3:p3, deltaRs:deltaRs,
-      contactoRuedas:contactoRuedas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto};
+      contactoRuedas:contactoRuedas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto,
+      tipo:tipo};
   }
   window.calcEMA200Reversal = calcEMA200Reversal;
+
+  var wbEma200Tab = 'rebote';
+  var WB_EMA200_DESC = {
+    rebote: '<b>¿Qué mide el score?</b> Que el papel haya corregido hasta la EMA200 desde arriba (35 pts), que haya tocado con un clímax de volumen — volumen alto Y cierre fuerte en la vela, no un derrumbe (30 pts), y que la fuerza relativa esté repuntando después del toque, cuanto antes reaccione mejor (35 pts). Se cae del ranking si la media de largo plazo está en baja, o si tocó hace más de 10 ruedas sin que la fuerza relativa responda.',
+    cruce: '<b>¿Qué mide el score?</b> Acá el papel NO viene de arriba -- cruzó la EMA200 de abajo hacia arriba y ya cotiza por encima. Mismo score que Rebote salvo la parte de "venir de arriba" (no aplica, por eso el tope es más bajo): clímax de volumen en el cruce — volumen alto Y cierre fuerte, no un pinchazo (30 pts) — y fuerza relativa acelerando después de cruzar (35 pts). Se cae del ranking si la media de largo plazo está en baja, o si cruzó hace más de 10 ruedas sin que la fuerza relativa responda.'
+  };
+  window.wbEMA200SetTab = function(tipo){
+    wbEma200Tab = tipo;
+    var rb=$('ema200-tab-rebote'), cr=$('ema200-tab-cruce');
+    if(rb) rb.classList.toggle('active', tipo==='rebote');
+    if(cr) cr.classList.toggle('active', tipo==='cruce');
+    wbRenderEMA200Reversal();
+  };
   window.wbRenderEMA200Reversal = function(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
+    var descEl=$('wb-ema200-desc');
+    if(descEl) descEl.innerHTML = WB_EMA200_DESC[wbEma200Tab] || '';
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
     var semMinEl=$('ema200-semanas-min');
     var semMin = semMinEl ? parseFloat(semMinEl.value) : 0;
     var rows = filtrados().map(function(d){
-      var r=calcEMA200Reversal(d); if(!r) return null;
+      var r=calcEMA200Reversal(d); if(!r || r.tipo!==wbEma200Tab) return null;
       if((num(d['RS Score'])||0) < rsMin) return null;
       var racha = num(d['EMA200 Racha Previa']);
       if(semMin>0 && (racha==null || racha/5 < semMin)) return null;
@@ -4592,7 +4631,10 @@ if ('serviceWorker' in navigator) {
     }).filter(Boolean).sort(function(a,b){ return b.score-a.score; });
 
     if(!rows.length){
-      body.innerHTML='<div class="wb-empty">Ningún rebote en la EMA200 con confirmación hoy — aparecen acá cuando un líder toca la media y reacciona.</div>';
+      var vacio = wbEma200Tab==='rebote'
+        ? 'Ningún rebote en la EMA200 con confirmación hoy — aparecen acá cuando un líder corrige hasta la media desde arriba y reacciona.'
+        : 'Ningún cruce al alza de la EMA200 con confirmación hoy — aparecen acá cuando un líder cruza la media de abajo hacia arriba y reacciona.';
+      body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
       return;
     }
     function scoreColor(s){ return s>=70?'var(--green)':s>=50?'var(--blue)':'var(--amber)'; }
@@ -8831,7 +8873,7 @@ function wbmCrossPanelItems(d){
   var items = [];
   if (typeof calcEMA200Reversal === 'function') {
     var r = calcEMA200Reversal(d);
-    if (r) items.push({emoji:'🎯', label:'Rebotes en la EMA200 — score ' + r.score, panelId:'wb-ema200-panel'});
+    if (r) items.push({emoji:'🎯', label:(r.tipo==='cruce' ? 'Cruce al alza de la EMA200' : 'Rebote en la EMA200') + ' — score ' + r.score, panelId:'wb-ema200-panel', panelTipo:r.tipo});
   }
   var vcpScore = Number(d['VCP Score']);
   if (!isNaN(vcpScore) && vcpScore >= 60) {
@@ -9140,7 +9182,8 @@ window.wbmOpenDetail = function(ticker){
   if (crossItems.length) {
     crossWrap.style.display = '';
     _wbmEl('wbm-cross-card').innerHTML = crossItems.map(function(s){
-      var click = s.panelId ? ' style="cursor:pointer" onclick="wbmGoToPanel(\'' + s.panelId + '\')"' : '';
+      var goArgs = '\'' + s.panelId + '\'' + (s.panelTipo ? ',\'' + s.panelTipo + '\'' : '');
+      var click = s.panelId ? ' style="cursor:pointer" onclick="wbmGoToPanel(' + goArgs + ')"' : '';
       var arrow = s.panelId ? '<span class="wbm-sig-arrow">›</span>' : '';
       return '<div class="wbm-sig-item"' + click + '><span class="wbm-sig-emoji">' + s.emoji + '</span>' +
         '<span class="wbm-sig-text">' + _wbmEsc(s.label) + '</span>' + arrow + '</div>';
@@ -9172,8 +9215,11 @@ window.wbmCloseDetail = function(){
    EMA200 / Bases VCP de Alta Calidad) -- cierra la card (que ya hace su
    propio scrollTo al restaurar la posición previa) y recién después
    lleva al panel, en un timeout corto para no pisarse con ese scroll. ── */
-window.wbmGoToPanel = function(panelId){
+window.wbmGoToPanel = function(panelId, tipo){
   wbmCloseDetail();
+  if (panelId === 'wb-ema200-panel' && tipo && typeof window.wbEMA200SetTab === 'function') {
+    window.wbEMA200SetTab(tipo);
+  }
   setTimeout(function(){
     var panel = document.getElementById(panelId);
     if (panel) panel.scrollIntoView({behavior:'smooth', block:'start'});
