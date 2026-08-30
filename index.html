@@ -7530,8 +7530,8 @@ var wrap = document.createElement('div');
 wrap.innerHTML =
   '<div class="panel" id="wb-vcpq-panel">'+
     '<div class="panel-head">'+
-      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Usa el mejor puntaje entre los dos detectores VCP (el clásico y VCP2, con ciclo de vida).">🧬 Bases VCP de Alta Calidad</div>'+
-      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP Score ≥60 (mejor de los 2 detectores) · independiente del Warren Score</div></div>'+
+      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP2 Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Detector VCP2: ZigZag adaptativo + ciclo de vida (Formándose/Armado/Rompió/Falló).">🧬 Bases VCP de Alta Calidad</div>'+
+      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP2 Score ≥60 · independiente del Warren Score</div></div>'+
       '<label class="wb-vcpq-toggle"><input type="checkbox" id="wb-vcpq-filter70" onchange="wbRenderVcpQuality()">VCP≥70 recientes</label>'+
     '</div>'+
     '<div class="panel-body" style="overflow-x:auto">'+
@@ -7576,13 +7576,11 @@ function vcpqGuardarHoy(datos){
     var hoy = hoyISO();
     if(!hist[hoy]) hist[hoy] = {};
     datos.forEach(function(d){
-      // Mejor de los 2 detectores (ver _vcpqMejor mas abajo) -- asi la
-      // flecha de tendencia no queda inconsistente con lo que se
-      // muestra hoy en la tabla.
-      var t = d['Ticker'];
-      var vOld = Number(d['VCP Score']), vNew = Number(d['VCP2 Score']);
-      var vs = Math.max(isNaN(vOld)?-1:vOld, isNaN(vNew)?-1:vNew);
-      if(t && vs >= 0) hist[hoy][t] = vs;
+      // Solo VCP2 (ver _vcpqMejor mas abajo) -- asi la flecha de
+      // tendencia no queda inconsistente con lo que se muestra hoy en
+      // la tabla.
+      var t = d['Ticker'], vs = Number(d['VCP2 Score']);
+      if(t && !isNaN(vs)) hist[hoy][t] = vs;
     });
     var keys = Object.keys(hist).sort();
     while(keys.length > VCPQ_DIAS){ delete hist[keys.shift()]; }
@@ -7603,25 +7601,17 @@ function vcpqTendencia(ticker){
 }
 
 /* ═══ Render ═══ */
-// Mejor puntaje entre los dos detectores VCP (2026-08-29): se usa el
-// que dé MÁS alto, y todos los demás campos (Dist Pivot, Techo,
-// Contracciones, Vol↓) se leen de ESE MISMO detector para no mezclar
-// un techo de uno con una distancia del otro. Validado contra los 19
-// casos de referencia: VCP2 reconoce bases reales (MRVL, LRCX, MU,
-// GOOGL) que el detector viejo pierde del todo -- tomar el máximo
-// suma cobertura sin arriesgar los casos donde el viejo ya funcionaba.
+// 2026-08-29: el criterio pasa a ser SOLO VCP2 (a pedido del usuario, se
+// saca el detector viejo de la comparación -- antes se tomaba el máximo
+// entre los dos). VCP2 = ZigZag adaptativo + ciclo de vida, validado
+// contra los 19 casos de referencia (reconoce bases reales como MRVL,
+// LRCX, MU, GOOGL que el detector viejo perdía del todo).
 function _vcpqMejor(d){
-  var vOld = Number(d['VCP Score']), vNew = Number(d['VCP2 Score']);
-  var old = !isNaN(vOld) ? vOld : null, nuevo = !isNaN(vNew) ? vNew : null;
-  var usarNuevo = (nuevo !== null) && (old === null || nuevo > old);
-  if(usarNuevo){
-    return { score: nuevo, distPivot: d['VCP2 Dist Pivot %'], techo: d['VCP2 Techo'],
-             contr: d['VCP2 Contractions'], volDec: d['VCP2 Vol Decreasing'],
-             lifecycle: d['VCP2 Lifecycle'], fuente: 'VCP2' };
-  }
-  return { score: old, distPivot: d['VCP Dist Pivot %'], techo: d['VCP Techo'],
-           contr: d['VCP Contractions'], volDec: d['VCP Vol Decreasing'],
-           lifecycle: null, fuente: 'VCP' };
+  var vNew = Number(d['VCP2 Score']);
+  var nuevo = !isNaN(vNew) ? vNew : null;
+  return { score: nuevo, distPivot: d['VCP2 Dist Pivot %'], techo: d['VCP2 Techo'],
+           contr: d['VCP2 Contractions'], volDec: d['VCP2 Vol Decreasing'],
+           lifecycle: d['VCP2 Lifecycle'], fuente: 'VCP2' };
 }
 
 var VCPQ_LIFECYCLE_LBL = {
@@ -7679,13 +7669,13 @@ function wbRenderVcpQuality(){
     var precio = d['Precio'];
     var contr  = m.contr;
     var volDec = _bool_v9(m.volDec) ? '✅' : '—';
-    var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || (m.fuente==='VCP' ? '—' : '—');
+    var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || '—';
     var lcCol = VCPQ_LIFECYCLE_COL[m.lifecycle] || 'var(--muted)';
     return '<tr>'+
       '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
         '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
       '<td>'+(precio!=null ? Number(precio).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
-      '<td><span class="score-pill '+vsCls+'" title="Fuente: '+m.fuente+'">'+vs.toFixed(0)+'</span></td>'+
+      '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
       '<td title="'+tr.tip+'" style="color:'+tr.color+';font-weight:700;cursor:default">'+tr.arrow+'</td>'+
       '<td>'+(contr!=null ? contr : '—')+'</td>'+
       '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
@@ -8183,24 +8173,15 @@ function _pilarCv50(d){
     : _tri(d['RSI 14'], 30, 45, 60, 70) * 11.25;
 
   // Bono VCP -- premia la COMPRESIÓN previa a la ruptura, no la ruptura
-  // en sí (2026-08, caso TTE): por eso se apagaba apenas 'VCP Ya
-  // Rompió' pasaba a true. Pero eso mismo perdía hasta 8,5 pts de
-  // golpe justo el día que la ruptura recién arranca (2026-08-27,
-  // casos AMD/NVDA) -- que es exactamente el momento que se quiere
-  // puntuar alto. 'VCP Bono Pts' (nuevo, calculado en detectar_vcp())
-  // ya sostiene el mejor bono de los últimos ~7 días mientras la base
-  // seguía detectada y sin romper en ese día puntual -- si nunca hubo
-  // una base así en la ventana, viene en null y el bono es 0.
-  //
-  // 2026-08-29: se suma 'VCP2 Bono Pts' (detector alternativo, ZigZag
-  // adaptativo + ciclo de vida, ver detectar_vcp2() en actualizar_datos.py)
-  // tomando el MÁXIMO entre los dos -- validado contra los 19 casos de
-  // referencia que VCP2 reconoce bases reales que el detector viejo
-  // pierde del todo (MRVL, LRCX, MU, GOOGL quedaban con bono null pese a
-  // ser setups reales confirmados). Usar el máximo en vez de reemplazar
-  // significa que ningún caso que ya funcionaba con el detector viejo
-  // puede empeorar -- solo se gana cobertura.
-  const ptsVcp = Math.max(d['VCP Bono Pts'] || 0, d['VCP2 Bono Pts'] || 0);
+  // en sí. 2026-08-29: se reemplaza 'VCP Bono Pts' (detector viejo, pivote
+  // fijo de 3 velas) por 'VCP2 Bono Pts' (ZigZag adaptativo + ciclo de
+  // vida, ver detectar_vcp2() en actualizar_datos.py) -- a pedido del
+  // usuario, el criterio pasa a ser SOLO VCP2, sin mezclar con el
+  // detector anterior. Validado contra los 19 casos de referencia:
+  // VCP2 reconoce bases reales que el detector viejo pierde del todo
+  // (MRVL, LRCX, MU, GOOGL quedaban con bono null pese a ser setups
+  // reales confirmados).
+  const ptsVcp = d['VCP2 Bono Pts'] != null ? d['VCP2 Bono Pts'] : 0;
 
   const disponibleSinContraccion = ptsRSI + ptsVcp;
   let base;
