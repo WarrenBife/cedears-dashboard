@@ -2636,6 +2636,23 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
         # histeresis, que ya deja de acumular en cuanto esta bandera prende).
         ya_rota = dist_pivot is not None and dist_pivot > 3.0
 
+        # Piso de RS Score (2026-08-30, caso BABA): la busqueda de
+        # contracciones no mira nada de fuerza relativa -- puede encontrar
+        # una forma de manual en un papel que sigue debil (BABA, RS=9.9,
+        # Score=85 antes de este piso). VCP2_RS_MIN=40 se probo contra los
+        # 908 dias de los 19 casos de referencia: solo 7 dias con credito
+        # activo (Score>=55, sin romper) tenian RS<40, y los 7 pertenecen a
+        # estructuras que fallaron poco despues (fail_before) -- de las 19
+        # transiciones reales a success/executed, 18 no tienen NINGUN dia
+        # con credito y RS<40 en los 15 dias previos (la unica excepcion,
+        # MRVL 6/3/2026, es un salto directo desde fail_before a una
+        # estructura nueva ya rota -- no el lanzamiento real, que fue el
+        # 31/3 con RS 96-100 toda la semana previa). No afecta el lifecycle
+        # (que describe lo que el precio hizo objetivamente) ni el bono via
+        # histeresis (que ya no acumula una vez roto, con o sin este piso).
+        VCP2_RS_MIN = 40.0
+        rs_bajo = rs_score is not None and rs_score < VCP2_RS_MIN
+
         dist_abs = abs(pivot - price) / pivot if pivot else 1
         if price >= pivot: loc = 15.0
         elif dist_abs <= 0.02: loc = 14.0
@@ -2681,10 +2698,10 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
             solidity = min(solidity, 20.0)
         solidity = max(0.0, min(100.0, solidity))
 
-        detected = (formation >= 55) and not cancelled and not ya_rota and lifecycle in ('forming', 'armed', 'executed', 'success')
+        detected = (formation >= 55) and not cancelled and not ya_rota and not rs_bajo and lifecycle in ('forming', 'armed', 'executed', 'success')
 
         return {
-            'VCP2 Score':          round(formation, 1) if not (cancelled or ya_rota) else 0,
+            'VCP2 Score':          round(formation, 1) if not (cancelled or ya_rota or rs_bajo) else 0,
             'VCP2 Detected':       bool(detected),
             'VCP2 Contractions':   len(contractions),
             'VCP2 Tightness':      round(last['depth'] * 100, 2),
