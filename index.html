@@ -7512,6 +7512,18 @@ window.wbRrgLectClick = function(sec){
   document.dispatchEvent(new CustomEvent('wbRrgSelSector',{detail:{sector:selSector}})); /* WB UPGRADE V16: avisa afuera del closure para el filtro del dashboard */
 };
 
+/* WB UPGRADE V17 (2026-09-01): setea selSector DIRECTO, sin toggle y sin
+   disparar 'wbRrgSelSector' -- a diferencia de wbRrgLectClick. La usa el
+   dropdown multi-select de V16 para resaltar la estela del ETF recién
+   tildado/destildado sin pasar por el evento (si reusara wbRrgLectClick,
+   el listener de V16 colapsaría la selección múltiple del dropdown a un
+   solo ítem, ver comentario grande de WB UPGRADE V16). */
+window.wbRrgSetSector = function(sec){
+  selSector = sec;
+  draw();
+  _syncLectActiva();
+};
+
 /* ── Hook en renderTodo ── */
 try{
   const _rt=window.renderTodo;
@@ -7821,6 +7833,21 @@ if(datosOK()) wbRenderVcpQuality();
      modo "ETFs" del gráfico (QQQ, GLD, GDX, SLV, EWZ, FXI, ARGT, TLT,
      IWM, DIA) nunca aparecían en el dropdown. Fix: la lista ahora sale
      de ETFS_RRG completo (los 30, mismo array que plotea el gráfico).
+
+     WB UPGRADE V17 (2026-09-01, pedido del usuario): hasta acá, tildar
+     un ETF en el dropdown solo filtraba el resto del dashboard -- nunca
+     resaltaba su estela en el propio gráfico (eso solo pasaba con un
+     click real en la burbuja). Ahora _agregarEtf/_quitarEtf/"Limpiar"
+     también llaman a wbRrgSetSector() (función nueva, ver WB UPGRADE V7
+     más arriba) para resaltar la estela del ETF recién tildado. Como el
+     gráfico solo puede aislar UNA estela a la vez (selSector es un único
+     valor), con varios ETFs tildados se resalta el último que se marcó,
+     no todos juntos -- decisión explícita del usuario para no tocar la
+     lógica de dibujo del Canvas (más riesgosa) por una mejora visual.
+     No se reusa wbRrgLectClick para esto porque dispara el evento
+     'wbRrgSelSector', y el listener de más abajo colapsaría _etfFiltro a
+     un solo ítem -- exactamente el bug que ya se documentó y arregló
+     arriba (tercer párrafo de este comentario) para el caso inverso.
      ═══════════════════════════════════════════════════════════════ -->
 <script id="wb-v16-js">
 (function(){
@@ -7829,6 +7856,13 @@ try {
 
   var _etfFiltro = []; // array de tickers de ETF seleccionados (vacío = sin filtro)
   var _origenBurbuja = false; // true SOLO si el único item de _etfFiltro vino de un click real en el gráfico (no del dropdown)
+  // WB UPGRADE V17 (2026-09-01): último ETF tildado desde el dropdown --
+  // es el que se resalta en el gráfico (estela aislada + tope de 16
+  // semanas), vía wbRrgSetSector. A pedido del usuario: el gráfico solo
+  // puede resaltar UNA estela a la vez (selSector es un único valor, no
+  // un array), así que con varios ETFs tildados se resalta el último
+  // que se marcó -- no todos a la vez.
+  var _ultimoResaltado = null;
 
   /* Re-renderiza el dashboard preservando qué canvas del cuadro de
      rotación estaba visible (ver nota sobre Chart.js en el comentario
@@ -7860,6 +7894,13 @@ try {
     if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
       window.wbRrgLectClick(etf); // dispara wbRrgSelSector con sector:null; el listener de abajo ve _etfFiltro ya vacío y no hace nada de más
     } else {
+      // WB UPGRADE V17: si el que se saca era el resaltado en el gráfico,
+      // pasar a resaltar el que quedó último en la lista (o apagar el
+      // resaltado si no queda ninguno).
+      if (etf === _ultimoResaltado && typeof window.wbRrgSetSector === 'function') {
+        _ultimoResaltado = _etfFiltro.length ? _etfFiltro[_etfFiltro.length - 1] : null;
+        window.wbRrgSetSector(_ultimoResaltado);
+      }
       _rerender();
     }
   }
@@ -7867,6 +7908,10 @@ try {
   function _agregarEtf(etf){
     if (_etfFiltro.indexOf(etf) === -1) _etfFiltro.push(etf);
     _origenBurbuja = false; // esta selección vino del dropdown, no de un click en el gráfico
+    // WB UPGRADE V17: resalta la estela de este ETF en el gráfico (el
+    // último tildado manda).
+    _ultimoResaltado = etf;
+    if (typeof window.wbRrgSetSector === 'function') window.wbRrgSetSector(etf);
     _rerender();
   }
 
@@ -7991,6 +8036,11 @@ try {
       if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
         window.wbRrgLectClick(elBurbuja);
       } else {
+        // WB UPGRADE V17: apaga el resaltado del dropdown si había uno.
+        if (_ultimoResaltado !== null && typeof window.wbRrgSetSector === 'function') {
+          window.wbRrgSetSector(null);
+        }
+        _ultimoResaltado = null;
         _rerender();
       }
     });
