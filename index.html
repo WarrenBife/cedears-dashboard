@@ -8471,17 +8471,32 @@ window.calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): si el papel
-  // es muy volátil en términos absolutos (ATR14%>4), topea en 79. Sube
-  // P(subir a 10-20 ruedas) de ~50-52% a ~53-55% en 2026, validado con
-  // 5 grupos de tickers (5/5 u ok en 10/15r, 4/5 en 5/20r). Menos
-  // potente que combinarlo con RS Score>=85 (que llegaba a ~59% pero
-  // dejaba afuera 6 de 12 rangos de los 19 casos de referencia del
-  // usuario) -- a pedido del usuario, por ahora SOLO el filtro de ATR,
-  // sin el de RS Score: retiene 12 de 12 rangos (63/81 días), incluye
-  // MRVL/TSLA/AMD/GOOGL que el gate combinado dejaba afuera.
+  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28, refinado
+  // 2026-09-01): si el papel es muy volátil en términos absolutos
+  // (ATR14%>4), topea en 79 -- EXCEPTO si esa volatilidad ya está
+  // expandida más allá de su propio rango habitual (ATR14 Pctl>70, o
+  // sea el ATR de hoy supera al de más del 70% de sus últimas 252
+  // ruedas). Caso de origen: MU, ATR14%=5,06 (gateado) pero moviéndose
+  // en su ritmo de siempre -- el usuario preguntó si eso realmente
+  // predice mal, o si una acción "tranquila para sí misma" podría estar
+  // comprimiendo antes de un movimiento explosivo (caso real MU
+  // 27/8/2025, +63% a 30r). Backtest a escala (276 tickers/8 años,
+  // población Score>80 antes del gate, deciles de percentil): la
+  // hipótesis de compresión NO se sostiene -- la banda baja (0-40) es
+  // ruidosa/mixta, no consistentemente buena (MU 27/8/2025 cayó en el
+  // decil 40-50, que en promedio rinde MAL, P(subir) 15r 38,9%, mediana
+  // -1,94% -- fue un ganador excepcional dentro de un grupo mediocre,
+  // no evidencia de que el grupo sea bueno). Lo que sí se sostiene con
+  // fuerza y consistencia (split por mitad de tickers y por año): dentro
+  // de ATR>4%, percentil<=70 ("sigue en su ritmo de siempre") rinde mal
+  // (P(subir) 15r 48,2%, mediana -0,58%) mientras que percentil>70
+  // ("más nervioso que su propia norma") rinde muy bien (P(subir) 66,2%,
+  // mediana +4,04%) -- la señal real es la ACELERACIÓN de la
+  // volatilidad, no su nivel absoluto ni una compresión previa.
   const atrGate = d['ATR14 %'];
-  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
+  const atrPctl = d['ATR14 Pctl'];
+  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4)
+    || (atrPctl !== null && atrPctl !== undefined && atrPctl > 70);
   if (score > 80 && !entradaSana) score = 79;
 
   // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del

@@ -472,6 +472,50 @@ def atr14_pct(df):
     except:
         return None
 
+def atr14_pct_percentil(df, lookback=252):
+    """Percentil del ATR14% de HOY contra el propio historial del ticker
+    (mismo criterio que percentrank_tv en calcular_rs_score: % de dias
+    anteriores de la ventana con ATR14% MENOR al de hoy).
+
+    Se usa para refinar el gate de calidad 80+ (2026-09-01, a pedido del
+    usuario, caso MU): el gate original solo miraba ATR14% ABSOLUTO<=4,
+    sin distinguir "esta acción siempre se mueve así" de "se puso más
+    nerviosa que su propia norma". Backtest a escala (276 tickers/8 años,
+    poblacion Score>80): dentro de ATR>4%, el grupo con percentil propio
+    <=70 (ritmo habitual, sin nada nuevo) rinde MAL (P(subir) 15r 48%,
+    mediana -0,58%) mientras que percentil>70 (volatilidad expandiéndose
+    más allá de su rango habitual) rinde muy bien (P(subir) 66%, mediana
+    +4,0%) -- validado con split por mitad de tickers y por año. Se
+    probó también la hipótesis contraria (percentil MUY bajo = contracción
+    real = compresión antes de explosión, caso MU 27/8/2025) por decil:
+    NO se sostiene a escala, la parte baja (0-40) es ruidosa/mixta, no
+    consistentemente buena -- ver memoria de sesión para el detalle.
+    """
+    if df is None or len(df) < 75:
+        return None
+    try:
+        high  = df['High']
+        low   = df['Low']
+        close = df['Close']
+        prev  = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev).abs(),
+            (low  - prev).abs()
+        ], axis=1).max(axis=1)
+        atr14_pct_ser = (tr.rolling(14).mean() / close * 100).dropna()
+        if len(atr14_pct_ser) < 75:
+            return None
+        lb = min(lookback, len(atr14_pct_ser) - 1)
+        if lb < 60:
+            return None
+        hoy     = atr14_pct_ser.iloc[-1]
+        ventana = atr14_pct_ser.iloc[-1 - lb:-1].values
+        pctl = (ventana < hoy).sum() / lb * 100
+        return round(float(pctl), 2)
+    except Exception:
+        return None
+
 def _adx_dmi_atr(df, periodo=14):
     """ADX + DI+/DI- (Wilder, igual a ta.dmi/ta.atr de TradingView) + ATR
     Wilder de la misma ventana -- Warren Score Régimen de Mercado, Capa 1
@@ -3834,6 +3878,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
 
         # ATR14 % y Volatilidad Anual % (Warren Score v2.1)
         atr14_p    = atr14_pct(hist)
+        atr14_pctl = atr14_pct_percentil(hist)
         vol_anual  = vol_anual_pct(hist)
 
         # Modificador de sacudon / shakeout (Warren Score v3.1)
@@ -4013,6 +4058,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Rebote SMA10 Low":        rebote['low'],
             "Rebote SMA10 Cierre":     rebote['cierre'],
             "ATR14 %":                 atr14_p,
+            "ATR14 Pctl":              atr14_pctl,
             "Volatilidad Anual %":     vol_anual,
             "Choppiness":              chop['Choppiness'],
             "Eficiencia 10d":          chop['Eficiencia 10d'],
