@@ -838,6 +838,18 @@ let charts = {};
 let refreshTimer = null;
 let quickFilter = null;
 
+// Tickers excluidos SOLO del Warren Score (ranking, snapshot semanal de
+// rangos, lista mobile) -- 2026-09-01, a pedido del usuario, caso TQQQ:
+// un ETF apalancado 3x no tiene un "setup" técnico propio, es beta
+// apalancado de otro índice (decaimiento por rebalanceo diario incluido)
+// -- no tiene sentido que compita en un ranking pensado para acciones.
+// Sigue apareciendo sin cambios en el resto del dashboard (Scanner,
+// Planilla, Cartelera, etc.) -- esto NO lo saca de DATOS ni de
+// getDatosFiltrados(), solo de los puntos donde se arma la lista/ranking
+// del Warren Score en sí.
+const WARREN_SCORE_EXCLUIDOS = ['TQQQ'];
+function wbNoExcluidoWS(d) { return !WARREN_SCORE_EXCLUIDOS.includes(d['Ticker']); }
+
 let PL_PRECIOS = {};
 let PL_PRECIOS_TIMER = null;
 let PL_LAST_UPDATE = null;
@@ -8501,6 +8513,7 @@ window.wsRankSnapSave = function() {
   if (snap && snap.date === hoy && snap.version === WB_SCORE_VERSION_50) return;
   const ranks = {};
   DATOS
+    .filter(wbNoExcluidoWS)
     .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
     .filter(x => x.s > 0)
     .sort((a, b) => b.s - a.s)
@@ -8536,6 +8549,7 @@ window.renderWarrenScore = function() {
   const sector = sectorSel ? sectorSel.value : 'all';
 
   let data = getDatosFiltrados()
+    .filter(wbNoExcluidoWS)
     .map(d => ({ d, ...calcWarrenDetalle(d) }))
     .filter(x => x.score > 0)
     .filter(x => sector === 'all' || x.d['Sector'] === sector);
@@ -8624,6 +8638,7 @@ window.renderWarrenScore = function() {
   const _allRanks = {};
   if (DATOS && DATOS.length) {
     DATOS
+      .filter(wbNoExcluidoWS)
       .map(d => ({ t: d['Ticker'], s: calcWarrenDetalle(d).score }))
       .filter(x => x.s > 0)
       .sort((a, b) => b.s - a.s)
@@ -8889,6 +8904,7 @@ function wbmComputeRanks(){
   var ranks = {};
   if (typeof DATOS === 'undefined' || !DATOS || !DATOS.length || typeof calcWarrenDetalle !== 'function') return ranks;
   DATOS
+    .filter(wbNoExcluidoWS)
     .map(function(d){ return { t: d['Ticker'], s: calcWarrenDetalle(d).score }; })
     .filter(function(x){ return x.s > 0; })
     .sort(function(a,b){ return b.s - a.s; })
@@ -9115,6 +9131,7 @@ function wbmRenderList(){
   var ranks = wbmComputeRanks();
 
   var data = getDatosFiltrados()
+    .filter(wbNoExcluidoWS)
     .map(function(d){ var det = calcWarrenDetalle(d); det.d = d; return det; })
     .filter(function(x){ return x.score > 0; });
 
