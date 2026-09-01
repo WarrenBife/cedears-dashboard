@@ -3237,11 +3237,13 @@ async function guardarWatchlist() {
     document.getElementById('pl-save-status').textContent = 'Ingresá con tu email para guardar.';
     return;
   }
-  if (saved.pid?.startsWith('bypass-')) {
-    document.getElementById('pl-save-status').textContent = 'Guardado localmente ✓ (modo prueba)';
-    setTimeout(() => { document.getElementById('pl-save-status').textContent = ''; }, 2500);
-    return;
-  }
+  // 2026-09-01: antes acá cortaba para accesos "bypass-" (dueño del sitio /
+  // testers, ver BYPASS_USERS en api/verificar-email.js) mostrando un
+  // "Guardado ✓ (modo prueba)" falso, sin llamar nunca a /api/guardar-
+  // watchlist -- el cambio nunca se persistía. El token que reciben los
+  // bypass es un HMAC real, firmado con el mismo ACCESS_SECRET que valida
+  // guardar-watchlist.js, así que el guardado real funciona igual para
+  // ellos -- no había motivo para cortar acá.
   document.getElementById('pl-save-status').textContent = 'Guardando…';
   try {
     const r = await fetch('/api/guardar-watchlist', {
