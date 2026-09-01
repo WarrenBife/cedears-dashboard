@@ -680,7 +680,7 @@
             🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>
             🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>
             🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>
-            ⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente) — solo informativa, no resta puntos todavía<br>
+            ⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente). Si el día siguiente confirma cerrando en rojo, tapa el Score en 70 hasta que sostenga 2 días verdes seguidos o haga un nuevo máximo<br>
             <span style="display:block;margin-top:4px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</span>
             🫨 <b>Sacudón previo</b> — Liquidez tomada tras una compresión — anula la volatilidad sin dirección de arriba<br>
             👀 <b>Rebote en observación</b> — Rebotó en la SMA10 recién hoy, todavía sin confirmar<br>
@@ -8294,13 +8294,13 @@ function _penalizacionesV50(d){
   const pendSma50Pts = +d['Pend SMA50 Pts'] || 0;
   if (pendSma50Pts > 0) { pen -= pendSma50Pts; flags.push('🪤'); }
 
-  // ⚠️ Posible toma de ganancias -- ver vela_rechazo_maximos() en
-  // actualizar_datos.py (caso de origen: XYZ 27/8/2026). Solo informativa
-  // por ahora, NO resta puntos: validado que el día del disparo aislado
-  // mezcla dos poblaciones opuestas (si el día siguiente confirma en rojo,
-  // señal mala; si no confirma, en realidad es señal buena) y la muestra
-  // es chica -- no alcanza para justificar una penalización con puntos.
-  if (_bool(d['Vela Rechazo Maximos'])) { flags.push('⚠️'); }
+  // ⚠️ Posible toma de ganancias -- ver vela_rechazo_maximos()/
+  // vela_rechazo_confirmada() en actualizar_datos.py (caso de origen:
+  // XYZ 27/8/2026). Se muestra tanto el día del disparo crudo (recién
+  // pasó, todavía sin confirmar) como durante todo el tramo confirmado
+  // (el que tapa el score en 70, ver más abajo) -- para que la bandera
+  // siga visible mientras el tope esté activo, no solo el primer día.
+  if (_bool(d['Vela Rechazo Maximos']) || _bool(d['Vela Rechazo Confirmada'])) { flags.push('⚠️'); }
 
   return { pen, flags };
 }
@@ -8349,6 +8349,16 @@ window.calcWarrenDetalleV50 = function(d){
   const atrGate = d['ATR14 %'];
   const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
   if (score > 80 && !entradaSana) score = 79;
+
+  // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
+  // usuario, caso XYZ) -- ojo: usa 'Vela Rechazo Confirmada' (dispara +
+  // el día siguiente cerró en rojo, vigente hasta 2 verdes seguidos o un
+  // nuevo máximo), NO 'Vela Rechazo Maximos' (el disparo crudo del día,
+  // sin confirmar). Toparlo con el disparo crudo penalizaría de más: ese
+  // día solo, sin confirmar, es en el 59% de los casos señal BUENA
+  // (+2 a +2,6% a 10-20r) -- ver vela_rechazo_confirmada() en
+  // actualizar_datos.py para la validación completa.
+  if (_bool(d['Vela Rechazo Confirmada']) && score > 70) score = 70;
 
   // Cap "estirado sin pausa/agotándose" (capeaba a 40 si Dist SMA50/ATR14
   // > 6 Y (sin base de 2+ semanas O Div RSI/OBV/Churn activo) -- SACADO
@@ -8451,7 +8461,7 @@ window.renderWarrenScore = function() {
     '🧨':'Agotamiento OBV + Divergencia RSI a la vez — castigo más severo',
     '🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas con velas sin cuerpo y volumen seco. Activo hasta 2 velas verdes seguidas',
     '🪤':'Pendiente SMA50 pronunciada con buen RS Score: ya rebotó pero la media de 50 todavía no confirma',
-    '⚠️':'Posible toma de ganancias: vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos'
+    '⚠️':'Posible toma de ganancias: vela de rechazo en zona de máximos. Si confirma (día siguiente en rojo), tapa el Score en 70 hasta 2 verdes seguidos o un nuevo máximo'
   };
   // Penalizaciones (2026-08-29, más chica y con los emojis al lado en vez
   // de abajo): barrita angosta sin el box/borde de .wbm-pbar + número,
@@ -8857,8 +8867,9 @@ function wbmSignalItems(d){
       label:'Rebotó en la SMA10' + (fecha ? ' el ' + fecha : '') + ' — en observación' + (dias!=null ? ' (día ' + dias + ' de 2)' : '')
     });
   }
-  if (_bool(d['Vela Rechazo Maximos'])) {
-    items.push({emoji:'⚠️', label:'Posible toma de ganancias: mecha superior larga y cierre débil, con volumen alto, en zona de máximos'});
+  if (_bool(d['Vela Rechazo Maximos']) || _bool(d['Vela Rechazo Confirmada'])) {
+    var velaConf = _bool(d['Vela Rechazo Confirmada']);
+    items.push({emoji:'⚠️', label:'Posible toma de ganancias: vela de rechazo en zona de máximos' + (velaConf ? ' — confirmada, Score topeado en 70' : ' — recién disparó, todavía sin confirmar')});
   }
   return items;
 }

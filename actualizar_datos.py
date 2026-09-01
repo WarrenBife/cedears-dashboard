@@ -2894,6 +2894,89 @@ def vela_rechazo_maximos(hist, dist_max52):
         return False
 
 
+VELA_RECHAZO_VENTANA_MAX = 40  # ruedas hacia atrás para reconstruir si un episodio confirmado sigue vigente
+
+def vela_rechazo_confirmada(hist):
+    """True si HOY hay un episodio VIGENTE de vela de rechazo CONFIRMADA:
+    disparó (ver vela_rechazo_maximos) y el día siguiente cerró en rojo
+    (confirma), y desde entonces no pasó nada de lo que lo levanta -- 2
+    días verdes seguidos, o un nuevo máximo por encima del máximo del día
+    del disparo. Sin estado persistido entre corridas (mismo patrón que
+    no_demand_ruptura): se reconstruye desde el histórico en cada corrida.
+
+    2026-09-1, a pedido del usuario: esto (no 'vela_rechazo_maximos', el
+    disparo crudo del día) es lo que debe topear el Warren Score en 70 --
+    el día del disparo SOLO, sin confirmar, en el 59% de los casos (Score
+    >70, 2026, 297 tickers) es en realidad señal BUENA (+2,03/+2,16/+2,60%
+    a 10/15/20r); toparlo ahí penalizaría de más a la mayoría de los casos
+    que iban a andar bien. Separado además por vía de liberación: 'nuevo
+    máximo' rinde bien (+4,17% a 10r, 100% sube, n=6) y '2 verdes
+    seguidos' rinde mal (-2,36%, solo 26% sube, n=23) -- de ahí el tope al
+    score en vez de puntos fijos, dado lo chica que es la muestra (29
+    días confirmados en 2026)."""
+    try:
+        n = len(hist)
+        piso_min = VELA_RECHAZO_VENTANA_RECIENTE + 21 + VELA_RECHAZO_VENTANA_MAX + 5
+        if n < piso_min:
+            return False
+        h = hist['High'].values
+        l = hist['Low'].values
+        o = hist['Open'].values
+        c = hist['Close'].values
+        v = hist['Volume'].values
+
+        idx_ini = n - VELA_RECHAZO_VENTANA_MAX - 5
+        activo = False
+        high_disparo = None
+        esperando_confirmacion = None  # índice del día que disparó, esperando el cierre del día siguiente
+
+        for t in range(idx_ini, n):
+            # 1) resolver liberación del episodio vigente (2 verdes seguidos o nuevo máximo)
+            if activo:
+                verde_2_seguidos = t >= 2 and c[t] > c[t - 1] and c[t - 1] > c[t - 2]
+                nuevo_max = h[t] > high_disparo
+                if verde_2_seguidos or nuevo_max:
+                    activo = False
+                    high_disparo = None
+
+            # 2) resolver confirmación del disparo de ayer (cierre de hoy vs. cierre de ayer)
+            if esperando_confirmacion is not None:
+                if c[t] < c[t - 1]:
+                    activo = True
+                    high_disparo = h[esperando_confirmacion]
+                esperando_confirmacion = None
+
+            # 3) evaluar si HOY (t) dispara, para confirmar mañana
+            rng = h[t] - l[t]
+            if rng <= 0 or t < VELA_RECHAZO_VENTANA_RECIENTE or t < 20:
+                continue
+            vol_avg20 = float(v[t - 20:t].mean())
+            if vol_avg20 <= 0:
+                continue
+            max52 = float(c[max(0, t - 251):t + 1].max())
+            if max52 <= 0:
+                continue
+            dist_max52_t = (c[t] / max52 - 1) * 100
+            max_reciente = float(h[t - VELA_RECHAZO_VENTANA_RECIENTE:t].max())
+            cerca_52w = dist_max52_t >= VELA_RECHAZO_DIST_MAX52_MIN
+            maximo_reciente_t = max_reciente > 0 and h[t] >= max_reciente
+            if not (cerca_52w or maximo_reciente_t):
+                continue
+
+            close_pos = (c[t] - l[t]) / rng
+            upper_wick_pct = (h[t] - max(o[t], c[t])) / rng * 100
+            vol_ratio = v[t] / vol_avg20
+            trigger = (upper_wick_pct >= VELA_RECHAZO_MECHA_MIN
+                       and close_pos <= VELA_RECHAZO_CIERRE_MAX
+                       and vol_ratio >= VELA_RECHAZO_VOL_MIN)
+            if trigger:
+                esperando_confirmacion = t
+
+        return activo
+    except Exception:
+        return False
+
+
 def clasificar_market_cap(mc):
     if mc is None:     return "—"
     if mc >= 200e9:    return "Mega Cap"
@@ -3712,6 +3795,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
 
         # ⚠️ Posible toma de ganancias -- ver vela_rechazo_maximos() arriba.
         vela_rechazo = vela_rechazo_maximos(hist, dist_max52)
+        vela_rechazo_conf = vela_rechazo_confirmada(hist)
 
         # Vol 5d/40d: ratio volumen promedio últimas 5 ruedas vs últimas 40
         vol_5d_40d = None
@@ -3898,6 +3982,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Vol días - 10s":      vol_neg_10,
             "Distribucion Activa Vela": distrib_activa,
             "Vela Rechazo Maximos":    vela_rechazo,
+            "Vela Rechazo Confirmada": vela_rechazo_conf,
             "Vol 5d/40d":              vol_5d_40d,
             "Breakout Fresh":          brk['Breakout Fresh'],
             "Breakout Days Ago":       brk['Breakout Days Ago'],
