@@ -4108,6 +4108,15 @@ if ('serviceWorker' in navigator) {
     var cv=$('wbRrgChart'); if(!cv || !datosOK() || typeof Chart==='undefined') return;
     var soloMes = (function(){ var s=document.getElementById('wbRrgMesFilter'); return s && s.value==='mes'; })();
     var pts = filtrados().map(function(d){
+      // SPY excluido (2026-09-01, pedido del usuario -- "distorsiona todo"):
+      // su Fuerza Relativa se calcula contra sí mismo (ratio ticker/SPY = 1
+      // constante), así que cualquier ruido de punto flotante hace que el
+      // percentil salte entre 0 y 100 sin ningún significado real -- caso
+      // real visto en vivo: RS Score 100,0 hoy vs. 6,4 la semana pasada, un
+      // salto de +93,6 puntos que arrastraba la escala del eje Y de todo
+      // el gráfico. QQQ y el resto de ETFs de este modo "Acciones" no
+      // tienen este problema (se comparan contra SPY, no contra sí mismos).
+      if(d['Ticker']==='SPY') return null;
       var rs=num(d['RS Score']), prev=num(d['RS Semana ant.']), cap=num(d['Market Cap USD']);
       var mes=num(d['RS Mes ant.']);
       if(rs==null||prev==null) return null;
@@ -4282,6 +4291,12 @@ if ('serviceWorker' in navigator) {
         _wbRotHistFetching = false;
         var byT = {};
         (rows||[]).forEach(function(row){
+          // SPY excluido (2026-09-01, mismo motivo que en wbRenderRRG): su
+          // Fuerza Relativa se calcula contra sí mismo, así que el RS Score
+          // salta entre 0 y 100 por ruido de punto flotante -- caso real
+          // visto acá: 5,95 el 28/8, 100,0 el 04/9. Sin este filtro, ese
+          // salto lo hacía aparecer como falso "Recién a Líderes" (ETFs).
+          if(row.ticker==='SPY') return;
           if(!byT[row.ticker]) byT[row.ticker] = [];
           byT[row.ticker].push(row);
         });
