@@ -2835,6 +2835,65 @@ def distribucion_activa_vela(hist, dist_max52):
     except Exception:
         return False
 
+# ── Vela de rechazo en máximos (⚠️ "Posible toma de ganancias") ──
+# 2026-08-31/9-1, caso XYZ: hizo un máximo (52w o reciente) con mecha
+# superior larga y cerró débil, con volumen alto -- ninguna bandera
+# existente lo agarraba (Distribución Activa exige 6 de 8 velas rojas,
+# no 1 sola; 💥 exige el DÍA en rojo, y este día cerró +2%).
+#
+# Es SOLO informativa por ahora (no resta puntos) -- validado a escala
+# (Score>70, 2026, 297 tickers) que el día del disparo aislado NO
+# predice nada por sí solo (mezcla dos poblaciones opuestas): si el día
+# siguiente cierra en rojo (confirma), spread negativo real y creciente
+# con el horizonte (-1,01/-1,16/-1,26% a 10/15/20r vs. el resto); si el
+# día siguiente cierra en verde (no confirma), en realidad es señal
+# BUENA (+2,03/+2,16/+2,60%). Con muestra chica (29 días confirmados
+# en 8 meses) -- por eso se implementa como advertencia visual, no
+# como penalización con puntos todavía.
+VELA_RECHAZO_MECHA_MIN         = 50.0  # % del rango del día que es mecha superior
+VELA_RECHAZO_CIERRE_MAX        = 0.40  # cierre en el X% inferior del rango del día
+VELA_RECHAZO_VOL_MIN           = 1.2   # volumen vs. promedio de 20 ruedas previas
+VELA_RECHAZO_DIST_MAX52_MIN    = -5.0  # % de distancia al máximo de 52 semanas
+VELA_RECHAZO_VENTANA_RECIENTE  = 20    # ruedas para considerar "máximo reciente" (además del de 52w)
+
+def vela_rechazo_maximos(hist, dist_max52):
+    """True si HOY el papel armó una vela de rechazo (mecha superior larga,
+    cierre débil, volumen alto) en zona de máximos -- de 52 semanas O un
+    máximo reciente de las últimas VELA_RECHAZO_VENTANA_RECIENTE ruedas
+    (a pedido del usuario, para no perder casos que hacen un máximo local
+    sin estar a <5% del máximo de 52 semanas)."""
+    try:
+        if len(hist) < VELA_RECHAZO_VENTANA_RECIENTE + 21:
+            return False
+        h = hist['High'].values
+        l = hist['Low'].values
+        o = hist['Open'].values
+        c = hist['Close'].values
+        v = hist['Volume'].values
+
+        cerca_52w = dist_max52 is not None and dist_max52 >= VELA_RECHAZO_DIST_MAX52_MIN
+        max_reciente = float(h[-VELA_RECHAZO_VENTANA_RECIENTE - 1:-1].max())
+        maximo_reciente = h[-1] >= max_reciente
+        if not (cerca_52w or maximo_reciente):
+            return False
+
+        rng = h[-1] - l[-1]
+        if rng <= 0:
+            return False
+        close_pos = (c[-1] - l[-1]) / rng
+        upper_wick_pct = (h[-1] - max(o[-1], c[-1])) / rng * 100
+        vol_avg20 = float(v[-21:-1].mean())
+        if vol_avg20 <= 0:
+            return False
+        vol_ratio = v[-1] / vol_avg20
+
+        return (upper_wick_pct >= VELA_RECHAZO_MECHA_MIN
+                and close_pos <= VELA_RECHAZO_CIERRE_MAX
+                and vol_ratio >= VELA_RECHAZO_VOL_MIN)
+    except Exception:
+        return False
+
+
 def clasificar_market_cap(mc):
     if mc is None:     return "—"
     if mc >= 200e9:    return "Mega Cap"
@@ -3651,6 +3710,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # estadísticas de amplitud, sin cambios.
         distrib_activa = distribucion_activa_vela(hist, dist_max52)
 
+        # ⚠️ Posible toma de ganancias -- ver vela_rechazo_maximos() arriba.
+        vela_rechazo = vela_rechazo_maximos(hist, dist_max52)
+
         # Vol 5d/40d: ratio volumen promedio últimas 5 ruedas vs últimas 40
         vol_5d_40d = None
         if len(volume) >= 40:
@@ -3835,6 +3897,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Vol días + 10s":      vol_pos_10,
             "Vol días - 10s":      vol_neg_10,
             "Distribucion Activa Vela": distrib_activa,
+            "Vela Rechazo Maximos":    vela_rechazo,
             "Vol 5d/40d":              vol_5d_40d,
             "Breakout Fresh":          brk['Breakout Fresh'],
             "Breakout Days Ago":       brk['Breakout Days Ago'],
