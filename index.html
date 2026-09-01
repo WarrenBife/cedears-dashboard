@@ -298,6 +298,9 @@
   .pl-save-btn:hover{background:rgba(34,201,138,0.22);}
   .pl-save-status{font-size:11px;color:var(--muted);}
   .pl-empty{color:var(--muted);font-size:11px;text-align:center;padding:16px;}
+  .pl-ppc-input{width:74px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:'DM Mono',monospace;padding:4px 6px;border-radius:5px;outline:none;text-align:right;}
+  .pl-ppc-input:focus{border-color:var(--blue);}
+  .pl-ppc-input::placeholder{color:var(--muted);}
   .home-paths{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
   #home-candles{position:absolute;inset:0;pointer-events:none;}
   #home-tickers{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
@@ -2938,7 +2941,7 @@ function stopPreciosLiveTimer() {
 <script>
 // ── PLANILLA ──────────────────────────────────────────────────
 const PL_DEFAULTS = [
-  { name: 'Tech USA',    tickers: ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','AMD','NFLX','PLTR'] },
+  { name: 'Cartera',    tickers: [] },
   { name: 'Finanzas',   tickers: ['JPM','GS','V','MA','BAC','BX','SCHW','AXP','MS','PYPL'] },
   { name: 'Energía',    tickers: ['XOM','CVX','OXY','COP','HAL','SLB','BP','SHEL','CEG','PSX'] },
   { name: 'Argentina',  tickers: ['YPF','GGAL','MELI','BMA','VIST','GLOB','PAM','BBAR','TGS','CEPU'] },
@@ -2946,8 +2949,50 @@ const PL_DEFAULTS = [
   { name: 'Materiales', tickers: ['GOLD','NEM','FCX','VALE','RIO','BHP','SCCO','MP','CCJ','DOW'] },
 ];
 
-let PL_TABLES = PL_DEFAULTS.map(t => ({ ...t, tickers: [...t.tickers] }));
+// El cuadro 0 (índice fijo, sin UI para agregar/quitar cuadros) es siempre
+// "Cartera" -- 2026-09-01, a pedido del usuario: PPC cargado a mano por
+// ticker + retorno total, en vez de las columnas de métricas de los demás
+// cuadros. 'tickers' pasa de ser un array de strings a un array de objetos
+// {ticker, ppc} en TODOS los cuadros (uniforme, aunque solo Cartera usa
+// 'ppc') -- normalizado acá para que datos viejos guardados como strings
+// sigan andando sin romper nada. El backend (api/guardar-watchlist.js) no
+// valida esquema interno, solo que 'tables' sea un array -- no hace falta
+// tocar nada del lado del servidor.
+function plNormalizarTablas(tablas) {
+  return (tablas || []).map((t, i) => ({
+    name: i === 0 ? 'Cartera' : (t.name || `Tabla ${i + 1}`),
+    tickers: (t.tickers || []).map(tk => typeof tk === 'string'
+      ? { ticker: tk, ppc: null }
+      : { ticker: tk.ticker, ppc: (tk.ppc != null && tk.ppc > 0) ? tk.ppc : null })
+  }));
+}
+
+let PL_TABLES = plNormalizarTablas(PL_DEFAULTS);
 let PL_LOADED = false; // se carga desde Redis solo una vez por sesión
+
+function plPrecioActual(ticker, dataMap) {
+  const live = PL_PRECIOS[ticker];
+  if (live?.price != null) return live.price;
+  const d = dataMap[ticker];
+  return d ? d['Precio'] : null;
+}
+function plRetornoTotal(ticker, ppc, dataMap) {
+  if (ppc == null || !(ppc > 0)) return null;
+  const precio = plPrecioActual(ticker, dataMap);
+  if (precio == null) return null;
+  return (precio / ppc - 1) * 100;
+}
+function plFmtPct(v) {
+  if (v == null || isNaN(v)) return { txt: '—', cls: 'pl-var-neu' };
+  const cls = v > 0 ? 'pl-var-pos' : v < 0 ? 'pl-var-neg' : 'pl-var-neu';
+  return { txt: (v > 0 ? '+' : '') + v.toFixed(2) + '%', cls };
+}
+function plPromedioCartera(dataMap) {
+  const t = PL_TABLES[0];
+  if (!t) return null;
+  const retornos = t.tickers.map(tk => plRetornoTotal(tk.ticker, tk.ppc, dataMap)).filter(v => v != null);
+  return retornos.length ? retornos.reduce((a, b) => a + b, 0) / retornos.length : null;
+}
 
 function plMetricLabel(code) {
   return { RS:'RS Score', RSI:'RSI', EMA200:'Dist EMA200%', SMA50:'Dist SMA50%', WS:'Warren Score' }[code] || code;
@@ -2995,7 +3040,7 @@ function plMetricValue(d, code) {
 }
 
 async function fetchPreciosLive() {
-  const allTickers = [...new Set(PL_TABLES.flatMap(t => t.tickers))];
+  const allTickers = [...new Set(PL_TABLES.flatMap(t => t.tickers.map(tk => tk.ticker)))];
   if (!allTickers.length) return;
   try {
     const r = await fetch(`/api/precios-live?symbols=${allTickers.join(',')}`);
@@ -3013,16 +3058,30 @@ function renderPlanillaVars() {
   DATOS.forEach(d => { dataMap[d['Ticker']] = d; });
   PL_TABLES.forEach((table, ti) => {
     table.tickers.forEach(tk => {
-      const cell = document.getElementById(`pl-var-${ti}-${tk}`);
-      if (!cell) return;
-      const live = PL_PRECIOS[tk];
-      const vd = live?.pct ?? (dataMap[tk] ? dataMap[tk]['Var Día %'] : null);
-      const cls = vd == null ? 'pl-var-neu' : vd > 0 ? 'pl-var-pos' : vd < 0 ? 'pl-var-neg' : 'pl-var-neu';
-      const txt = vd == null ? '—' : (vd > 0 ? '+' : '') + vd.toFixed(2) + '%';
-      cell.className = cls;
-      cell.textContent = txt;
+      const cell = document.getElementById(`pl-var-${ti}-${tk.ticker}`);
+      if (cell) {
+        const live = PL_PRECIOS[tk.ticker];
+        const vd = live?.pct ?? (dataMap[tk.ticker] ? dataMap[tk.ticker]['Var Día %'] : null);
+        const fmt = plFmtPct(vd);
+        cell.className = fmt.cls;
+        cell.textContent = fmt.txt;
+      }
+      if (ti === 0) {
+        const retCell = document.getElementById(`pl-ret-${ti}-${tk.ticker}`);
+        if (retCell) {
+          const fmt = plFmtPct(plRetornoTotal(tk.ticker, tk.ppc, dataMap));
+          retCell.className = fmt.cls;
+          retCell.textContent = fmt.txt;
+        }
+      }
     });
   });
+  const avgCell = document.getElementById('pl-cartera-avg');
+  if (avgCell) {
+    const fmt = plFmtPct(plPromedioCartera(dataMap));
+    avgCell.className = fmt.cls;
+    avgCell.textContent = fmt.txt;
+  }
 }
 
 function updatePlLastUpdate() {
@@ -3049,7 +3108,52 @@ function renderPlanilla() {
   const grid = document.getElementById('pl-grid');
   if (!grid) return;
 
-  grid.innerHTML = PL_TABLES.map((table, ti) => `
+  grid.innerHTML = PL_TABLES.map((table, ti) => {
+    if (ti === 0) {
+      // Cuadro fijo "Cartera" (2026-09-01): PPC cargado a mano + retorno
+      // total en vez de las métricas Col3/Col4 de los demás cuadros.
+      const avgFmt = plFmtPct(plPromedioCartera(dataMap));
+      return `
+    <div class="pl-card">
+      <div class="pl-card-head" style="justify-content:space-between">
+        <span class="pl-name" style="cursor:default" title="Cartera: nombre fijo, no se puede renombrar">💼 ${table.name}</span>
+        <span class="${avgFmt.cls}" id="pl-cartera-avg" title="Retorno total promedio de la cartera (solo posiciones con PPC cargado)">${avgFmt.txt}</span>
+      </div>
+      <table class="pl-table">
+        <thead><tr>
+          <th>Ticker</th>
+          <th>PPC</th>
+          <th>Var. diaria</th>
+          <th>Retorno total</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${table.tickers.length === 0
+            ? `<tr><td colspan="5" class="pl-empty">Sin posiciones. Agregá un ticker y cargá tu PPC.</td></tr>`
+            : table.tickers.map(tk => {
+                const d = dataMap[tk.ticker];
+                const live = PL_PRECIOS[tk.ticker];
+                const vdFmt = plFmtPct(live?.pct ?? (d ? d['Var Día %'] : null));
+                const retFmt = plFmtPct(plRetornoTotal(tk.ticker, tk.ppc, dataMap));
+                return `<tr>
+                  <td><span class="pl-ticker"><img class="pl-logo" src="${getLogoUrl(tk.ticker)}" onerror="this.style.display='none'">${tk.ticker}</span></td>
+                  <td><input type="number" step="0.01" min="0" class="pl-ppc-input" value="${tk.ppc ?? ''}" placeholder="Cargar" onblur="plSetPPC(${ti},'${tk.ticker}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                  <td><span class="${vdFmt.cls}" id="pl-var-${ti}-${tk.ticker}">${vdFmt.txt}</span></td>
+                  <td><span class="${retFmt.cls}" id="pl-ret-${ti}-${tk.ticker}">${retFmt.txt}</span></td>
+                  <td><button class="pl-remove" onclick="plRemoveTicker(${ti},'${tk.ticker}')" title="Quitar">×</button></td>
+                </tr>`;
+              }).join('')
+          }
+        </tbody>
+      </table>
+      <div class="pl-add-row">
+        <input class="pl-add-input" id="pl-add-${ti}" placeholder="Agregar ticker…" maxlength="10"
+          onkeydown="if(event.key==='Enter')plAddTicker(${ti})">
+        <button class="pl-add-btn" onclick="plAddTicker(${ti})">+ Agregar</button>
+      </div>
+    </div>`;
+    }
+    return `
     <div class="pl-card">
       <div class="pl-card-head">
         <span class="pl-name" id="pl-name-${ti}" onclick="editPlName(${ti})">${table.name}</span>
@@ -3066,17 +3170,15 @@ function renderPlanilla() {
           ${table.tickers.length === 0
             ? `<tr><td colspan="5" class="pl-empty">Sin acciones. Agregá una abajo.</td></tr>`
             : table.tickers.map(tk => {
-                const d = dataMap[tk];
-                const live = PL_PRECIOS[tk];
-                const vd = live?.pct ?? (d ? d['Var Día %'] : null);
-                const varCls = vd == null ? 'pl-var-neu' : vd > 0 ? 'pl-var-pos' : vd < 0 ? 'pl-var-neg' : 'pl-var-neu';
-                const varTxt = vd == null ? '—' : (vd > 0 ? '+' : '') + vd.toFixed(2) + '%';
+                const d = dataMap[tk.ticker];
+                const live = PL_PRECIOS[tk.ticker];
+                const varFmt = plFmtPct(live?.pct ?? (d ? d['Var Día %'] : null));
                 return `<tr>
-                  <td><span class="pl-ticker"><img class="pl-logo" src="${getLogoUrl(tk)}" onerror="this.style.display='none'">${tk}</span></td>
-                  <td><span class="${varCls}" id="pl-var-${ti}-${tk}">${varTxt}</span></td>
+                  <td><span class="pl-ticker"><img class="pl-logo" src="${getLogoUrl(tk.ticker)}" onerror="this.style.display='none'">${tk.ticker}</span></td>
+                  <td><span class="${varFmt.cls}" id="pl-var-${ti}-${tk.ticker}">${varFmt.txt}</span></td>
                   <td class="pl-metric">${plMetricValue(d, metA)}</td>
                   <td class="pl-metric">${plMetricValue(d, metB)}</td>
-                  <td><button class="pl-remove" onclick="plRemoveTicker(${ti},'${tk}')" title="Quitar">×</button></td>
+                  <td><button class="pl-remove" onclick="plRemoveTicker(${ti},'${tk.ticker}')" title="Quitar">×</button></td>
                 </tr>`;
               }).join('')
           }
@@ -3087,11 +3189,12 @@ function renderPlanilla() {
           onkeydown="if(event.key==='Enter')plAddTicker(${ti})">
         <button class="pl-add-btn" onclick="plAddTicker(${ti})">+ Agregar</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function editPlName(ti) {
+  if (ti === 0) return; // Cartera: nombre fijo
   const span = document.getElementById(`pl-name-${ti}`);
   if (!span) return;
   const input = document.createElement('input');
@@ -3108,15 +3211,23 @@ function plAddTicker(ti) {
   const input = document.getElementById(`pl-add-${ti}`);
   const tk = (input?.value || '').trim().toUpperCase();
   if (!tk) return;
-  if (!PL_TABLES[ti].tickers.includes(tk)) {
-    PL_TABLES[ti].tickers.push(tk);
+  if (!PL_TABLES[ti].tickers.some(x => x.ticker === tk)) {
+    PL_TABLES[ti].tickers.push({ ticker: tk, ppc: null });
     renderPlanilla();
   }
   if (input) input.value = '';
 }
 
 function plRemoveTicker(ti, tk) {
-  PL_TABLES[ti].tickers = PL_TABLES[ti].tickers.filter(t => t !== tk);
+  PL_TABLES[ti].tickers = PL_TABLES[ti].tickers.filter(x => x.ticker !== tk);
+  renderPlanilla();
+}
+
+function plSetPPC(ti, tk, valorStr) {
+  const entry = PL_TABLES[ti]?.tickers.find(x => x.ticker === tk);
+  if (!entry) return;
+  const v = parseFloat(String(valorStr).replace(',', '.'));
+  entry.ppc = (isFinite(v) && v > 0) ? Math.round(v * 100) / 100 : null;
   renderPlanilla();
 }
 
@@ -3159,7 +3270,7 @@ async function cargarWatchlist() {
     const r = await fetch(`/api/cargar-watchlist?email=${encodeURIComponent(saved.email)}`);
     const d = await r.json();
     if (d.tables && Array.isArray(d.tables) && d.tables.length > 0) {
-      PL_TABLES = d.tables;
+      PL_TABLES = plNormalizarTablas(d.tables);
       PL_LOADED = true;
     }
   } catch {}
