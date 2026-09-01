@@ -2,8 +2,10 @@ name: Actualizar datos.json
 
 on:
   schedule:
-    - cron: '0 15 * * 1-5'  # 12:00 Argentina (UTC-3) = 15:00 UTC -- se corrió a las 12h (antes 10h) para saltear la volatilidad de la primera hora de rueda
-    - cron: '0 20 * * 1-5'  # 17:00 Argentina (UTC-3) = 20:00 UTC
+    - cron: '0 15 * * 1-5'   # 12:00 Argentina (UTC-3) = 15:00 UTC -- se corrió a las 12h (antes 10h) para saltear la volatilidad de la primera hora de rueda
+    - cron: '45 15 * * 1-5'  # respaldo (2026-08-31): el cron nativo de GitHub se retrasa/saltea corridas seguido en repos de poco trafico -- si la de las 15:00 UTC no dispara, esta la reemplaza
+    - cron: '0 20 * * 1-5'   # 17:00 Argentina (UTC-3) = 20:00 UTC
+    - cron: '45 20 * * 1-5'  # respaldo de la corrida de cierre (ver es_corrida_cierre en actualizar_datos.py -- ya no depende del minuto exacto, solo de la hora)
   workflow_dispatch:         # permite correrlo manualmente desde GitHub
 
 jobs:

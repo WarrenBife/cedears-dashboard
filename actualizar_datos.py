@@ -4251,8 +4251,15 @@ else:
 # completa (lunes a lunes) en vez de viernes a viernes. RUN_SCHEDULE viene del
 # workflow (github.event.schedule) y viene vacío en corridas manuales
 # (workflow_dispatch), que por eso no la disparan.
+#
+# 2026-08-31: antes comparaba el string completo del cron ('0 20 * * 1-5'),
+# pero se agregó una corrida de respaldo a las 20:45 UTC (el cron nativo de
+# GitHub se retrasa o saltea corridas seguido en repos de poco tráfico) --
+# si esa es la que termina disparando, el string ya no matchea. Ahora solo
+# mira la HORA (20 UTC), sin importar el minuto ni cuántos cron distintos
+# caigan en esa hora.
 CIERRE_LUNES_ARCHIVO = "datos_lunes_cierre.json"
-es_corrida_cierre = os.environ.get("RUN_SCHEDULE") == "0 20 * * 1-5"
+es_corrida_cierre = bool(os.environ.get("RUN_SCHEDULE")) and datetime.utcnow().hour == 20
 es_lunes = datetime.utcnow().weekday() == 0
 if es_corrida_cierre and es_lunes:
     snapshot = {"fecha": datetime.utcnow().strftime('%Y-%m-%d'), "datos": datos_export}
