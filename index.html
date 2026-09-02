@@ -7854,17 +7854,26 @@ try {
     _etfFiltro.splice(idx, 1);
     _origenBurbuja = false;
     if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
-      window.wbRrgLectClick(etf); // dispara wbRrgSelSector con sector:null; el listener de abajo ve _etfFiltro ya vacío y no hace nada de más
-    } else {
+      window.wbRrgLectClick(etf); // des-aísla la estela en el gráfico (toggle selSector a null)
+    } else if (etf === _ultimoResaltado && typeof window.wbRrgSetSector === 'function') {
       // WB UPGRADE V17: si el que se saca era el resaltado en el gráfico,
       // pasar a resaltar el que quedó último en la lista (o apagar el
       // resaltado si no queda ninguno).
-      if (etf === _ultimoResaltado && typeof window.wbRrgSetSector === 'function') {
-        _ultimoResaltado = _etfFiltro.length ? _etfFiltro[_etfFiltro.length - 1] : null;
-        window.wbRrgSetSector(_ultimoResaltado);
-      }
-      _rerender();
+      _ultimoResaltado = _etfFiltro.length ? _etfFiltro[_etfFiltro.length - 1] : null;
+      window.wbRrgSetSector(_ultimoResaltado);
     }
+    // WB UPGRADE V18 (2026-09-02, fix reportado por el usuario -- "no me
+    // deja borrar el filtro de la tarjeta"): _rerender() tiene que correr
+    // SIEMPRE, no solo en el else de arriba. Antes, cuando el filtro venía
+    // de un click real en la burbuja, se confiaba en que el listener de
+    // 'wbRrgSelSector' (más abajo) llamara a _rerender() por su cuenta al
+    // recibir el evento que dispara wbRrgLectClick -- pero ese listener ve
+    // _etfFiltro YA vacío (lo vaciamos arriba, ANTES de llamar a
+    // wbRrgLectClick) y hace un return temprano pensando "no hay nada que
+    // hacer" (ver el listener, unas líneas más abajo) -- así que
+    // _rerender() nunca corría: la tarjeta y la tabla se quedaban pegadas
+    // con el filtro viejo, aunque el gráfico sí se des-aislaba visualmente.
+    _rerender();
   }
 
   function _agregarEtf(etf){
@@ -7997,14 +8006,14 @@ try {
       // real en la burbuja (mismo criterio que _quitarEtf -- ver nota ahí).
       if (debeDesaislarEnGrafico && typeof window.wbRrgLectClick === 'function') {
         window.wbRrgLectClick(elBurbuja);
-      } else {
+      } else if (_ultimoResaltado !== null && typeof window.wbRrgSetSector === 'function') {
         // WB UPGRADE V17: apaga el resaltado del dropdown si había uno.
-        if (_ultimoResaltado !== null && typeof window.wbRrgSetSector === 'function') {
-          window.wbRrgSetSector(null);
-        }
-        _ultimoResaltado = null;
-        _rerender();
+        window.wbRrgSetSector(null);
       }
+      _ultimoResaltado = null;
+      // WB UPGRADE V18: _rerender() SIEMPRE, mismo fix y mismo motivo que
+      // en _quitarEtf (ver esa función para el detalle completo del bug).
+      _rerender();
     });
 
     _poblarLista();
