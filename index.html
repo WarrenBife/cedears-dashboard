@@ -6774,9 +6774,23 @@ const ETF_TO_SECTOR = {
   XOP:'Petróleo y Gas', ICLN:'Energías Limpias', URA:'Uranio'
 };
 
+// Lista completa de ETFs con estela real en el modo "ETFs" del cuadro de
+// rotación -- ampliada 2026-09-02 (pedido del usuario: "hay ETFs que no
+// figuran en el cuadro de rotación, en el de las estelas" -- ej. ILF).
+// Antes solo tenía 30 (11 sectoriales SPDR + 19 temáticos/país/commodity
+// curados) -- se agregan los 26 ETFs restantes que ya están en DATOS
+// (dashboard general) pero nunca tuvieron estela acá. Debe mantenerse
+// EXACTAMENTE igual a SECTOR_ETFS_RRG en actualizar_datos.py -- esa
+// lista es la que decide para cuáles se calcula rs_historia.json (sin
+// eso, agregar un ticker acá no alcanza: buildSeries() los filtraría
+// igual por falta de datos). SPY excluido a propósito (no aparece en
+// ningún modo del cuadro, ver spy_excluido_cuadrante_rotacion).
 const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                   'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA',
-                  'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA'];
+                  'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA',
+                  'ACWI','ARKK','COPX','CORN','EEM','EFA','ESGU','ETHA','EWJ','GSG',
+                  'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ','SH',
+                  'SOYB','TQQQ','USO','VEA','VIG','VXX'];
 
 const QCOLORS = {
   leading:  [34,201,138],

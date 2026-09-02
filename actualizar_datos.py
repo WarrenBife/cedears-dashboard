@@ -4564,9 +4564,18 @@ except Exception as e:
     print(f"⚠️  rotacion_historia.json: {e}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
+# Ampliada 2026-09-02 (pedido del usuario: ETFs como ILF no tenian estela
+# en el modo "ETFs" del cuadro de rotacion) -- de 30 a 56 ETFs, todos los
+# que ya estan en el universo general del dashboard (menos SPY, excluido
+# a proposito del cuadro). DEBE mantenerse EXACTAMENTE igual a ETFS_RRG
+# en index.html (WB UPGRADE V7) -- esa lista filtra cuales de estos
+# tickers realmente se plotean/tienen estela en el frontend.
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                    'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA',
-                   'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA']
+                   'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA',
+                   'ACWI','ARKK','COPX','CORN','EEM','EFA','ESGU','ETHA','EWJ','GSG',
+                   'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ','SH',
+                   'SOYB','TQQQ','USO','VEA','VIG','VXX']
 RS_HISTORIA_SEMANAS = 16
 RS_LOOKBACK = 12
 
