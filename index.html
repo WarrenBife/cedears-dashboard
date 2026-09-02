@@ -3592,19 +3592,6 @@ if ('serviceWorker' in navigator) {
   #warren-table td{text-align:center!important;}
   #warren-table td:first-child>div{justify-content:center;}
 
-  /* ── Franja de régimen de mercado ── */
-  #wb-regimen{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 24px;
-    background:rgba(13,17,24,0.72);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
-  .wb-reg-verdict{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;font-weight:500;}
-  .wb-reg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-  .wb-reg-dot.g{background:var(--green);box-shadow:0 0 12px rgba(34,201,138,0.9);animation:pulse 1.8s infinite;}
-  .wb-reg-dot.a{background:var(--amber);box-shadow:0 0 12px rgba(245,166,35,0.9);}
-  .wb-reg-dot.r{background:var(--red);box-shadow:0 0 12px rgba(240,96,90,0.9);}
-  .wb-reg-metrics{display:flex;gap:14px;flex-wrap:wrap;}
-  .wb-reg-m{display:flex;align-items:baseline;gap:5px;font-size:11px;color:var(--muted);}
-  .wb-reg-m b{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text);}
-  @media(max-width:600px){#wb-regimen{padding:9px 14px;gap:10px;}.wb-reg-metrics{gap:10px;}}
-
   /* ── Warren Score Spotlight ── */
   #wb-spotlight{border:1px solid rgba(34,201,138,0.28);position:relative;margin-bottom:20px;
     background:linear-gradient(180deg,rgba(34,201,138,0.05),transparent 40%),var(--bg2);}
@@ -3808,12 +3795,13 @@ if ('serviceWorker' in navigator) {
     return p;
   }
 
-  /* — Franja de régimen (antes de .main) — */
-  var reg = document.createElement('div');
-  reg.id='wb-regimen';
-  reg.innerHTML='<div class="wb-reg-verdict"><span class="wb-reg-dot a" id="wb-reg-dot"></span><span id="wb-reg-label">Calculando régimen…</span></div>'+
-    '<div class="wb-reg-metrics" id="wb-reg-metrics"></div>';
-  main.parentNode.insertBefore(reg, main);
+  /* — Franja de régimen (antes de .main) -- SACADA 2026-09-01, pedido del
+     usuario: en mobile hacía muy cargado el inicio, y era redundante con
+     el panel completo "⚡ Régimen de mercado" (wbRenderRegimenPanel, más
+     abajo, antes de la Cartelera) -- de hecho ese panel ya sincronizaba
+     el contenido de esta franja con SU propio score (ver el bloque que
+     se sacó de wbRenderRegimenPanel), así que la franja mostraba una
+     versión duplicada y más chica del mismo dato. ── */
 
   /* — Spotlight — */
   var spot = document.createElement('div');
@@ -3993,31 +3981,8 @@ if ('serviceWorker' in navigator) {
   /* recalcular índices de entrada escalonada con el nuevo orden */
   main.querySelectorAll('.panel').forEach(function(el,i){ el.style.setProperty('--wb-i', Math.min(i,10)); });
 
-  /* ═══ 2. Régimen de mercado ═══ */
-  function wbRenderRegimen(){
-    if(!datosOK()) return;
-    var u = DATOS, n = u.length; if(!n) return;
-    var sobreE = 0, sobre50 = 0, frescos = 0, vcp = 0;
-    u.forEach(function(d){
-      if(num(d['Dist EMA200 %'])>0) sobreE++;
-      if(num(d['Dist SMA50 %'])>0) sobre50++;
-      if(isValidBreakout(d)) frescos++;
-      if(b_(d['VCP Detected'])) vcp++;
-    });
-    var pE = sobreE/n*100, p50 = sobre50/n*100;
-    var estado, cls, tip;
-    if(pE>=60 && p50>=55){ estado='RÉGIMEN ALCISTA — operar con confianza'; cls='g'; }
-    else if(pE<40 || p50<35){ estado='RÉGIMEN DÉBIL — proteger capital'; cls='r'; }
-    else { estado='RÉGIMEN MIXTO — ser selectivo'; cls='a'; }
-    var dot=$('wb-reg-dot'); dot.className='wb-reg-dot '+cls;
-    $('wb-reg-label').textContent = estado;
-    $('wb-reg-label').style.color = cls==='g'?'var(--green)':cls==='r'?'var(--red)':'var(--amber)';
-    $('wb-reg-metrics').innerHTML =
-      '<span class="wb-reg-m">Sobre EMA200 <b>'+pE.toFixed(0)+'%</b></span>'+
-      '<span class="wb-reg-m">Sobre SMA50 <b>'+p50.toFixed(0)+'%</b></span>'+
-      '<span class="wb-reg-m">Despegues frescos <b>'+frescos+'</b></span>'+
-      '<span class="wb-reg-m">VCP activos <b>'+vcp+'</b></span>';
-  }
+  /* ═══ 2. Régimen de mercado -- función y franja SACADAS 2026-09-01, ver
+     nota junto a "Franja de régimen" más arriba. ═══ */
 
   /* ═══ 3. Spotlight ═══ */
   var RING_R = 32, RING_C = 2*Math.PI*RING_R;
@@ -4998,7 +4963,6 @@ if ('serviceWorker' in navigator) {
 
   /* ═══ 9. Hook a renderTodo + primer render ═══ */
   function wbRenderExtras(){
-    try{ wbRenderRegimen(); }catch(e){ console.error('wbRegimen',e); }
     try{ wbRenderSpotlight(); }catch(e){ console.error('wbSpotlight',e); }
     try{ wbRenderRRG(); }catch(e){ console.error('wbRRG',e); }
     try{ wbRenderRotTrans(); }catch(e){ console.error('wbRotTrans',e); }
@@ -5205,23 +5169,6 @@ if ('serviceWorker' in navigator) {
     var R=wbRegimenCalc();
     var CMAP={g:'#22c98a',a:'#f5a623',r:'#f0605a'};
     var BGMAP={g:'rgba(34,201,138,0.08)',a:'rgba(245,166,35,0.08)',r:'rgba(240,96,90,0.08)'};
-
-    /* Sincronizar franja #wb-regimen de V2 */
-    try{
-      var dot=$('wb-reg-dot'),lbl=$('wb-reg-label'),met=$('wb-reg-metrics');
-      if(dot) dot.className='wb-reg-dot '+(R.v||'a');
-      if(lbl){
-        lbl.textContent=R.score!=null?'SCORE '+R.score+' — '+(R.v==='g'?'RÉGIMEN ALCISTA':R.v==='r'?'RÉGIMEN DÉBIL':'RÉGIMEN MIXTO'):'Sin datos suficientes';
-        lbl.style.color=R.color;
-      }
-      if(met&&R.capa2){
-        var d=R.capa2.detail;
-        met.innerHTML='<span class="wb-reg-m">EMA200 <b>'+d.pE+'%</b></span>'+
-          '<span class="wb-reg-m">SMA50 <b>'+d.pS+'%</b></span>'+
-          '<span class="wb-reg-m">NH/NL <b>'+d.nh+'/'+d.nl+'</b></span>'+
-          '<span class="wb-reg-m">Score <b style="color:'+R.color+'">'+R.score+'</b></span>';
-      }
-    }catch(e){}
 
     /* Historial diario */
     try{
