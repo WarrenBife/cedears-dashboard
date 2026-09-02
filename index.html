@@ -7943,16 +7943,30 @@ try {
       var etf = d['ETF Sector'];
       if (etf) conteo[etf] = (conteo[etf] || 0) + 1;
     });
-    /* Lista completa de los 30 ETFs que se plotean en el modo "ETFs" del
-       cuadro de rotación (ETFS_RRG, declarado más arriba en WB UPGRADE
-       V7 -- bare reference, mismo criterio que DATOS). Antes solo se
-       listaban los que además son "ETF Sector" de alguna acción (los 20
-       sectoriales) -- los 10 restantes (QQQ, GLD, GDX, SLV, EWZ, FXI,
-       ARGT, TLT, IWM, DIA) nunca aparecían en este dropdown aunque sí
-       son burbujas clickeables en el gráfico. n=0 para los que no son
-       "ETF Sector" de ninguna acción (el filtro igual funciona por
-       burbuja/click en el gráfico, este conteo es solo informativo). */
-    var lista = (typeof ETFS_RRG !== 'undefined' && ETFS_RRG.length) ? ETFS_RRG : Object.keys(conteo);
+    /* Lista completa de ETFs -- WB UPGRADE V19 (2026-09-02, pedido del
+       usuario: "no están todos los ETF que están en el cuadro"). Antes
+       salía de ETFS_RRG (los 30 fijos del modo "ETFs" del cuadro,
+       declarado en WB UPGRADE V7) -- pero ese intento nunca funcionó de
+       verdad: ETFS_RRG es un `const` DENTRO del IIFE de V7, no una
+       variable global de verdad (a diferencia de DATOS) -- V16 vive en
+       su propio IIFE aparte, sin acceso al scope de V7, así que
+       `typeof ETFS_RRG` siempre daba 'undefined' acá y el código caía
+       siempre al fallback (solo ETFs que son "ETF Sector" de alguna
+       acción). Verificado en vivo antes de este fix.
+       Fix real: usar DATOS directo (Tipo=ETF) -- cubre TODO lo que puede
+       aparecer como burbuja en cualquier modo del cuadro, porque tanto
+       el modo "Acciones" (plotea cualquier ETF con RS Score válido) como
+       el modo "ETFs" (limitado a los 30 de ETFS_RRG, pero esos 30 son
+       justamente un subconjunto de los ETF en DATOS) dependen de que el
+       ticker exista en DATOS -- no hace falta ninguna lista aparte.
+       SPY excluido a propósito -- ya no aparece en ningún modo del
+       cuadro (ver [[spy_excluido_cuadrante_rotacion]]). n=0 para los que
+       no son "ETF Sector" de ninguna acción (el filtro igual funciona
+       por burbuja/click en el gráfico, este conteo es solo informativo). */
+    var setEtfs = {};
+    _datos.forEach(function(d){ if (d['Tipo'] === 'ETF') setEtfs[d['Ticker']] = true; });
+    delete setEtfs['SPY'];
+    var lista = Object.keys(setEtfs);
     return lista.slice().sort().map(function(etf){ return { etf: etf, n: conteo[etf] || 0 }; });
   }
 
