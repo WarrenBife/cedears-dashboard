@@ -8148,18 +8148,24 @@ function _pilarAv4V50(d){
 }
 function _fuerzaUnificadaV50(rs, rsSemana, rsMes){
   const viaNivel = _lineal(rs, 45, 75, 0, 20);
-  // Vía delta -- v4.10 (2026-09-01, pedido del usuario): pasa a medir
-  // aceleración MENSUAL (RS Score de hoy vs. 'RS Mes ant.') en vez de
-  // semanal -- misma escala que antes (0 a 20 puntos de mejora = 0 a 20
-  // pts, saturando arriba de 20). Excepción: si en la ÚLTIMA SEMANA el
-  // RS Score cayó 5 puntos o más ('RS Semana ant.'), no suma nada por
-  // esta vía -- un revés fuerte y reciente invalida el impulso mensual,
-  // aunque venga de una base sólida.
+  // Vía delta -- v4.10 (2026-09-01, pedido del usuario): mide aceleración
+  // MENSUAL (RS Score de hoy vs. 'RS Mes ant.') en vez de semanal.
+  // Excepción: si en la ÚLTIMA SEMANA el RS Score cayó 5 puntos o más
+  // ('RS Semana ant.'), no suma nada por esta vía -- un revés fuerte y
+  // reciente invalida el impulso mensual, aunque venga de una base sólida.
+  //
+  // Piso de 40 en el punto de partida (2026-09-01, pedido del usuario):
+  // solo cuenta el tramo de la mejora que queda POR ENCIMA de 40 -- si
+  // 'RS Mes ant.' estaba por debajo de 40, se lo trata como si fuera 40
+  // para este cálculo. Ejemplo del usuario: RS Mes ant.=30, RS hoy=55 ->
+  // suma solo 15 (55-40), no los 25 puntos de mejora cruda. Escala sin
+  // cambios (0 a 20 puntos de mejora "efectiva" = 0 a 20 pts, saturando
+  // arriba de 20).
   let viaDeltaMensual = 0;
   if (rsSemana !== null && rsSemana !== undefined && rsMes !== null && rsMes !== undefined) {
     const deltaSemanal = rs - rsSemana;
     if (deltaSemanal > -5) {
-      const deltaMensual = rs - rsMes;
+      const deltaMensual = rs - Math.max(rsMes, 40);
       viaDeltaMensual = _lineal(deltaMensual, 0, 20, 0, 20);
     }
   }
