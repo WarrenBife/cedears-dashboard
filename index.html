@@ -3908,9 +3908,9 @@ if ('serviceWorker' in navigator) {
   }
   window.wbRotSwitchView = wbRotSwitchView;
 
-  /* — Episodic Pivots & Bombs — */
-  var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots & Bombs',
-    'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional. Bombs: rompieron un máximo previo con eficiencia confirmada, últimos 7 días.',
+  /* — Episodic Pivots — */
+  var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots',
+    'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional.',
     '<div id="wb-ep-body" style="max-height:320px;overflow-y:auto"></div>',
     'Setup de gap con volumen: suba fuerte del día acompañada de volumen muy superior al promedio. Suele coincidir con earnings o noticias y tiene continuación estadística.');
 
@@ -4579,47 +4579,27 @@ if ('serviceWorker' in navigator) {
   window.wbRenderRotTrans = wbRenderRotTrans;
   window.wbRenderRotAccel = wbRenderRotAccel;
 
-  /* ═══ 5. Episodic Pivots & Bombs ═══
-     Bombs (Warren Score v4.1): tickers que rompieron un máximo previo con
-     el bono ER activo -- 'Bomba Dias Ago' lo calcula el pipeline (0-7,
-     o null). Ver wb_research/analisis_mu_fcx_bhp/
-     INFORME_eficiencia_kaufman_dia_maximo.md. Se muestran por separado,
-     arriba de los EPs de hoy -- no dependen de la fecha de hoy, se
-     mantienen visibles 7 días desde la ruptura aunque el puntaje del
-     bono ya se haya apagado (es efímero, sólo dura el día que rompe). */
+  /* ═══ 5. Episodic Pivots ═══
+     La sección "Bombs" (tickers que rompieron un máximo previo con el
+     bono ER activo, campo 'Bomba Dias Ago') se sacó de este panel
+     2026-09-02 a pedido del usuario. El flag 💣 BOMBA del Warren Score
+     (calcWarrenDetalleV50, índice de flags, card mobile) es una función
+     aparte y NO se tocó -- sigue igual, solo se sacó esta tabla separada
+     acá. Campo 'Bomba Dias Ago'/'Bomba Hoy' del pipeline sin cambios,
+     sigue calculándose igual para ese flag. */
   function wbRenderEP(){
     var body=$('wb-ep-body'); if(!body || !datosOK()) return;
-
-    var bombs = filtrados().filter(function(d){
-      var dias = d['Bomba Dias Ago'];
-      return dias!=null && num(dias)!=null && num(dias)<=7;
-    }).sort(function(a,b){ return num(a['Bomba Dias Ago'])-num(b['Bomba Dias Ago']); }).slice(0,12);
-
-    var bombsHtml = '';
-    if(bombs.length){
-      bombsHtml = '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px">💣 Bombs — rompieron con eficiencia confirmada (últimos 7 días)</div>'+
-        '<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Hace</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
-        bombs.map(function(d){
-          var st=wbStage(d);
-          var dias = num(d['Bomba Dias Ago']);
-          return '<tr style="background:rgba(34,201,138,0.08)"><td><span class="ticker-badge">'+esc(d['Ticker'])+'</span></td>'+
-            '<td style="color:var(--green)">'+(dias===0?'Hoy':dias+'d')+'</td>'+
-            '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
-            '<td>'+(st?'<span class="wb-badge '+st.cls+'">'+st.n+'</span>':'—')+'</td></tr>';
-        }).join('')+'</tbody></table></div>';
-    }
 
     var rows = filtrados().filter(function(d){
       var v=num(d['Var Día %']), vi=num(d['Vol Inusual %']);
       return v!=null && vi!=null && v>=4 && vi>=100;
     }).sort(function(a,b){ return num(b['Vol Inusual %'])-num(a['Vol Inusual %']); }).slice(0,12);
 
-    if(!rows.length && !bombsHtml){
-      body.innerHTML='<div class="wb-empty">Sin EPs ni Bombs hoy — no hay movimientos ≥ +4% con volumen ≥ +100%, ni rupturas confirmadas recientes.<br>Los mejores EPs suelen aparecer en semanas de earnings. 👀</div>';
+    if(!rows.length){
+      body.innerHTML='<div class="wb-empty">Sin EPs hoy — no hay movimientos ≥ +4% con volumen ≥ +100%.<br>Los mejores EPs suelen aparecer en semanas de earnings. 👀</div>';
       return;
     }
-    var epHtml = rows.length
-      ? '<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Var día</th><th>Vol inusual</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
+    var epHtml = '<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Var día</th><th>Vol inusual</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
         rows.map(function(d){
           var st=wbStage(d);
           return '<tr><td><span class="ticker-badge">'+esc(d['Ticker'])+'</span></td>'+
@@ -4627,10 +4607,9 @@ if ('serviceWorker' in navigator) {
             '<td style="color:var(--amber)">+'+fmt(num(d['Vol Inusual %']),0)+'%</td>'+
             '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
             '<td>'+(st?'<span class="wb-badge '+st.cls+'">'+st.n+'</span>':'—')+'</td></tr>';
-        }).join('')+'</tbody></table>'
-      : '<div class="wb-empty" style="padding:8px 0">Sin EPs hoy.</div>';
+        }).join('')+'</tbody></table>';
 
-    body.innerHTML = bombsHtml + epHtml;
+    body.innerHTML = epHtml;
   }
 
   /* ═══ 5b. EMA200 Reversal Score — clímax de volumen + repunte de RS en el contacto ═══ */
