@@ -62,7 +62,22 @@ module.exports = async (req, res) => {
       const p = await paymentApi.get({ id });
       if (p.status !== 'approved') return;
 
-      const subId = p.subscription_id || p.metadata?.preapproval_id;
+      // subId: 3 formas posibles de encontrarlo en un pago real de MP, en
+      // orden de confianza. Descubierto 2026-09-03 (caso juanloderer, pago
+      // 170168760093, primera cuota de su suscripción mensual): un pago
+      // generado por el cobro AUTOMÁTICO de una suscripción (PreApproval)
+      // no trae 'subscription_id' en la raíz ni 'preapproval_id' en
+      // metadata (viene {} vacío) -- el dato real vive 3 niveles más
+      // adentro, en point_of_interaction.transaction_data. Sin este tercer
+      // chequeo, el pago caía al fallback de "pago único anual" y regalaba
+      // 365 días en vez de los 33 que corresponden a una renovación
+      // mensual. Verificado contra el JSON real de ese pago
+      // (point_of_interaction.type === 'SUBSCRIPTIONS', subscription_id
+      // presente ahí adentro, coincide exacto con el subscription_id real
+      // de MercadoPago para esa cuenta).
+      const subId = p.subscription_id
+        || p.metadata?.preapproval_id
+        || p.point_of_interaction?.transaction_data?.subscription_id;
 
       if (subId) {
         // Renovación de suscripción — el mail correcto vive en la suscripción, no en el pago
