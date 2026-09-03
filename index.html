@@ -9155,6 +9155,12 @@ function wbmBuildMetricsSections(d){
   boxes = '';
   var rsi = d['RSI 14'];
   if (rsi != null) boxes += wbmMetricBox('RSI (14)', _wbmFmt(rsi,1), rsi>70?'var(--amber)':rsi<30?'var(--red)':'var(--text)');
+  // ATR14 % -- agregado 2026-09-02, pedido del usuario. Mismo umbral de
+  // 4% que usa el gate de calidad 80+ (ver gate_atr_relativo_refinado)
+  // para el color: por encima, el papel es "nervioso" en términos
+  // absolutos.
+  var atr14 = d['ATR14 %'];
+  if (atr14 != null) boxes += wbmMetricBox('ATR14 %', _wbmFmt(atr14,2)+'%', atr14>4?'var(--amber)':'var(--text)');
   var contrVol = d['Contraccion Volatilidad'];
   if (contrVol != null) boxes += wbmMetricBox('Ratio de contracción', _wbmFmt(contrVol,2));
   var volRatio = d['Vol 5d/40d'];
