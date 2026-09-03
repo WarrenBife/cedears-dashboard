@@ -732,7 +732,7 @@
         </span>
       </div>
       <div class="panel-body">
-        <div id="trendRankTable" style="overflow-y:auto;max-height:440px;"></div>
+        <div id="trendRankTable" style="overflow-y:auto;overflow-x:auto;max-height:440px;"></div>
       </div>
     </div>
     <div class="panel">
@@ -1517,7 +1517,18 @@ function renderTrend() {
     return;
   }
 
-  const thBase = 'font-size:10px;font-weight:normal;padding:0 10px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s';
+  // Responsive (2026-09-02, pedido del usuario: en mobile obligaba a
+  // scroll horizontal). Achica el padding lateral de cada celda y el
+  // sparkline por debajo de 600px (mismo corte que el resto del
+  // dashboard, ver @media(max-width:600px) en el CSS) -- entre las 5
+  // columnas, el padding lateral solo (10px×2 por celda) ya sumaba ~90px
+  // fijos, más del ancho disponible completo en un celular angosto.
+  const isMobile = window.innerWidth <= 600;
+  const pad     = isMobile ? 4 : 10;
+  const sparkW  = isMobile ? 42 : 90;
+  const secMaxW = isMobile ? 46 : 64;
+
+  const thBase = `font-size:10px;font-weight:normal;padding:0 ${pad}px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s`;
 
   function th(col, label, align) {
     const active = trendSort.col === col;
@@ -1536,15 +1547,15 @@ function renderTrend() {
   }
 
   function deltaCell(delta) {
-    if (delta === null || isNaN(delta)) return '<td style="text-align:right;padding:0 10px;font-size:11px;color:#6b7280">—</td>';
+    if (delta === null || isNaN(delta)) return `<td style="text-align:right;padding:0 ${pad}px;font-size:11px;color:#6b7280">—</td>`;
     const color = delta >= 0 ? '#22c98a' : '#f0605a';
     const sign  = delta >= 0 ? '+' : '';
-    return `<td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${sign}${delta.toFixed(1)}</td>`;
+    return `<td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${sign}${delta.toFixed(1)}</td>`;
   }
 
   const header = `<tr>
-    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 10px 10px 0;text-align:left">Ticker</th>
-    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 10px 10px;text-align:center">Tendencia</th>
+    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 ${pad}px 10px 0;text-align:left">Ticker</th>
+    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 ${pad}px 10px;text-align:center">Tendencia</th>
     ${th('rs', 'RS Score')}
     ${th('dmes', 'Δ mes')}
     ${th('dsem', 'Δ sem')}
@@ -1557,12 +1568,12 @@ function renderTrend() {
     const dSem   = d['RS Score'] - d['RS Semana ant.'];
     const rsCol  = rsColor(d['RS Score']);
     return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
-      <td style="padding:7px 10px 7px 0;white-space:nowrap;vertical-align:middle">
+      <td style="padding:7px ${pad}px 7px 0;white-space:nowrap;vertical-align:middle">
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:#e8eaf0" title="${N(d['Ticker'])}">${d['Ticker']}</div>
-        <div style="font-size:9px;color:#6b7280;margin-top:2px">${d['Sector']||''}</div>
+        <div style="font-size:9px;color:#6b7280;margin-top:2px;max-width:${secMaxW}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${N(d['Sector']||'')}">${d['Sector']||''}</div>
       </td>
-      <td style="padding:4px 10px;vertical-align:middle">${sparklineSVG(vals, 90, 32)}</td>
-      <td style="text-align:right;padding:0 10px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
+      <td style="padding:4px ${pad}px;vertical-align:middle">${sparklineSVG(vals, sparkW, 32)}</td>
+      <td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
       ${deltaCell(dMes)}
       ${deltaCell(dSem)}
     </tr>`;
