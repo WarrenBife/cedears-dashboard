@@ -7105,12 +7105,21 @@ function draw(){
 
   /* series */
   const mf=maxFrame();
-  const hasSel=selSector!==null;
+  // WB UPGRADE V20 (2026-09-06, pedido del usuario): además del click en
+  // burbuja (selSector, single-value), ahora también cuenta el filtro
+  // multi-select del dropdown (WB UPGRADE V16/V17, más abajo en el
+  // archivo) -- así TODOS los ETFs tildados quedan con estela larga, no
+  // sólo el último. Sin filtro activo (56 ETFs sueltos), sigue exactamente
+  // igual que antes: estela corta de 3 semanas para todos, nada de este
+  // cambio se activa.
+  const filtroActivo = (typeof window.wbGetEtfFiltroActivo === 'function') ? window.wbGetEtfFiltroActivo() : [];
+  const hasFiltro = filtroActivo && filtroActivo.length>0;
+  const hasSel=selSector!==null || hasFiltro;
 
   series.forEach(s=>{
     const pts=s.pts;
     if(!pts.length) return;
-    const isSel=s.n===selSector;
+    const isSel = s.n===selSector || (hasFiltro && filtroActivo.indexOf(s.n)!==-1);
     const alpha=hasSel?(isSel?1:0.1):1;
 
     /* posición interpolada */
@@ -7822,6 +7831,22 @@ try {
 
   var _etfFiltro = []; // array de tickers de ETF seleccionados (vacío = sin filtro)
   var _origenBurbuja = false; // true SOLO si el único item de _etfFiltro vino de un click real en el gráfico (no del dropdown)
+
+  // WB UPGRADE V20 (2026-09-06, pedido del usuario): expone el filtro
+  // activo del dropdown para que WB UPGRADE V7 (el dibujo del gráfico,
+  // más arriba en el archivo) pueda usarlo. Antes, con el filtro
+  // multi-select tildando varios ETFs, sólo el ÚLTIMO tildado quedaba
+  // con la estela larga/resaltada (por la limitación de selSector, un
+  // único valor) -- el resto de los filtrados quedaba indistinguible de
+  // los 50+ ETFs que ni siquiera están en el filtro. Con este getter,
+  // draw() en V7 puede tratar a TODOS los ETFs del filtro como
+  // "resaltados" (estela de 16 semanas), no sólo al último. Se usa una
+  // función (no una variable expuesta directo) porque _etfFiltro se
+  // reasigna con `=` en varios lugares de este bloque -- una función que
+  // lee la referencia actual en el momento de llamarla siempre ve el
+  // valor real, sin tener que sincronizar una copia en cada uno de esos
+  // puntos.
+  window.wbGetEtfFiltroActivo = function(){ return _etfFiltro; };
   // WB UPGRADE V17 (2026-09-01): último ETF tildado desde el dropdown --
   // es el que se resalta en el gráfico (estela aislada + tope de 16
   // semanas), vía wbRrgSetSector. A pedido del usuario: el gráfico solo
