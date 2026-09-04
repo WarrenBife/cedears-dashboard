@@ -2477,7 +2477,13 @@ function showView(name) {
       if (!DATOS.length) cargarDatos().then(() => { renderPlanilla(); startPreciosLiveTimer(); });
       else { renderPlanilla(); startPreciosLiveTimer(); }
     });
-  } else {
+  }
+  // WB UPGRADE V35: popup de feedback, se ofrece 1 sola vez por navegador
+  // al entrar de verdad a un producto pago (no en home/pago).
+  if (name === 'dashboard' || name === 'planilla') {
+    if (typeof window.wbFeedbackMostrarSiCorresponde === 'function') window.wbFeedbackMostrarSiCorresponde();
+  }
+  if (name !== 'planilla') {
     stopPreciosLiveTimer();
   }
 }
@@ -9580,6 +9586,133 @@ try {
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V32 ═══════════════ -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WB UPGRADE V35 — Popup "Danos tu opinión" (2026-09-06)
+     Pedido del usuario: dejar un popup para que los suscriptores
+     opinen sobre la página. Se muestra UNA sola vez por navegador
+     (localStorage), la primera vez que entran a Dashboard o Planilla
+     luego de este deploy -- nunca en Home ni en la pantalla de pago.
+     Atado al email de getAcceso() (ACCESS_KEY, definido más arriba).
+     Guarda en /api/admin?action=feedback_enviar (backend nuevo,
+     acción pública sin ADMIN_SECRET -- ver api/admin.js). El dueño
+     lee los comentarios con ?action=feedback_listar&secret=...
+     Para remover: borrar todo desde esta línea hasta "FIN WB UPGRADE V35"
+     y sacar el bloque que la llama dentro de showView() más arriba.
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="wb-v35-css">
+#wbfb-overlay{display:none;position:fixed;inset:0;z-index:950;background:rgba(4,6,10,0.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:16px;}
+.wbfb-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:30px 30px 26px;max-width:420px;width:100%;box-shadow:0 30px 80px -20px rgba(0,0,0,0.8);position:relative;}
+.wbfb-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:4px;transition:color .2s;}
+.wbfb-close:hover{color:var(--text);}
+.wbfb-titulo{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;padding-right:20px;}
+.wbfb-sub{color:var(--muted);font-size:12.5px;margin-bottom:18px;line-height:1.5;}
+.wbfb-textarea{width:100%;min-height:100px;resize:vertical;padding:11px 13px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;margin-bottom:14px;box-sizing:border-box;}
+.wbfb-textarea:focus{border-color:rgba(79,142,247,0.5);}
+.wbfb-textarea::placeholder{color:var(--muted);}
+.wbfb-msg{padding:9px 13px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none;}
+.wbfb-msg.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(240,96,90,0.3);}
+.wbfb-msg.ok{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,201,138,0.3);}
+.wbfb-btns{display:flex;gap:10px;align-items:center;}
+.wbfb-btn{flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#22c98a,#1a9c6c);color:#04140d;font-size:13.5px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s var(--ease);}
+.wbfb-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(34,201,138,0.3);}
+.wbfb-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.wbfb-skip{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color .2s;padding:12px 8px;white-space:nowrap;flex-shrink:0;}
+.wbfb-skip:hover{color:var(--text);}
+</style>
+
+<div id="wbfb-overlay">
+  <div class="wbfb-card">
+    <button type="button" class="wbfb-close" onclick="wbFeedbackCerrar()" aria-label="Cerrar">✕</button>
+    <div class="wbfb-titulo">¿Qué te parece el dashboard?</div>
+    <div class="wbfb-sub">Dejanos tu opinión, una idea o algo que mejorarías. Lo lee Warren Bife directamente.</div>
+    <div class="wbfb-msg" id="wbfb-msg"></div>
+    <textarea class="wbfb-textarea" id="wbfb-texto" maxlength="2000" placeholder="Escribí acá tu comentario..."></textarea>
+    <div class="wbfb-btns">
+      <button type="button" class="wbfb-skip" onclick="wbFeedbackCerrar()">Ahora no</button>
+      <button type="button" class="wbfb-btn" id="wbfb-enviar-btn" onclick="wbFeedbackEnviar()">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<script id="wb-v35-js">
+(function(){
+'use strict';
+try {
+
+var FEEDBACK_KEY = 'wbFeedbackShown_v1';
+
+function wbFeedbackYaSeMostro(){
+  try { return localStorage.getItem(FEEDBACK_KEY) === '1'; } catch(e){ return true; }
+}
+function wbFeedbackMarcarMostrado(){
+  try { localStorage.setItem(FEEDBACK_KEY, '1'); } catch(e){}
+}
+
+window.wbFeedbackMostrarSiCorresponde = function(){
+  if (wbFeedbackYaSeMostro()) return;
+  setTimeout(function(){
+    if (wbFeedbackYaSeMostro()) return; // por si dashboard+planilla dispararon esto casi juntos
+    var ov = document.getElementById('wbfb-overlay');
+    if (ov) ov.style.display = 'flex';
+  }, 1800);
+};
+
+window.wbFeedbackCerrar = function(){
+  wbFeedbackMarcarMostrado();
+  var ov = document.getElementById('wbfb-overlay');
+  if (ov) ov.style.display = 'none';
+};
+
+function wbFeedbackMsg(texto, tipo){
+  var el = document.getElementById('wbfb-msg');
+  if (!el) return;
+  el.textContent = texto;
+  el.className = 'wbfb-msg ' + tipo;
+  el.style.display = 'block';
+}
+
+window.wbFeedbackEnviar = async function(){
+  var ta = document.getElementById('wbfb-texto');
+  var texto = (ta.value || '').trim();
+  if (!texto) { wbFeedbackMsg('Escribí algo antes de enviar.', 'error'); return; }
+
+  var btn = document.getElementById('wbfb-enviar-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+
+  var email = '';
+  try {
+    var acc = (typeof getAcceso === 'function') ? getAcceso() : null;
+    email = (acc && acc.email) || '';
+  } catch(e){}
+
+  try {
+    var r = await fetch('/api/admin?action=feedback_enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, texto: texto })
+    });
+    var d = await r.json();
+    if (d && d.ok) {
+      wbFeedbackMsg('¡Gracias por tu comentario!', 'ok');
+      setTimeout(function(){ wbFeedbackCerrar(); }, 1200);
+    } else {
+      wbFeedbackMsg((d && d.error) || 'No se pudo enviar. Probá de nuevo.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Enviar';
+    }
+  } catch(e){
+    wbFeedbackMsg('Error de conexión. Probá de nuevo.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+  }
+};
+
+} catch(e){ console.error('WB V35 init error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V35 ═══════════════ -->
 
 
 </body>

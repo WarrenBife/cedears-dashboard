@@ -6,7 +6,9 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 
 // Endpoint admin unico (consolida buscar-pago + otorgar-acceso para no pasar
 // el limite de 12 Serverless Functions del plan Hobby de Vercel).
-// Protegido con ADMIN_SECRET, no expuesto al frontend.
+// Protegido con ADMIN_SECRET, no expuesto al frontend -- EXCEPTO
+// action=feedback_enviar (ver mas abajo), que es la unica pensada para
+// que la llame cualquier suscriptor, no el dueño del sitio.
 //
 // Uso:
 //   ?action=buscar&payment_id=X&secret=...
@@ -15,9 +17,41 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 //   ?action=listar&secret=...  (lista todos los email:* con dias restantes, ordenados por vencer antes primero --
 //   para chequear a ojo que las renovaciones mensuales esten entrando: si un subscription_id se queda pegado
 //   bajando de dia sin volver a subir a ~30-33, el webhook de esa renovacion no esta llegando)
+//   POST ?action=feedback_enviar  body:{email, texto}  -- SIN secret, la llama el dashboard.
+//     Guarda un comentario de un suscriptor (popup "Danos tu opinión", 2026-09-06).
+//   ?action=feedback_listar&secret=...  -- lee todos los comentarios guardados, mas nuevos primero.
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
+
+  // action=feedback_enviar va ANTES del gate de ADMIN_SECRET a propósito:
+  // es la única acción de este archivo pensada para que la llame
+  // cualquier suscriptor logueado desde el dashboard, no el dueño del
+  // sitio -- todo lo demás de acá abajo sigue protegido igual que
+  // siempre. CORS explícito porque, a diferencia del resto de este
+  // archivo (uso interno del dueño vía curl/PowerShell), esta acción la
+  // llama el navegador del suscriptor con fetch().
+  if (req.query.action === 'feedback_enviar') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+
+    const email = (req.body?.email || '').toLowerCase().trim();
+    const texto = (req.body?.texto || '').trim();
+    if (!texto) return res.status(400).json({ error: 'Comentario vacío' });
+    if (texto.length > 2000) return res.status(400).json({ error: 'Comentario demasiado largo (máx. 2000 caracteres)' });
+
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      await kv.set(`feedback:${id}`, { email: email || null, texto, fecha: new Date().toISOString() });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error('[admin/feedback_enviar]', err.message);
+      return res.status(500).json({ error: 'Error guardando el comentario' });
+    }
+  }
 
   const { action, secret } = req.query;
 
@@ -120,5 +154,18 @@ module.exports = async (req, res) => {
     return res.json({ ok: true, total: registros.length, registros });
   }
 
-  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill, listar)' });
+  if (action === 'feedback_listar') {
+    const keys = await kv.keys('feedback:*');
+    const comentarios = [];
+    for (const key of keys) {
+      const data = await kv.get(key);
+      if (!data) continue;
+      comentarios.push({ id: key.replace(/^feedback:/, ''), email: data.email, texto: data.texto, fecha: data.fecha });
+    }
+    // Mas nuevos primero (el id arranca con Date.now(), ordena bien como string)
+    comentarios.sort((a, b) => b.id.localeCompare(a.id));
+    return res.json({ ok: true, total: comentarios.length, comentarios });
+  }
+
+  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill, listar, feedback_listar)' });
 };
