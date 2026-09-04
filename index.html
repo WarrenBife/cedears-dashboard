@@ -2479,8 +2479,9 @@ function showView(name) {
     });
   }
   // WB UPGRADE V35: popup de feedback, se ofrece 1 sola vez por navegador
-  // al entrar de verdad a un producto pago (no en home/pago).
-  if (name === 'dashboard' || name === 'planilla') {
+  // al entrar al Dashboard (no en home/pago/planilla -- pedido puntual
+  // del usuario: solo ahi, que es donde entran los suscriptores).
+  if (name === 'dashboard') {
     if (typeof window.wbFeedbackMostrarSiCorresponde === 'function') window.wbFeedbackMostrarSiCorresponde();
   }
   if (name !== 'planilla') {
@@ -9602,12 +9603,12 @@ try {
      ═══════════════════════════════════════════════════════════════ -->
 <style id="wb-v35-css">
 #wbfb-overlay{display:none;position:fixed;inset:0;z-index:950;background:rgba(4,6,10,0.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:16px;}
-.wbfb-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:30px 30px 26px;max-width:420px;width:100%;box-shadow:0 30px 80px -20px rgba(0,0,0,0.8);position:relative;}
+.wbfb-card{background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:30px 30px 26px;max-width:420px;width:100%;box-shadow:0 30px 80px -20px rgba(0,0,0,0.8);position:relative;text-align:center;}
 .wbfb-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:4px;transition:color .2s;}
 .wbfb-close:hover{color:var(--text);}
 .wbfb-titulo{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;padding-right:20px;}
 .wbfb-sub{color:var(--muted);font-size:12.5px;margin-bottom:18px;line-height:1.5;}
-.wbfb-textarea{width:100%;min-height:100px;resize:vertical;padding:11px 13px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;margin-bottom:14px;box-sizing:border-box;}
+.wbfb-textarea{width:100%;min-height:100px;resize:vertical;padding:11px 13px;border-radius:10px;border:1px solid var(--border2);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;margin-bottom:14px;box-sizing:border-box;text-align:left;}
 .wbfb-textarea:focus{border-color:rgba(79,142,247,0.5);}
 .wbfb-textarea::placeholder{color:var(--muted);}
 .wbfb-msg{padding:9px 13px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none;}
@@ -9621,7 +9622,7 @@ try {
 .wbfb-skip:hover{color:var(--text);}
 </style>
 
-<div id="wbfb-overlay">
+<div id="wbfb-overlay" onclick="if(event.target===this) wbFeedbackCerrar()">
   <div class="wbfb-card">
     <button type="button" class="wbfb-close" onclick="wbFeedbackCerrar()" aria-label="Cerrar">✕</button>
     <div class="wbfb-titulo">¿Qué te parece el dashboard?</div>
