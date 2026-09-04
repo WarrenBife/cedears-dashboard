@@ -17,7 +17,11 @@ const SECRET   = process.env.ACCESS_SECRET;
 function _duracionMs(autoRecurring) {
   const DIA_MS = 24 * 60 * 60 * 1000;
   const esMensualNueva = autoRecurring?.frequency_type === 'months' && autoRecurring?.frequency === 1;
-  return esMensualNueva ? 33 * DIA_MS : 365 * DIA_MS; // 33 = 30 reales + colchón reintento MP
+  // Colchón subido de 3 a 5 días (2026-09-04, pedido del usuario): así le
+  // da tiempo al 3er reintento de cobro de MercadoPago antes de cortar el
+  // acceso -- caso real juanloderer, cuyo 3er intento entró bien el mismo
+  // día en que el colchón de 3 días ya se le habría vencido.
+  return esMensualNueva ? 35 * DIA_MS : 365 * DIA_MS; // 35 = 30 reales + colchón reintento MP
 }
 
 function generarToken(id, expiry) {
