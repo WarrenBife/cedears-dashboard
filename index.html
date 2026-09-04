@@ -8551,32 +8551,25 @@ window.calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28, refinado
-  // 2026-09-01): si el papel es muy volátil en términos absolutos
-  // (ATR14%>4), topea en 79 -- EXCEPTO si esa volatilidad ya está
-  // expandida más allá de su propio rango habitual (ATR14 Pctl>70, o
-  // sea el ATR de hoy supera al de más del 70% de sus últimas 252
-  // ruedas). Caso de origen: MU, ATR14%=5,06 (gateado) pero moviéndose
-  // en su ritmo de siempre -- el usuario preguntó si eso realmente
-  // predice mal, o si una acción "tranquila para sí misma" podría estar
-  // comprimiendo antes de un movimiento explosivo (caso real MU
-  // 27/8/2025, +63% a 30r). Backtest a escala (276 tickers/8 años,
-  // población Score>80 antes del gate, deciles de percentil): la
-  // hipótesis de compresión NO se sostiene -- la banda baja (0-40) es
-  // ruidosa/mixta, no consistentemente buena (MU 27/8/2025 cayó en el
-  // decil 40-50, que en promedio rinde MAL, P(subir) 15r 38,9%, mediana
-  // -1,94% -- fue un ganador excepcional dentro de un grupo mediocre,
-  // no evidencia de que el grupo sea bueno). Lo que sí se sostiene con
-  // fuerza y consistencia (split por mitad de tickers y por año): dentro
-  // de ATR>4%, percentil<=70 ("sigue en su ritmo de siempre") rinde mal
-  // (P(subir) 15r 48,2%, mediana -0,58%) mientras que percentil>70
-  // ("más nervioso que su propia norma") rinde muy bien (P(subir) 66,2%,
-  // mediana +4,04%) -- la señal real es la ACELERACIÓN de la
-  // volatilidad, no su nivel absoluto ni una compresión previa.
+  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): si el papel
+  // es muy volátil en términos absolutos (ATR14%>4), topea en 79.
+  // Único hallazgo de toda la sesión de investigación que sobrevivió
+  // el escrutinio riguroso (mercado, sector, ML, reponderar pilares) --
+  // leave-one-year-out sobre 306 tickers, sube P(subir a 10r) de
+  // ~50-52% a ~53-55%.
+  //
+  // 2026-09-06 (pedido del usuario, caso MU): se saca la excepción del
+  // percentil relativo (ATR14 Pctl>70) que se había agregado el
+  // 2026-09-01 -- vuelve a ser SOLO el criterio absoluto, sin OR. La
+  // excepción no le servía de nada a MU específicamente (percentil 13,
+  // lejísimos de 70, sigue gateado igual con o sin ella) y el usuario
+  // prefirió simplificar la regla para todos en vez de mantener una
+  // excepción que en la práctica casi no cambiaba resultados. El campo
+  // 'ATR14 Pctl' sigue calculándose en el pipeline (usado en la card
+  // de contracción y disponible para análisis futuros), solo se dejó
+  // de usar acá.
   const atrGate = d['ATR14 %'];
-  const atrPctl = d['ATR14 Pctl'];
-  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4)
-    || (atrPctl !== null && atrPctl !== undefined && atrPctl > 70);
+  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
   if (score > 80 && !entradaSana) score = 79;
 
   // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
