@@ -9466,7 +9466,11 @@ window.wbmOpenDetail = function(ticker){
   var ratioCedear = CEDEAR_RATIOS[ticker];
   var cclRef = (window.REGIMEN_DATA && window.REGIMEN_DATA.ccl) ? Number(window.REGIMEN_DATA.ccl) : null;
   if (ratioCedear !== undefined && cclRef && d['Precio'] != null) {
-    var precioCedear = d['Precio'] * ratioCedear * cclRef;
+    // Redondeado a múltiplo de 5 (2026-09-06, pedido del usuario) -- ej.
+    // 5867.8 -> 5870. Los CEDEARs cotizan en pesos con ese tipo de
+    // redondeo en la práctica, mostrar los centavos exactos de la
+    // cuenta cruda es falsa precisión.
+    var precioCedear = Math.round(d['Precio'] * ratioCedear * cclRef / 5) * 5;
     // Texto del ratio en formato "N:1" (CEDEARs por acción) como se usa
     // en la city, en vez del decimal crudo -- ej. 0.04166667 -> "24:1".
     // Si el ratio es >=1 (caso inverso, 1 CEDEAR = varias acciones, ej.
@@ -9474,7 +9478,7 @@ window.wbmOpenDetail = function(ticker){
     var ratioTexto = ratioCedear < 1 ? (Math.round(1/ratioCedear) + ':1') : ('1:' + Math.round(ratioCedear));
     cedearWrap.style.display = '';
     _wbmEl('wbm-cedear-card').innerHTML =
-      '<div class="wbm-cedear-price">$' + _wbmFmt(precioCedear, 2) + '</div>' +
+      '<div class="wbm-cedear-price">$' + _wbmFmt(precioCedear, 0) + '</div>' +
       '<div class="wbm-cedear-caption">Según CCL $' + _wbmFmt(cclRef, 2) + ' y ratio ' + ratioTexto + ' — comparalo con el precio real en tu broker.</div>';
   } else {
     cedearWrap.style.display = 'none';
