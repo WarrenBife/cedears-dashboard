@@ -1585,6 +1585,53 @@ function renderTrend() {
   </table>`;
 }
 
+// ── Barras "neón" (2026-09-06, pedido del usuario, cuadros Volumen
+// Inusual y Sesiones & Volumen) ──────────────────────────────────────
+// Plugin de Chart.js: después del dibujado normal, vuelve a pintar el
+// rectángulo de cada barra (mismo color, sin bordes redondeados) con
+// canvas shadow activado -- el shadow desborda del rectángulo y se ve
+// como un halo de luz alrededor. Dibuja el rectángulo a mano con las
+// coordenadas propias del elemento (no llama a bar.draw(ctx)): ese
+// método interno de Chart.js para barras HORIZONTALES no dejaba
+// traspasar el shadow más allá de su propio clip de bordes redondeados,
+// y el halo no se veía -- en barras verticales sí funcionaba. Dibujando
+// el rectángulo nosotros mismos evita ese problema en las dos
+// orientaciones. No requiere Chart.register global, se pasa por chart
+// (plugins:[wbNeonGlowPlugin]).
+const wbNeonGlowPlugin = {
+  id: 'wbNeonGlow',
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    const horizontal = chart.options.indexAxis === 'y';
+    chart.data.datasets.forEach((dataset, dsIndex) => {
+      const meta = chart.getDatasetMeta(dsIndex);
+      if (meta.hidden) return;
+      meta.data.forEach((bar, i) => {
+        const bg = Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor[i] : dataset.backgroundColor;
+        if (!bg || !bar) return;
+        const p = bar.getProps ? bar.getProps(['x', 'y', 'base', 'width', 'height'], true) : bar;
+        let rx, ry, rw, rh;
+        if (horizontal) {
+          rx = Math.min(p.x, p.base); rw = Math.abs(p.x - p.base);
+          ry = p.y - p.height / 2;    rh = p.height;
+        } else {
+          rx = p.x - p.width / 2;     rw = p.width;
+          ry = Math.min(p.y, p.base); rh = Math.abs(p.base - p.y);
+        }
+        if (rw <= 0 || rh <= 0) return;
+        ctx.save();
+        ctx.shadowColor = bg;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = bg;
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.restore();
+      });
+    });
+  }
+};
+const WB_NEON_GREEN = '#2dff9e';
+const WB_NEON_RED   = '#ff3b5c';
+
 function renderSesionesVol() {
   const n       = parseInt(document.getElementById('sv-n').value);
   const diasMin = parseInt(document.getElementById('sv-dias-min').value);
@@ -1623,8 +1670,9 @@ function renderSesionesVol() {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ data: values, backgroundColor: colors.map(c => c + 'aa'), borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false }]
+      datasets: [{ data: values, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false }]
     },
+    plugins: [wbNeonGlowPlugin],
     options: {
       indexAxis: 'y',
       responsive: true, maintainAspectRatio: false,
@@ -1669,11 +1717,19 @@ function renderVolInusual() {
   const n = parseInt(document.getElementById('vinu-n').value);
   const data = getDatosFiltrados().filter(d => d['Vol Inusual %'] !== null && d['Vol Inusual %'] >= umbral).sort((a, b) => b['Vol Inusual %'] - a['Vol Inusual %']).slice(0, n);
   const values = data.map(d => d['Vol Inusual %']);
+  // Color por cierre del día (2026-09-06, pedido del usuario): verde si
+  // la rueda cerró positiva, rojo si cerró negativa -- antes era por
+  // magnitud del volumen inusual (>200%/>100%/resto), esa escala se saca.
+  const colors = data.map(d => {
+    const v = d['Var Día %'];
+    return (v !== null && v !== undefined && v < 0) ? WB_NEON_RED : WB_NEON_GREEN;
+  });
   destroyChart('vinuChart');
   charts['vinuChart'] = new Chart(document.getElementById('vinuChart').getContext('2d'), {
-    type: 'bar', data: { labels: data.map(d => d['Ticker']), datasets: [{ data: values, backgroundColor: values.map(v => v > 200 ? '#f0605acc' : v > 100 ? '#f5a623cc' : '#4f8ef7cc'), borderRadius: 4, borderSkipped: false }] },
+    type: 'bar', data: { labels: data.map(d => d['Ticker']), datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
+    plugins: [wbNeonGlowPlugin],
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => N(items[0].label), label: ctx => { const d = data[ctx.dataIndex]; return [` Vol inusual: +${ctx.parsed.y.toFixed(0)}%`, ` RS Score: ${d['RS Score']}`, ` Sector: ${d['Sector'] || '—'}`]; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => N(items[0].label), label: ctx => { const d = data[ctx.dataIndex]; const vd = d['Var Día %']; return [` Vol inusual: +${ctx.parsed.y.toFixed(0)}%`, ` Var día: ${vd!=null ? (vd>=0?'+':'')+vd.toFixed(2)+'%' : '—'}`, ` RS Score: ${d['RS Score']}`, ` Sector: ${d['Sector'] || '—'}`]; } }, backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#e8eaf0', bodyColor: '#9ca3af' } },
       scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10, family: "'DM Mono',monospace" }, maxRotation: 45 } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b7280', font: { size: 9 }, callback: v => '+' + v + '%' } } } }
   });
 }
