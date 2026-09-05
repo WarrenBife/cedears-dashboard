@@ -3929,7 +3929,12 @@ if ('serviceWorker' in navigator) {
   /* — Episodic Pivots — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots',
     'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional.',
-    '<div id="wb-ep-body" style="max-height:320px;overflow-y:auto"></div>',
+    // Sin max-height/scroll (2026-09-06, pedido del usuario, reorganización
+    // de escritorio): el panel ahora ocupa el ancho completo de su fila, así
+    // que el largo se regula solo según la cantidad de EPs de hoy (0 a 12,
+    // ver el slice(0,12) de wbRenderEP) en vez de forzar un recuadro fijo
+    // con scroll interno.
+    '<div id="wb-ep-body"></div>',
     'Setup de gap con volumen: suba fuerte del día acompañada de volumen muy superior al promedio. Suele coincidir con earnings o noticias y tiene continuación estadística.');
 
   /* — Calculadora de riesgo — */
@@ -3973,13 +3978,19 @@ if ('serviceWorker' in navigator) {
     'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo o la cruzaron de abajo hacia arriba, con absorción institucional (volumen alto cerrando fuerte) y fuerza relativa confirmando. No es el Warren Score (pre-breakout) — es el "buy the dip"/cruce bien filtrado.');
 
   /* — Reordenar todo — */
+  // 2026-09-06 (pedido del usuario, reorganización de escritorio): debajo
+  // del Warren Score, EMA200 Rebote/Cruce pasa a compartir ancho con
+  // "Bases VCP de Alta Calidad" (antes vivía más abajo, adentro de la
+  // zona Análisis -- ver WB UPGRADE V9, que ahora arma ese grid_2 en
+  // vivo insertando su panel al lado de ema200P). Episodic Pivots baja
+  // a su propia fila, ancho completo, debajo de ese grid.
   var orden = [
     spot, statsRow,
     P.cart,
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
     rrgP,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
-    P.warren, mkGrid(epP, ema200P),
+    P.warren, ema200P, epP,
     /* snapP (Retorno Top 10 de la semana) oculto a pedido del usuario
        2026-08-27 -- de momento, no permanente. Para reactivarlo, volver
        a poner "snapP," acá. El panel se sigue construyendo (mkPanel de
@@ -7596,15 +7607,29 @@ wrap.innerHTML =
   '</div>';
 var panel = wrap.firstElementChild;
 
-/* Se inserta justo arriba del panel "Comparador de activos" (más abajo en
-   la zona 🔬 Análisis) -- puede no ser hijo directo de .main (vive dentro
-   de una .wb-zone), por eso se ancla en su propio parentNode y no en main. */
-var cmpEl    = document.getElementById('cmp-tabla');
-var cmpPanel = cmpEl ? cmpEl.closest('.panel') : null;
-if(cmpPanel && cmpPanel.parentNode){
-  cmpPanel.parentNode.insertBefore(panel, cmpPanel);
+/* 2026-09-06 (pedido del usuario, reorganización de escritorio): pasa a
+   compartir ancho con "EMA200: Rebote / Cruce", justo debajo del Warren
+   Score -- antes se insertaba antes del panel "Comparador de activos",
+   más abajo en la zona 🔬 Análisis. ema200P ya está en el DOM (el script
+   principal que arma el layout corre antes que este bloque V9), así que
+   se envuelve a los dos en un .grid-2 nuevo en el mismo lugar donde
+   estaba ema200P solo. Fallback al comportamiento viejo si por lo que
+   sea no se encuentra (no debería pasar en un layout normal). */
+var ema200Panel = document.getElementById('wb-ema200-panel');
+if(ema200Panel && ema200Panel.parentNode){
+  var grid = document.createElement('div');
+  grid.className = 'grid-2';
+  ema200Panel.parentNode.insertBefore(grid, ema200Panel);
+  grid.appendChild(ema200Panel); // se mueve adentro del grid nuevo
+  grid.appendChild(panel);       // Bases VCP de Alta Calidad, al lado
 } else {
-  main.appendChild(panel);
+  var cmpEl    = document.getElementById('cmp-tabla');
+  var cmpPanel = cmpEl ? cmpEl.closest('.panel') : null;
+  if(cmpPanel && cmpPanel.parentNode){
+    cmpPanel.parentNode.insertBefore(panel, cmpPanel);
+  } else {
+    main.appendChild(panel);
+  }
 }
 
 /* ═══ Historial de VCP Score en localStorage (tendencia + "recientes") ═══ */
