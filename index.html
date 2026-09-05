@@ -3969,11 +3969,12 @@ if ('serviceWorker' in navigator) {
       '<span class="pf-label">RS mín hoy:</span>'+
       '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
       '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
-      '<span class="pf-label" style="margin-left:10px">Semanas mín (última vez):</span>'+
-      '<input type="range" id="ema200-semanas-min" min="0" max="52" value="0" style="width:70px" oninput="document.getElementById(\'ema200-semanas-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
-      '<span id="ema200-semanas-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
-    '<div id="wb-ema200-body" style="max-height:320px;overflow-y:auto"></div>'+
+    // Alto fijo a 10 filas + scroll interno para el resto (2026-09-06,
+    // pedido del usuario). 315px = header (24.5px) + 10 filas (29px c/u
+    // en esta tabla) medido en vivo -- mismo criterio en wb-vcpq-body,
+    // que usa otro valor porque sus filas son más altas (llevan logo).
+    '<div id="wb-ema200-body" style="max-height:315px;overflow-y:auto"></div>'+
     '<div id="wb-ema200-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
     'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo o la cruzaron de abajo hacia arriba, con absorción institucional (volumen alto cerrando fuerte) y fuerza relativa confirmando. No es el Warren Score (pre-breakout) — es el "buy the dip"/cruce bien filtrado.');
 
@@ -4647,10 +4648,10 @@ if ('serviceWorker' in navigator) {
     var meses = racha/21;
     if(meses < 2){
       var semanas = Math.max(1, Math.round(racha/5));
-      return 'hace '+semanas+(semanas===1?' semana':' semanas');
+      return semanas+(semanas===1?' semana':' semanas');
     }
     var m = Math.round(meses);
-    return 'hace '+m+(m===1?' mes':' meses');
+    return m+(m===1?' mes':' meses');
   }
   function _lin(x,x0,x1,y0,y1){
     if(x==null || x<=x0) return y0;
@@ -4717,9 +4718,12 @@ if ('serviceWorker' in navigator) {
   window.calcEMA200Reversal = calcEMA200Reversal;
 
   var wbEma200Tab = 'rebote';
+  // 🌊 explicado acá abajo del cuadro (2026-09-06, pedido del usuario) --
+  // mismo criterio que ya arma climaxTxt en wbRenderEMA200Reversal.
+  var WB_EMA200_OLA = '<b>🌊</b>: el clímax fue especialmente fuerte — cerró en el 60%+ superior de la vela, con volumen ≥1,5x el normal.';
   var WB_EMA200_DESC = {
-    rebote: '<b>Clímax:</b> la vela de mayor volumen en el toque a la media, cerrando fuerte — no un derrumbe. Señal de absorción institucional en el rebote.',
-    cruce: '<b>Clímax:</b> la vela de mayor volumen en el cruce, cerrando fuerte — no un pinchazo. Señal de demanda real detrás del cruce.'
+    rebote: '<b>Clímax:</b> la vela de mayor volumen en el toque a la media, cerrando fuerte — no un derrumbe. Señal de absorción institucional en el rebote.<br>'+WB_EMA200_OLA,
+    cruce: '<b>Clímax:</b> la vela de mayor volumen en el cruce, cerrando fuerte — no un pinchazo. Señal de demanda real detrás del cruce.<br>'+WB_EMA200_OLA
   };
   window.wbEMA200SetTab = function(tipo){
     wbEma200Tab = tipo;
@@ -4734,13 +4738,9 @@ if ('serviceWorker' in navigator) {
     if(descEl) descEl.innerHTML = WB_EMA200_DESC[wbEma200Tab] || '';
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
-    var semMinEl=$('ema200-semanas-min');
-    var semMin = semMinEl ? parseFloat(semMinEl.value) : 0;
     var rows = filtrados().map(function(d){
       var r=calcEMA200Reversal(d); if(!r || r.tipo!==wbEma200Tab) return null;
       if((num(d['RS Score'])||0) < rsMin) return null;
-      var racha = num(d['EMA200 Racha Previa']);
-      if(semMin>0 && (racha==null || racha/5 < semMin)) return null;
       r.d=d; return r;
     }).filter(Boolean).sort(function(a,b){ return b.score-a.score; });
 
@@ -4760,7 +4760,7 @@ if ('serviceWorker' in navigator) {
         var rsCol = r.deltaRs>=0 ? 'var(--green)' : 'var(--red)';
         return '<tr>'+
             '<td><span class="ticker-badge">'+esc(d['Ticker'])+'</span></td>'+
-            '<td>hace '+r.contactoRuedas+(r.contactoRuedas===1?' rueda':' ruedas')+'</td>'+
+            '<td>'+r.contactoRuedas+(r.contactoRuedas===1?' rueda':' ruedas')+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
             '<td style="color:'+rsCol+'">'+fmt(r.rsContacto,0)+' → '+fmt(num(d['RS Score']),0)+'</td>'+
             '<td style="font-weight:600;color:var(--text)">'+_ema200RachaHumano(num(d['EMA200 Racha Previa']))+'</td>'+
@@ -7555,10 +7555,13 @@ if(document.readyState==='loading'){
      Filtra directo por VCP Score, independiente del Warren Score compuesto
      y de sus gates -- así una base bien formada no queda invisible por un
      gate binario o por RS sin historial suficiente (ver hallazgos del
-     backtest VCP/Warren Score, ago-2026). Incluye tendencia del VCP Score
-     (últimas sesiones, vía historial en localStorage) y filtro "VCP≥70
-     recientes" para pescar bases que ya mostraron fuerza aunque hoy el
-     recálculo de pivotes las haga bajar transitoriamente.
+     backtest VCP/Warren Score, ago-2026).
+     2026-09-06 (pedido del usuario): se sacan la columna "Tend." y el
+     filtro "VCP≥70 recientes" (con ellos, todo el historial de VCP Score
+     en localStorage que solo servía para eso) y la columna "Precio" --
+     ver detalle en vcp_bases_ema200_ajustes_ui.md. Alto del panel-body
+     capeado a ~10 filas con scroll interno, mismo criterio que
+     wb-ema200-body (comparten fila desde la reorganización de escritorio).
      ═══════════════════════════════════════════════════════════════ -->
 <style id="wb-v9-css">
   #wb-vcpq-panel .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -7587,21 +7590,23 @@ wrap.innerHTML =
     '<div class="panel-head">'+
       '<div><div class="panel-title" data-tooltip="Filtra directo por VCP2 Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Detector VCP2: ZigZag adaptativo + ciclo de vida (Formándose/Armado/Rompió/Falló).">🧬 Bases VCP de Alta Calidad</div>'+
       '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP2 Score ≥60 · independiente del Warren Score</div></div>'+
-      '<label class="wb-vcpq-toggle"><input type="checkbox" id="wb-vcpq-filter70" onchange="wbRenderVcpQuality()">VCP≥70 recientes</label>'+
     '</div>'+
-    '<div class="panel-body" style="overflow-x:auto">'+
+    // Alto fijo a 10 filas + scroll interno para el resto (2026-09-06,
+    // pedido del usuario). 385px = header (24.5px) + 10 filas (36px c/u
+    // en esta tabla, más altas que EMA200 por el logo del ticker) medido
+    // en vivo -- mismo criterio en wb-ema200-body.
+    '<div class="panel-body" style="overflow-x:auto;max-height:385px;overflow-y:auto">'+
       '<table class="wb-mini-table">'+
         '<thead><tr>'+
-          '<th>Ticker</th><th>Precio</th>'+
+          '<th>Ticker</th>'+
           '<th data-tooltip="Puntaje del detector VCP (0-100): contracciones cada vez más chicas + volumen decreciente + cerca del techo. ≥55 se considera detectado.">VCP</th>'+
-          '<th data-tooltip="Tendencia del VCP Score en las últimas sesiones (histórico guardado en este navegador). — hasta juntar 2 lecturas.">Tend.</th>'+
           '<th data-tooltip="Cantidad de contracciones detectadas dentro de la base.">Contr.</th>'+
           '<th data-tooltip="Distancia % del precio actual al techo/pivote de la base.">Dist. Pivote</th>'+
           '<th data-tooltip="Precio del techo (pivote) de la base.">Techo</th>'+
           '<th data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
           '<th data-tooltip="Ciclo de vida del patrón (detector VCP2): si ya rompió, si sostuvo la ruptura, o si falló antes/después de romper.">Estado</th>'+
         '</tr></thead>'+
-        '<tbody id="wb-vcpq-body"><tr><td colspan="9" class="wb-empty">Cargando…</td></tr></tbody>'+
+        '<tbody id="wb-vcpq-body"><tr><td colspan="7" class="wb-empty">Cargando…</td></tr></tbody>'+
       '</table>'+
     '</div>'+
   '</div>';
@@ -7632,42 +7637,9 @@ if(ema200Panel && ema200Panel.parentNode){
   }
 }
 
-/* ═══ Historial de VCP Score en localStorage (tendencia + "recientes") ═══ */
-var VCPQ_KEY  = 'wb_vcp_hist_v1';
-var VCPQ_DIAS = 6;
-
-function vcpqLoadHist(){
-  try{ return JSON.parse(localStorage.getItem(VCPQ_KEY) || '{}'); }catch(e){ return {}; }
-}
-function vcpqGuardarHoy(datos){
-  try{
-    var hist = vcpqLoadHist();
-    var hoy = hoyISO();
-    if(!hist[hoy]) hist[hoy] = {};
-    datos.forEach(function(d){
-      // Solo VCP2 (ver _vcpqMejor mas abajo) -- asi la flecha de
-      // tendencia no queda inconsistente con lo que se muestra hoy en
-      // la tabla.
-      var t = d['Ticker'], vs = Number(d['VCP2 Score']);
-      if(t && !isNaN(vs)) hist[hoy][t] = vs;
-    });
-    var keys = Object.keys(hist).sort();
-    while(keys.length > VCPQ_DIAS){ delete hist[keys.shift()]; }
-    localStorage.setItem(VCPQ_KEY, JSON.stringify(hist));
-  }catch(e){}
-}
-function vcpqTendencia(ticker){
-  var hist = vcpqLoadHist();
-  var dias = Object.keys(hist).sort();
-  var serie = [];
-  dias.forEach(function(f){ if(hist[f] && hist[f][ticker]!==undefined) serie.push(hist[f][ticker]); });
-  if(serie.length < 2) return { arrow:'—', color:'var(--muted)', max:serie.length?serie[0]:null, tip:'Sin historial suficiente todavía (se arma con cada visita al dashboard)' };
-  var delta = serie[serie.length-1] - serie[0];
-  var max   = Math.max.apply(null, serie);
-  var arrow = delta >= 5 ? '▲' : delta <= -5 ? '▼' : '→';
-  var color = delta >= 5 ? 'var(--green)' : delta <= -5 ? 'var(--red)' : 'var(--muted)';
-  return { arrow: arrow, color: color, max: max, tip: 'VCP Score, últimas '+serie.length+' lecturas: '+serie.join(' → ') };
-}
+/* Historial de VCP Score en localStorage (alimentaba la columna "Tend."
+   y el filtro "VCP≥70 recientes") -- SACADO 2026-09-06 a pedido del
+   usuario junto con esas dos cosas, era su único consumidor. */
 
 /* ═══ Render ═══ */
 // 2026-08-29: el criterio pasa a ser SOLO VCP2 (a pedido del usuario, se
@@ -7698,21 +7670,9 @@ function wbRenderVcpQuality(){
   var body = document.getElementById('wb-vcpq-body');
   if(!body) return;
 
-  vcpqGuardarHoy(DATOS);
-
-  var soloRecientes = document.getElementById('wb-vcpq-filter70');
-  soloRecientes = !!(soloRecientes && soloRecientes.checked);
-
   var rows = filtrados()
     .map(function(d){ return { d: d, m: _vcpqMejor(d) }; })
     .filter(function(x){ return x.m.score !== null && x.m.score >= 60; });
-
-  if(soloRecientes){
-    rows = rows.filter(function(x){
-      var tr = vcpqTendencia(x.d['Ticker']);
-      return x.m.score >= 70 || (tr.max !== null && tr.max >= 70);
-    });
-  }
 
   rows.sort(function(a,b){ return b.m.score - a.m.score; });
   rows = rows.slice(0, 15);
@@ -7721,7 +7681,7 @@ function wbRenderVcpQuality(){
   if(countEl) countEl.textContent = rows.length;
 
   if(!rows.length){
-    body.innerHTML = '<tr><td colspan="9" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
     return;
   }
 
@@ -7729,13 +7689,11 @@ function wbRenderVcpQuality(){
     var d = x.d, m = x.m, t = d['Ticker'];
     var vs = m.score;
     var vsCls = vs>=80 ? 'pill-green' : vs>=70 ? 'pill-blue' : 'pill-amber';
-    var tr = vcpqTendencia(t);
     var dp = m.distPivot;
     var dpNum = (dp===null||dp===undefined) ? null : Number(dp);
     var dpTxt = dpNum===null ? '—' : (dpNum>=0?'+':'')+dpNum.toFixed(1)+'%';
     var dpCls = (dpNum!==null && Math.abs(dpNum)<=3) ? 'pill-green' : 'pill-blue';
     var techo  = m.techo;
-    var precio = d['Precio'];
     var contr  = m.contr;
     var volDec = _bool_v9(m.volDec) ? '✅' : '—';
     var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || '—';
@@ -7743,9 +7701,7 @@ function wbRenderVcpQuality(){
     return '<tr>'+
       '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
         '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
-      '<td>'+(precio!=null ? Number(precio).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
       '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
-      '<td title="'+tr.tip+'" style="color:'+tr.color+';font-weight:700;cursor:default">'+tr.arrow+'</td>'+
       '<td>'+(contr!=null ? contr : '—')+'</td>'+
       '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
       '<td>'+(techo!=null ? Number(techo).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
