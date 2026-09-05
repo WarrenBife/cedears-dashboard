@@ -3764,6 +3764,14 @@ def calcular_feedback_breakouts(breakouts_log):
 # no hace falta persistir ni mergear entre corridas.
 ROTACION_HISTORIA_SEMANAS = 20  # ~unas semanas de margen sobre las 16 que pide el panel
 
+# amplitud_historia.json (Régimen de Mercado, 2026-09-06) -- ~2 meses de
+# ruedas (45 ruedas ≈ 9 semanas) para el gráfico de % de activos sobre
+# su EMA200 en el tiempo. Igual que rotacion_historia.json, se arma
+# entero de nuevo cada corrida (no incremental) reusando el historial
+# de precios que ya se descarga por ticker -- backfill completo desde
+# el primer día, no arranca vacío.
+AMPLITUD_HISTORIA_DIAS = 45
+
 def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str):
     try:
         tk   = yf.Ticker(ticker_symbol)
@@ -3923,6 +3931,26 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         # EMA200 Reversal Score: clímax de volumen + repunte de RS en el contacto
         rs_ser_completa = rs_score_series(close, hist_spy["Close"])
         reversal = ema200_reversal_features(hist, ema200_series, rs_ser_completa)
+
+        # Serie diaria de "sobre EMA200" para amplitud_historia.json
+        # (Régimen de Mercado, 2026-09-06, pedido del usuario: gráfico de
+        # % de activos sobre su EMA200 en el tiempo). Se acumula ticker
+        # por ticker más abajo, fuera de esta función (ver
+        # amplitud_ema200_acum) -- acá solo se junta la serie de ESTE
+        # ticker, usando el mismo close/ema200_series ya calculados para
+        # hoy, así el primer día ya sale con backfill completo (~2 meses)
+        # en vez de arrancar de cero.
+        ema200_diaria = []
+        try:
+            close_tail = close.tail(AMPLITUD_HISTORIA_DIAS)
+            ema_tail = ema200_series.reindex(close_tail.index)
+            for fecha, c, e in zip(close_tail.index, close_tail.values, ema_tail.values):
+                if pd.isna(e):
+                    continue
+                fecha_str = pd.Timestamp(fecha).strftime('%Y-%m-%d')
+                ema200_diaria.append({"fecha": fecha_str, "sobre": bool(c > e)})
+        except Exception:
+            pass
 
         # Historial semanal de RS Score (rotacion_historia.json) -- ver
         # comentario de ROTACION_HISTORIA_SEMANAS más arriba
@@ -4089,6 +4117,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Pend SMA50 Pts":          pend_sma50_pts,
             "RSI Sobrecompra Sin Confirmar": rsi_sin_confirmar,
             "_rs_score_semanal":       rs_semanal,
+            "_ema200_diaria":          ema200_diaria,
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
@@ -4346,6 +4375,7 @@ print("⏳ Calculando KPIs + Market Cap + Sector + Volumen...")
 todos_los_datos = []
 tickers_procesados = set()
 rotacion_historia = []  # rotacion_historia.json -- se arma entero de nuevo cada corrida, ver ROTACION_HISTORIA_SEMANAS
+amplitud_ema200_acum = {}  # fecha -> {"sobre": n, "total": n} -- ver amplitud_historia.json
 
 for grupo, tickers in TICKERS.items():
     print(f"\n📂 {grupo}")
@@ -4372,6 +4402,14 @@ for grupo, tickers in TICKERS.items():
         rs_semanal_ticker = datos.pop("_rs_score_semanal", None) or []
         for fila in rs_semanal_ticker:
             rotacion_historia.append({"fecha": fila["fecha"], "ticker": ticker, "rs_score": fila["rs_score"]})
+
+        # Acumular "sobre EMA200" de este ticker por fecha (amplitud_historia.json)
+        ema200_diaria_ticker = datos.pop("_ema200_diaria", None) or []
+        for fila in ema200_diaria_ticker:
+            reg = amplitud_ema200_acum.setdefault(fila["fecha"], {"sobre": 0, "total": 0})
+            reg["total"] += 1
+            if fila["sobre"]:
+                reg["sobre"] += 1
 
         datos["Grupo"] = grupo
 
@@ -4581,6 +4619,34 @@ try:
         print(f"⚠️  Error subiendo rotacion_historia.json: {resp_rot.status_code} — {resp_rot.json().get('message')}")
 except Exception as e:
     print(f"⚠️  rotacion_historia.json: {e}")
+
+# ── EXPORTAR AMPLITUD_HISTORIA.JSON A GITHUB (Régimen de Mercado: % de
+# activos sobre EMA200 día a día, 2026-09-06, pedido del usuario) -- se
+# sobreescribe entero cada corrida, no es incremental (ver comentario
+# de AMPLITUD_HISTORIA_DIAS) ──
+AMPLITUD_HISTORIA_FILE = "amplitud_historia.json"
+try:
+    amplitud_historia = [
+        {"fecha": fecha, "pct_sobre_ema200": round(reg["sobre"] / reg["total"] * 100, 1),
+         "sobre": reg["sobre"], "total": reg["total"]}
+        for fecha, reg in sorted(amplitud_ema200_acum.items())
+        if reg["total"] > 0
+    ]
+    amp_str = json.dumps(amplitud_historia, ensure_ascii=False)
+    amp_b64 = base64.b64encode(amp_str.encode()).decode()
+    url_amp = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{AMPLITUD_HISTORIA_FILE}"
+    resp_amp = requests.get(url_amp, headers=headers)
+    sha_amp  = resp_amp.json().get("sha") if resp_amp.status_code == 200 else None
+    payload_amp = {"message": f"Auto-update amplitud_historia {datetime.now().strftime('%d/%m/%Y %H:%M')}", "content": amp_b64}
+    if sha_amp:
+        payload_amp["sha"] = sha_amp
+    resp_amp = requests.put(url_amp, headers=headers, json=payload_amp)
+    if resp_amp.status_code in [200, 201]:
+        print(f"✅ amplitud_historia.json actualizado ({len(amplitud_historia)} días)")
+    else:
+        print(f"⚠️  Error subiendo amplitud_historia.json: {resp_amp.status_code} — {resp_amp.json().get('message')}")
+except Exception as e:
+    print(f"⚠️  amplitud_historia.json: {e}")
 
 # ── EXPORTAR RS_HISTORIA.JSON A GITHUB (V7 RRG ETFs) ─────────
 # Ampliada 2026-09-02 (pedido del usuario: ETFs como ILF no tenian estela
