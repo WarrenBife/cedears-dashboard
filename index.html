@@ -9467,10 +9467,15 @@ window.wbmOpenDetail = function(ticker){
   var cclRef = (window.REGIMEN_DATA && window.REGIMEN_DATA.ccl) ? Number(window.REGIMEN_DATA.ccl) : null;
   if (ratioCedear !== undefined && cclRef && d['Precio'] != null) {
     var precioCedear = d['Precio'] * ratioCedear * cclRef;
+    // Texto del ratio en formato "N:1" (CEDEARs por acción) como se usa
+    // en la city, en vez del decimal crudo -- ej. 0.04166667 -> "24:1".
+    // Si el ratio es >=1 (caso inverso, 1 CEDEAR = varias acciones, ej.
+    // "NG":4) se muestra "1:N" (2026-09-06, pedido del usuario).
+    var ratioTexto = ratioCedear < 1 ? (Math.round(1/ratioCedear) + ':1') : ('1:' + Math.round(ratioCedear));
     cedearWrap.style.display = '';
     _wbmEl('wbm-cedear-card').innerHTML =
       '<div class="wbm-cedear-price">$' + _wbmFmt(precioCedear, 2) + '</div>' +
-      '<div class="wbm-cedear-caption">Según CCL $' + _wbmFmt(cclRef, 2) + ' y ratio ' + ratioCedear + ' — comparalo con el precio real en tu broker.</div>';
+      '<div class="wbm-cedear-caption">Según CCL $' + _wbmFmt(cclRef, 2) + ' y ratio ' + ratioTexto + ' — comparalo con el precio real en tu broker.</div>';
   } else {
     cedearWrap.style.display = 'none';
   }
