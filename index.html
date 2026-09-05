@@ -7626,6 +7626,19 @@ if(document.readyState==='loading'){
   #wb-vcpq-panel .wb-mini-table th, #wb-vcpq-panel .wb-mini-table td{text-align:center;}
   #wb-vcpq-panel .wb-vcpq-ticker{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
   #wb-vcpq-panel .wb-vcpq-ticker img{width:18px;height:18px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);flex-shrink:0;}
+  /* Mobile (2026-09-06, pedido del usuario): se sacan las columnas VCP y
+     Vol↓ -- entre las 7 son las 2 menos necesarias para leer la base a
+     ojo en una pantalla chica (el VCP Score ya está implícito en que la
+     fila apareció acá, ≥60) -- para que las 5 restantes entren sin
+     scroll horizontal. Columnas siguen centradas (regla de arriba, no
+     se toca). */
+  @media(max-width:600px){
+    #wb-vcpq-panel .wb-vcpq-col-vcp,
+    #wb-vcpq-panel .wb-vcpq-col-vol{display:none;}
+    #wb-vcpq-panel .wb-mini-table{font-size:10px;}
+    #wb-vcpq-panel .wb-mini-table th,
+    #wb-vcpq-panel .wb-mini-table td{padding:5px 3px;}
+  }
 </style>
 <script id="wb-v9-js">
 (function(){
@@ -7655,11 +7668,11 @@ wrap.innerHTML =
       '<table class="wb-mini-table">'+
         '<thead><tr>'+
           '<th>Ticker</th>'+
-          '<th data-tooltip="Puntaje del detector VCP (0-100): contracciones cada vez más chicas + volumen decreciente + cerca del techo. ≥55 se considera detectado.">VCP</th>'+
+          '<th class="wb-vcpq-col-vcp" data-tooltip="Puntaje del detector VCP (0-100): contracciones cada vez más chicas + volumen decreciente + cerca del techo. ≥55 se considera detectado.">VCP</th>'+
           '<th data-tooltip="Cantidad de contracciones detectadas dentro de la base.">Contr.</th>'+
           '<th data-tooltip="Distancia % del precio actual al techo/pivote de la base.">Dist. Pivote</th>'+
           '<th data-tooltip="Precio del techo (pivote) de la base.">Techo</th>'+
-          '<th data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
+          '<th class="wb-vcpq-col-vol" data-tooltip="Volumen de la última contracción menor al de la anterior (sequía de volumen).">Vol↓</th>'+
           '<th data-tooltip="Ciclo de vida del patrón (detector VCP2): si ya rompió, si sostuvo la ruptura, o si falló antes/después de romper.">Estado</th>'+
         '</tr></thead>'+
         '<tbody id="wb-vcpq-body"><tr><td colspan="7" class="wb-empty">Cargando…</td></tr></tbody>'+
@@ -7757,12 +7770,12 @@ function wbRenderVcpQuality(){
     return '<tr>'+
       '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
         '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
-      '<td><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
+      '<td class="wb-vcpq-col-vcp"><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
       '<td>'+(contr!=null ? contr : '—')+'</td>'+
       '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
       '<td>'+(techo!=null ? Number(techo).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
-      '<td>'+volDec+'</td>'+
-      '<td style="color:'+lcCol+';font-weight:600;white-space:nowrap">'+lcLbl+'</td>'+
+      '<td class="wb-vcpq-col-vol">'+volDec+'</td>'+
+      '<td style="color:'+lcCol+';font-weight:600">'+lcLbl+'</td>'+
     '</tr>';
   }).join('');
 }
