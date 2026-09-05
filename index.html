@@ -9681,6 +9681,39 @@ window.wbmOpenDetail = function(ticker){
 
   _wbmEl('wbm-metrics-body').innerHTML = wbmBuildMetricsSections(d);
 
+  // Análisis Fundamental (2026-09-06, pedido del usuario): hasta 4
+  // cuadritos -- Crecimiento EPS, Crecimiento de ventas, P/E,
+  // % institucional. Cobertura real medida sobre los 409 tickers del
+  // universo: EPS 64%, Ventas 78%, P/E 90%, Institucional 79% -- por
+  // eso cada cuadrito se agrega SOLO si ese dato puntual existe para
+  // este ticker (no se muestra "—" ni se arma el cuadrito igual), y la
+  // sección entera queda oculta si no hay NINGUNO de los 4.
+  var fundWrap = _wbmEl('wbm-fund-card-wrap');
+  var fundBoxes = '';
+  var epsCrec = d['EPS Crecimiento'];
+  if (epsCrec != null) {
+    fundBoxes += wbmMetricBox('Crecim. EPS (trim.)', _wbmPct(epsCrec*100, 1), epsCrec>=0?'var(--green)':'var(--red)');
+  }
+  var ventasCrec = d['Ventas Crecimiento'];
+  if (ventasCrec != null) {
+    fundBoxes += wbmMetricBox('Crecim. ventas (trim.)', _wbmPct(ventasCrec*100, 1), ventasCrec>=0?'var(--green)':'var(--red)');
+  }
+  var peVal = d['PE Trailing'] != null ? d['PE Trailing'] : d['PE Forward'];
+  var peEsForward = d['PE Trailing'] == null && d['PE Forward'] != null;
+  if (peVal != null) {
+    fundBoxes += wbmMetricBox('P/E'+(peEsForward?' (fwd)':''), _wbmFmt(peVal, 1)+'x', 'var(--text)');
+  }
+  var instPct = d['Inst Pct'];
+  if (instPct != null) {
+    fundBoxes += wbmMetricBox('% institucional', _wbmFmt(instPct*100, 0)+'%', 'var(--blue)');
+  }
+  if (fundBoxes) {
+    fundWrap.style.display = '';
+    _wbmEl('wbm-fund-card').innerHTML = fundBoxes;
+  } else {
+    fundWrap.style.display = 'none';
+  }
+
   if (!document.body.classList.contains('wbm-detail-open')) {
     window._wbmSavedScrollY = window.scrollY || window.pageYOffset || 0;
     document.body.style.top = '-' + window._wbmSavedScrollY + 'px';
@@ -9792,6 +9825,7 @@ window.ocultarGrafico = function(){};
             '<div class="wbm-fr-caption" id="wbm-fr-caption"></div>' +
           '</div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Métricas</div><div id="wbm-metrics-body"></div></div>' +
+          '<div class="wbm-card" id="wbm-fund-card-wrap" style="display:none"><div class="wbm-card-label">Análisis Fundamental</div><div class="wbm-metrics-grid" id="wbm-fund-card"></div></div>' +
         '</div>' +
       '</div>');
   }

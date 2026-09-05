@@ -3043,10 +3043,24 @@ def obtener_info_ticker(ticker_symbol):
             "Market Cap USD": mc,
             "Market Cap Cat": clasificar_market_cap(mc),
             "Sector":         sector or "—",
-            "Tipo":           "ETF" if es_etf else "Acción"
+            "Tipo":           "ETF" if es_etf else "Acción",
+            # Análisis fundamental (2026-09-06, pedido del usuario) --
+            # mismo llamado a .info de arriba, no suma ningún request
+            # nuevo. Cobertura real medida sobre los 409 tickers del
+            # universo: EPS 64%, Ventas 78%, P/E 90%, Institucional 79%
+            # -- por eso el frontend tiene que ocultar cada cuadrito por
+            # separado si ese dato puntual viene None, no mostrar todo
+            # el bloque en base a uno solo faltante.
+            "EPS Crecimiento":    info.get('earningsQuarterlyGrowth'),
+            "Ventas Crecimiento": info.get('revenueGrowth'),
+            "PE Trailing":        info.get('trailingPE'),
+            "PE Forward":         info.get('forwardPE'),
+            "Inst Pct":           info.get('heldPercentInstitutions'),
         }
     except:
-        return {"Market Cap USD": None, "Market Cap Cat": "—", "Sector": "—", "Tipo": "—"}
+        return {"Market Cap USD": None, "Market Cap Cat": "—", "Sector": "—", "Tipo": "—",
+                "EPS Crecimiento": None, "Ventas Crecimiento": None,
+                "PE Trailing": None, "PE Forward": None, "Inst Pct": None}
 
 def detectar_breakout(hist, vcp_techo=None, lookback=20, vol_factor=1.5, frescura=3):
     """
