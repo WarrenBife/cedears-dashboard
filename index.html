@@ -5101,6 +5101,15 @@ if ('serviceWorker' in navigator) {
   .wb-rgm-gauge-col{width:100%;max-width:150px;display:flex;flex-direction:column;align-items:center;}
   .wb-rgm-layers{width:100%;display:flex;flex-direction:column;}
 
+  /* ── Puntaje + Exposición sugerida, misma fila -- 2026-09-06 (pedido
+     del usuario): para aprovechar el espacio, el gauge del score pasa a
+     compartir altura con el cuadro de Exposición sugerida (score a la
+     izquierda, cuadro de color a la derecha) en vez de quedar arriba de
+     las capas ocupando una fila propia. ── */
+  .wb-rgm-score-expo-row{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:14px;padding:4px 20px 14px;}
+  .wb-rgm-gauge-inline{min-width:0;display:flex;justify-content:center;}
+  .wb-rgm-score-expo-row .wb-rgm-expo{min-width:0;margin:0;}
+
   /* ── Filas de capa (sin barras) ── */
   .wb-rgm-layer-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
   .wb-rgm-layer-row:last-child{border-bottom:none;}
@@ -5345,12 +5354,14 @@ if ('serviceWorker' in navigator) {
 
     body.innerHTML=
       '<div class="wb-rgm-main">'+
-        '<div class="wb-rgm-gauge-col">'+gaugeSVG(R.score,R.color)+'</div>'+
         '<div class="wb-rgm-layers">'+layerDefs.map(layerHTML).join('')+'</div>'+
       '</div>'+
-      '<div class="wb-rgm-expo" style="background:'+(BGMAP[R.v]||'rgba(148,163,184,0.06)')+';border:1px solid '+(R.color||'#737d8f')+'40">'+
-        '<div class="wb-rgm-expo-title">Exposición sugerida</div>'+
-        '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
+      '<div class="wb-rgm-score-expo-row">'+
+        '<div class="wb-rgm-gauge-inline">'+gaugeSVG(R.score,R.color)+'</div>'+
+        '<div class="wb-rgm-expo" style="background:'+(BGMAP[R.v]||'rgba(148,163,184,0.06)')+';border:1px solid '+(R.color||'#737d8f')+'40">'+
+          '<div class="wb-rgm-expo-title">Exposición sugerida</div>'+
+          '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
+        '</div>'+
       '</div>'+
       nhnlHoyHTML+
       '<div class="wb-rgm-amplitud-wrap">'+
