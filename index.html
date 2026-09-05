@@ -5112,8 +5112,12 @@ if ('serviceWorker' in navigator) {
 
   /* ── Exposición -- 2026-09-06: se saca el grid de las 4 franjas
      posibles (wb-rgm-expo-grid/-range/-rango/-txt, ya no se usan),
-     queda solo la frase de la condición actual. ── */
-  .wb-rgm-expo{padding:12px 20px 14px;border-top:1px solid var(--border);}
+     queda solo la frase de la condición actual. Refinado 2026-09-06
+     (pedido del usuario): pasa a ser un cuadro centrado con el color
+     de la exposición sugerida (background/border via BGMAP/R.color
+     inline, ver wbRenderRegimenPanel), ubicado arriba del detalle de
+     NH/NL de hoy. ── */
+  .wb-rgm-expo{margin:4px 20px 14px;padding:12px 16px;border-radius:10px;text-align:center;}
   .wb-rgm-expo-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
   .wb-rgm-expo-frase{font-size:13px;font-weight:600;line-height:1.3;}
 
@@ -5344,11 +5348,11 @@ if ('serviceWorker' in navigator) {
         '<div class="wb-rgm-gauge-col">'+gaugeSVG(R.score,R.color)+'</div>'+
         '<div class="wb-rgm-layers">'+layerDefs.map(layerHTML).join('')+'</div>'+
       '</div>'+
-      nhnlHoyHTML+
-      '<div class="wb-rgm-expo">'+
+      '<div class="wb-rgm-expo" style="background:'+(BGMAP[R.v]||'rgba(148,163,184,0.06)')+';border:1px solid '+(R.color||'#737d8f')+'40">'+
         '<div class="wb-rgm-expo-title">Exposición sugerida</div>'+
         '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
       '</div>'+
+      nhnlHoyHTML+
       '<div class="wb-rgm-amplitud-wrap">'+
         '<div class="wb-rgm-amplitud-title">% de activos sobre su EMA200 — últimos ~2 meses</div>'+
         '<div class="wb-rgm-amplitud-chart-box"><canvas id="wb-rgm-amplitud-chart"></canvas></div>'+
@@ -5381,6 +5385,15 @@ if ('serviceWorker' in navigator) {
     var serie = window.AMPLITUD_HISTORIA;
     if(!serie || serie.length < 2) return;
     if(_wbRgmAmplitudChart){ _wbRgmAmplitudChart.destroy(); _wbRgmAmplitudChart = null; }
+    // Eje Y ajustado al tramo -- 2026-09-06 (pedido del usuario): antes
+    // era fijo 0-100 y la variación real (ej. 55-65%) casi no se notaba.
+    // Ahora va del mínimo-5 al máximo+5 del tramo mostrado, clampeado a
+    // [0,100] por ser un %.
+    var _valsAmp = serie.map(function(p){ return p.pct_sobre_ema200; });
+    var _vMinAmp = Math.min.apply(null, _valsAmp), _vMaxAmp = Math.max.apply(null, _valsAmp);
+    var yMinAmp = Math.max(0, Math.floor(_vMinAmp - 5));
+    var yMaxAmp = Math.min(100, Math.ceil(_vMaxAmp + 5));
+    if(yMaxAmp - yMinAmp < 10){ yMinAmp = Math.max(0, yMinAmp - 5); yMaxAmp = Math.min(100, yMaxAmp + 5); }
     _wbRgmAmplitudChart = new Chart(canvas.getContext('2d'), {
       type:'line',
       data:{
@@ -5407,7 +5420,7 @@ if ('serviceWorker' in navigator) {
         },
         scales:{
           x:{ grid:{display:false}, ticks:{color:'#6b7280', font:{size:8}, maxTicksLimit:7} },
-          y:{ min:0, max:100, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7280', font:{size:8}, stepSize:25, callback:function(v){ return v+'%'; }} }
+          y:{ min:yMinAmp, max:yMaxAmp, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7280', font:{size:8}, maxTicksLimit:5, callback:function(v){ return v+'%'; }} }
         }
       }
     });
