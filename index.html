@@ -6803,12 +6803,15 @@ const ETF_TO_SECTOR = {
 // eso, agregar un ticker acá no alcanza: buildSeries() los filtraría
 // igual por falta de datos). SPY excluido a propósito (no aparece en
 // ningún modo del cuadro, ver spy_excluido_cuadrante_rotacion).
+// VXX, TQQQ y SH sacados 2026-09-06 a pedido del usuario (no aportan
+// lectura de rotación sectorial real: son apalancados/inversos/volatilidad,
+// no exposición direccional a un sector o activo).
 const ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                   'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA',
                   'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA',
                   'ACWI','ARKK','COPX','CORN','EEM','EFA','ESGU','ETHA','EWJ','GSG',
-                  'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ','SH',
-                  'SOYB','TQQQ','USO','VEA','VIG','VXX'];
+                  'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ',
+                  'SOYB','USO','VEA','VIG'];
 
 const QCOLORS = {
   leading:  [34,201,138],

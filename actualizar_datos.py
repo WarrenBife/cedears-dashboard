@@ -4570,12 +4570,15 @@ except Exception as e:
 # a proposito del cuadro). DEBE mantenerse EXACTAMENTE igual a ETFS_RRG
 # en index.html (WB UPGRADE V7) -- esa lista filtra cuales de estos
 # tickers realmente se plotean/tienen estela en el frontend.
+# VXX, TQQQ y SH sacados 2026-09-06 a pedido del usuario (no aportan
+# lectura de rotación sectorial real: son apalancados/inversos/volatilidad,
+# no exposición direccional a un sector o activo).
 SECTOR_ETFS_RRG = ['XLK','XLE','XLF','XLV','XLI','XLY','XLP','XLU','XLB','XLRE','XLC',
                    'SMH','CIBR','CLOU','BOTZ','IBB','ITA','KRE','XOP','ICLN','URA',
                    'QQQ','GLD','GDX','SLV','EWZ','FXI','ARGT','TLT','IWM','DIA',
                    'ACWI','ARKK','COPX','CORN','EEM','EFA','ESGU','ETHA','EWJ','GSG',
-                   'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ','SH',
-                   'SOYB','TQQQ','USO','VEA','VIG','VXX']
+                   'HYG','IAU','IBIT','IEMG','IEUR','IJH','ILF','IVE','PSQ',
+                   'SOYB','USO','VEA','VIG']
 RS_HISTORIA_SEMANAS = 16
 RS_LOOKBACK = 12
 
