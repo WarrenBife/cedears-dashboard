@@ -1,8 +1,14 @@
 const { Redis } = require('@upstash/redis');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 const kv = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+const SITE_URL = process.env.SITE_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+  || `https://${process.env.VERCEL_URL}`;
 
 const EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
 const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
+const PRECIOS_MENSUAL = { dashboard: 10000, planilla: 10000, both: 15000 }; // igual que crear-pago.js
 
 // Endpoint admin unico (consolida buscar-pago + otorgar-acceso para no pasar
 // el limite de 12 Serverless Functions del plan Hobby de Vercel).
@@ -20,6 +26,14 @@ const PRODUCTOS_VALIDOS = ['dashboard', 'planilla'];
 //   POST ?action=feedback_enviar  body:{email, texto}  -- SIN secret, la llama el dashboard.
 //     Guarda un comentario de un suscriptor (popup "Danos tu opinión", 2026-09-06).
 //   ?action=feedback_listar&secret=...  -- lee todos los comentarios guardados, mas nuevos primero.
+//   ?action=generar_link_manual&email=Y&products=dashboard,planilla&secret=...  (products opcional, default dashboard)
+//     Para cuando la tarjeta del suscriptor no soporta suscripción automática (PreApproval) --
+//     p.ej. tarjetas prepagas, que MercadoPago suele rechazar ahí aunque funcionen para un pago
+//     único. Genera un link de Checkout Pro (Preference) por el precio MENSUAL, pago único --
+//     el suscriptor lo paga una vez y hay que volver a generarle uno el próximo mes (no se
+//     renueva solo). Al aprobarse, confirmar-pago.js le da 35 días (no 365 como el plan anual --
+//     ver el tag "manual35" en el external_reference, y OJO con no repetir el bug de
+//     bug_webhook_suscripcion_mensual_365dias.md).
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -95,6 +109,58 @@ module.exports = async (req, res) => {
     return res.json({ ok: true, email, products: all_products, exp, payment_id: pid });
   }
 
+  if (action === 'generar_link_manual') {
+    const { email: rawEmail, products: rawProducts } = req.query;
+
+    const email = (rawEmail || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'email requerido' });
+
+    const products = (rawProducts || 'dashboard')
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => PRODUCTOS_VALIDOS.includes(p));
+    if (!products.length) return res.status(400).json({ error: 'products invalido (dashboard, planilla)' });
+
+    const hasDash = products.includes('dashboard');
+    const hasPlan = products.includes('planilla');
+    const price   = (hasDash && hasPlan) ? PRECIOS_MENSUAL.both : PRECIOS_MENSUAL.dashboard;
+    const label   = (hasDash && hasPlan) ? 'Dashboard + Planilla' : hasPlan ? 'Planilla' : 'Dashboard';
+
+    try {
+      const preference = new Preference(mpClient);
+      const result = await preference.create({
+        body: {
+          items: [{
+            title:       `Warren Bife ${label} — 1 mes (pago manual)`,
+            description: 'Pago único mensual, sin renovación automática',
+            quantity:    1,
+            currency_id: 'ARS',
+            unit_price:  price,
+          }],
+          back_urls: {
+            success: `${SITE_URL}/api/confirmar-pago`,
+            failure: `${SITE_URL}/?pago=fallido`,
+            pending: `${SITE_URL}/?pago=pendiente`,
+          },
+          auto_return:          'approved',
+          statement_descriptor: 'WARREN BIFE',
+          // El tag "manual35" al final es lo que le dice a confirmar-pago.js
+          // que dé 35 días (mensual) y no 365 (el default, pensado para el
+          // plan anual que es el único otro caso que pasa por Preference).
+          external_reference: `${email}|${products.join(',')}|manual35`,
+        },
+      });
+
+      return res.json({ ok: true, email, products, precio: price, init_point: result.init_point, preference_id: result.id });
+    } catch (err) {
+      const detalle = Array.isArray(err?.cause) && err.cause.length
+        ? err.cause.map(c => `${c.code ?? ''} ${c.description ?? JSON.stringify(c)}`.trim()).join(' | ')
+        : (err?.error || err?.message || String(err));
+      console.error('[admin/generar_link_manual]', detalle);
+      return res.status(500).json({ error: detalle });
+    }
+  }
+
   if (action === 'backfill') {
     const keys = await kv.keys('email:*');
     let creados = 0, existentes = 0, sinPid = 0;
@@ -167,5 +233,5 @@ module.exports = async (req, res) => {
     return res.json({ ok: true, total: comentarios.length, comentarios });
   }
 
-  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill, listar, feedback_listar)' });
+  res.status(400).json({ error: 'action invalido (buscar, otorgar, backfill, listar, feedback_listar, generar_link_manual)' });
 };

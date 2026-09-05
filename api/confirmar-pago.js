@@ -7,8 +7,11 @@ const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN 
 const SITE_URL = process.env.SITE_URL
   || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
   || `https://${process.env.VERCEL_URL}`;
-const SECRET    = process.env.ACCESS_SECRET;
-const EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
+const SECRET  = process.env.ACCESS_SECRET;
+const DIA_MS  = 24 * 60 * 60 * 1000;
+const EXPIRY_MS_ANUAL  = 365 * DIA_MS; // default -- plan anual combo, pago único
+const EXPIRY_MS_MANUAL = 35  * DIA_MS; // "mensual pago único" (ver admin.js action=generar_link_manual),
+                                        // mismo colchón de 35 días que usan las suscripciones (PreApproval)
 
 function generarToken(paymentId, expiry) {
   return crypto.createHmac('sha256', SECRET).update(`${paymentId}:${expiry}`).digest('hex');
@@ -29,14 +32,15 @@ module.exports = async (req, res) => {
       return res.redirect(`${SITE_URL}/?pago=fallido`);
     }
 
-    const expiry = Date.now() + EXPIRY_MS;
-    const token  = generarToken(payment_id, expiry);
-
-    // external_reference = "email|product1,product2"
+    // external_reference = "email|product1,product2" (plan anual, default)
+    //                    o "email|product1,product2|manual35" (mensual pago único manual)
     const ref      = req.query.external_reference || '';
-    const [rawEmail, productsStr] = ref.split('|');
+    const [rawEmail, productsStr, planTag] = ref.split('|');
     const email    = (rawEmail || '').toLowerCase().trim();
     const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];
+
+    const expiry = Date.now() + (planTag === 'manual35' ? EXPIRY_MS_MANUAL : EXPIRY_MS_ANUAL);
+    const token  = generarToken(payment_id, expiry);
 
     if (email) {
       // Merge con productos existentes
