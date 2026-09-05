@@ -9096,6 +9096,11 @@ try {
   .wbm-cedear-price{font-family:'DM Mono',monospace;font-size:24px;font-weight:600;color:var(--text);
     letter-spacing:-0.02em;font-variant-numeric:tabular-nums;}
   .wbm-cedear-caption{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.4;}
+  /* Análisis Fundamental (2026-09-06, pedido del usuario): dato y label
+     centrados dentro de cada mini cuadro -- scoped solo a esta card
+     para no tocar el grid de "Métricas", que usa la misma clase
+     .wbm-metric pero se deja como estaba (nadie pidió cambiarlo). */
+  #wbm-fund-card-wrap .wbm-metric{text-align:center;}
 
   .wbm-ws-row{display:flex;align-items:center;gap:16px;}
   .wbm-gauge-wrap{position:relative;width:88px;height:88px;flex-shrink:0;}
