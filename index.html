@@ -8924,7 +8924,7 @@ try {
   .wbm-score-col{text-align:center;}
   .wbm-score-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
 
-  /* ── Detalle: overlay a pantalla completa ── */
+  /* ── Detalle: overlay a pantalla completa en mobile ── */
   #wbm-detail{position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;
     transform:translateX(100%);transition:transform .32s cubic-bezier(.22,.9,.3,1);}
   /* overflow:hidden solo no alcanza en iOS Safari para evitar que la
@@ -8934,6 +8934,24 @@ try {
   body.wbm-detail-open{overflow:hidden;position:fixed;left:0;right:0;}
   body.wbm-detail-open #wbm-detail{transform:translateX(0);}
   @media(prefers-reduced-motion:reduce){#wbm-detail{transition:none;}}
+
+  /* Backdrop detrás de la card -- invisible/no interactivo por defecto,
+     solo se activa en escritorio (ver media query abajo). En mobile la
+     card ya tapa toda la pantalla, no hace falta oscurecer nada atrás. */
+  #wbm-detail-backdrop{position:fixed;inset:0;z-index:899;background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .28s cubic-bezier(.22,.9,.3,1);}
+
+  /* ── Escritorio (2026-09-06, pedido del usuario): la card deja de tapar
+     toda la pantalla -- pasa a ser un panel lateral angosto que se abre
+     desde la derecha, con el resto del dashboard visible (oscurecido) de
+     fondo. Mismo transform:translateX ya existente, solo cambia el ancho
+     -- no hace falta tocar el JS de wbmOpenDetail/wbmCloseDetail. Por
+     debajo de 601px (mobile) nada de este bloque aplica, sigue
+     exactamente igual que antes. ── */
+  @media(min-width:601px){
+    #wbm-detail{left:auto;width:min(480px,92vw);box-shadow:-10px 0 40px -10px rgba(0,0,0,0.6);border-left:1px solid var(--border2);}
+    body.wbm-detail-open #wbm-detail-backdrop{opacity:1;pointer-events:auto;}
+  }
 
   .wbm-d-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;
     background:linear-gradient(180deg,rgba(34,201,138,0.05),transparent 70%);}
@@ -9596,6 +9614,7 @@ window.ocultarGrafico = function(){};
   }
   if (!_wbmEl('wbm-detail')) {
     document.body.insertAdjacentHTML('beforeend',
+      '<div id="wbm-detail-backdrop" onclick="wbmCloseDetail()"></div>' +
       '<div id="wbm-detail">' +
         '<div class="wbm-d-head">' +
           '<button class="wbm-back-btn" onclick="wbmCloseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
