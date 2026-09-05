@@ -4213,8 +4213,27 @@ def calcular_regimen(hist_spy, hist_qqq):
         except Exception as e:
             print(f"  ⚠️  P/C ({pc_ticker}) no disponible: {e}")
 
+    # CCL de referencia -- 2026-09-06, pedido del usuario: "Precio
+    # recomendado del CEDEAR" en la ficha de cada ticker (precio subyacente
+    # USD × ratio CEDEAR × este CCL). Se toma "venta" -- es el lado que le
+    # corresponde a alguien comprando dólares vía ese canal, que es
+    # efectivamente lo que se "paga" al comprar el CEDEAR en pesos. Fuente
+    # gratuita, sin token, un solo valor global (no por ticker).
+    ccl = None
+    try:
+        import requests
+        r = requests.get('https://dolarapi.com/v1/dolares/contadoconliqui', timeout=8)
+        if r.status_code == 200:
+            ccl = round(float(r.json()['venta']), 2)
+            print(f"    CCL obtenido: {ccl}")
+        else:
+            print(f"    ⚠️ CCL: status {r.status_code}")
+    except Exception as e:
+        print(f"  ⚠️  CCL no disponible: {e}")
+
     return {
         "fecha":          datetime.now().strftime('%Y-%m-%d'),
+        "ccl":            ccl,
         "spy_tendencia":  spy_r['tend'],
         "spy_dist_days":  spy_r['dist_days'],
         "spy_dist_score": spy_r['dist_score'],
@@ -4256,7 +4275,7 @@ if regimen_data:
                + regimen_data['qqq_adx_score'] + regimen_data['qqq_ext_score'])
     print(f"  ✅ SPY {spy_pts}/40 pts (ADX {regimen_data['spy_adx']}, ext {regimen_data['spy_ext_atr']} ATRs) | "
           f"QQQ {qqq_pts}/40 pts (ADX {regimen_data['qqq_adx']}, ext {regimen_data['qqq_ext_atr']} ATRs) | "
-          f"VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']}")
+          f"VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']} | CCL {regimen_data['ccl']}")
 else:
     print("  ⚠️  Régimen no disponible, las capas 1 y 4 quedarán inactivas")
 

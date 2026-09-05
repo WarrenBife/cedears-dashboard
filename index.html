@@ -8980,6 +8980,14 @@ try {
   .wbm-card-label::before{content:'';width:3px;height:12px;border-radius:2px;flex-shrink:0;
     background:linear-gradient(180deg,var(--green),rgba(34,201,138,0.25));
     box-shadow:0 0 8px rgba(34,201,138,0.6);}
+  /* Precio recomendado del CEDEAR (2026-09-06, pedido del usuario) --
+     celeste bandera en vez del verde estándar, para distinguirla a
+     simple vista del resto de las cards. */
+  #wbm-cedear-card-wrap .wbm-card-label::before{background:linear-gradient(180deg,#6cb4ee,rgba(108,180,238,0.25));
+    box-shadow:0 0 8px rgba(108,180,238,0.6);}
+  .wbm-cedear-price{font-family:'DM Mono',monospace;font-size:24px;font-weight:600;color:var(--text);
+    letter-spacing:-0.02em;font-variant-numeric:tabular-nums;}
+  .wbm-cedear-caption{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.4;}
 
   .wbm-ws-row{display:flex;align-items:center;gap:16px;}
   .wbm-gauge-wrap{position:relative;width:88px;height:88px;flex-shrink:0;}
@@ -9446,6 +9454,27 @@ window.wbmOpenDetail = function(ticker){
   dVarEl.textContent = _wbmPct(varDia, 2);
   dVarEl.style.color = varDia>0?'var(--green)':varDia<0?'var(--red)':'var(--muted)';
 
+  // 🇦🇷 Precio recomendado del CEDEAR (2026-09-06, pedido del usuario):
+  // precio subyacente (USD) × ratio CEDEAR × CCL de referencia. Solo para
+  // tickers con ratio EXPLÍCITO en CEDEAR_RATIOS -- getRatioCedear()
+  // devuelve 1 como default para cualquier ticker no listado (pensado
+  // para ADRs argentinos 1:1), y mostrar un "precio recomendado" ahí
+  // sería inventar un CEDEAR que puede no existir. ccl viene de
+  // regimen.json (un solo valor global, no por ticker -- ver
+  // calcular_regimen() en actualizar_datos.py).
+  var cedearWrap = _wbmEl('wbm-cedear-card-wrap');
+  var ratioCedear = CEDEAR_RATIOS[ticker];
+  var cclRef = (window.REGIMEN_DATA && window.REGIMEN_DATA.ccl) ? Number(window.REGIMEN_DATA.ccl) : null;
+  if (ratioCedear !== undefined && cclRef && d['Precio'] != null) {
+    var precioCedear = d['Precio'] * ratioCedear * cclRef;
+    cedearWrap.style.display = '';
+    _wbmEl('wbm-cedear-card').innerHTML =
+      '<div class="wbm-cedear-price">$' + _wbmFmt(precioCedear, 2) + '</div>' +
+      '<div class="wbm-cedear-caption">Según CCL $' + _wbmFmt(cclRef, 2) + ' y ratio ' + ratioCedear + ' — comparalo con el precio real en tu broker.</div>';
+  } else {
+    cedearWrap.style.display = 'none';
+  }
+
   var sGlow = WBM_BOX_GLOW[sColor];
   var gaugeNumEl = _wbmEl('wbm-gauge-num');
   gaugeNumEl.textContent = Math.round(score);
@@ -9623,6 +9652,7 @@ window.ocultarGrafico = function(){};
           '<div class="wbm-d-price-col"><div class="wbm-d-price" id="wbm-d-price"></div><div class="wbm-d-var" id="wbm-d-var"></div></div>' +
         '</div>' +
         '<div class="wbm-d-scroll">' +
+          '<div class="wbm-card" id="wbm-cedear-card-wrap" style="display:none"><div class="wbm-card-label">🇦🇷 Precio recomendado del CEDEAR</div><div id="wbm-cedear-card"></div></div>' +
           '<div class="wbm-card" id="wbm-cross-card-wrap" style="display:none"><div class="wbm-card-label">También destaca en</div><div id="wbm-cross-card"></div></div>' +
           '<div class="wbm-card"><div class="wbm-card-label">Warren Score</div><div class="wbm-ws-row">' +
             '<div class="wbm-gauge-wrap"><svg viewBox="0 0 100 100" width="88" height="88">' +
