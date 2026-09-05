@@ -681,9 +681,9 @@
               <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
               <th data-tooltip="Evolución del RS Score en las últimas semanas (rotacion_historia.json) — mismo gráfico de línea que Aceleración Inusual / Recién a Líderes. Verde si mejoró desde el inicio de la serie, rojo si empeoró." style="text-align:center">Evolución</th>
               <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
-              <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): RS Score, tendencia del RS (ayer/semana/mes), FR > SMA50 y desempeño vs sector."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
-              <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): Bollinger BandWidth contraído, volumen secándose, RSI en zona neutra (40–70), + bono de eficiencia (hasta 10 pts) si rompió un máximo previo con pausa eficiente confirmada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
-              <th data-tooltip="Pilar D — Setup estructural (máx 20 pts): extensión del avance normalizada, madurez de la base, profundidad y posición."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
+              <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): el mayor entre nivel de RS Score (45–75) y aceleración del RS del último mes (con piso en 40), más 5 pts si la Fuerza Relativa está sobre su SMA50. Una caída fuerte de RS en la última semana anula la vía de aceleración mensual."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
+              <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): compresión de volatilidad reciente (mínimo de las últimas 7 ruedas), RSI en zona sana 40–70 (en 0 si viene de sobrecompra sin confirmar con 2 velas verdes) y bono por base VCP (contracciones + volumen decreciente antes de la ruptura)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
+              <th data-tooltip="Pilar D — Setup estructural (máx 20 pts): extensión desde el mínimo de 52 semanas normalizada por volatilidad anual, madurez de la base en semanas y posición dentro de la base. Si no llega a 10 pts, no suma nada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
               <th data-tooltip="Penalizaciones activas, con el puntaje restado y las banderas de qué las dispara (ver referencias debajo de la tabla). Desmarcá el check para sacarlas de la consideración."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Penalizaciones</label></th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
@@ -4127,7 +4127,12 @@ if ('serviceWorker' in navigator) {
         '<div><div class="wb-spot-ticker">'+esc(t)+'</div>'+
         '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(r.d['Sector']||'')+' · $'+fmt(num(r.d['Precio']),2)+'</div>'+
         '<div class="wb-spot-meta">'+(st?'<span class="wb-badge '+st.cls+'" title="'+st.tip+'">'+st.lbl+'</span>':'')+gatesB+deltaB+'</div></div></div>'+
-        '<div class="wb-pilares">'+pil('Tend',r.pa,25)+pil('F.Rel',r.pb,30)+pil('Contr',r.pc,30)+pil('Gatillo',r.pd,15)+'</div>'+
+        // 2026-09-06: topes corregidos (20/25/35/20, iguales a WBM_CAPS y
+        // a los máximos reales de calcWarrenDetalleV50) -- venían con
+        // valores viejos (25/30/30/15) que quedaron desactualizados en
+        // algún cambio de pilares anterior, mostraban los pilares con la
+        // barra "llena" antes de tiempo o nunca del todo llena.
+        '<div class="wb-pilares">'+pil('Tend',r.pa,20)+pil('F.Rel',r.pb,25)+pil('Contr',r.pc,35)+pil('Gatillo',r.pd,20)+'</div>'+
         '</div>';
     }).join('');
   }
@@ -4393,8 +4398,13 @@ if ('serviceWorker' in navigator) {
   var _WB_ROT_NEON_GLOW = 'rgba(34,201,138,0.55)';
 
   function _wbRotHeaderGrid(cols, tpl, cls){
+    // cols acepta un string plano (sin tooltip) o {label, tip} -- 2026-09-06,
+    // pedido del usuario: descripción breve al pasar el mouse por cada
+    // columna de "Recién a Líderes" / "Aceleración inusual".
     var cells = cols.map(function(c,i){
-      return '<span style="text-align:'+(i===0?'left':'center')+'">'+c+'</span>';
+      var label = (c && typeof c === 'object') ? c.label : c;
+      var tip   = (c && typeof c === 'object') ? c.tip   : null;
+      return '<span'+(tip?' data-tooltip="'+esc(tip)+'"':'')+' style="text-align:'+(i===0?'left':'center')+(tip?';cursor:help':'')+'">'+label+'</span>';
     }).join('');
     return '<div'+(cls?' class="'+cls+'"':'')+' style="display:grid;grid-template-columns:'+tpl+';align-items:center;gap:4px;padding:5px 12px 7px;margin-top:2px;'+
       'font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:'+_WB_ROT_NEON+';'+
@@ -4467,7 +4477,15 @@ if ('serviceWorker' in navigator) {
   }
 
   var _WB_ROT_TRANS_GRID = '1fr 0.6fr 0.8fr 0.6fr 0.75fr';
-  function _wbRotTransHeader(){ return _wbRotHeaderGrid(['Ticker','RS','FR>SMA50','Desde','Evolución'], _WB_ROT_TRANS_GRID, 'wb-rot-trans-grid'); }
+  function _wbRotTransHeader(){
+    return _wbRotHeaderGrid([
+      'Ticker',
+      {label:'RS', tip:'RS Score actual'},
+      {label:'FR>SMA50', tip:'Fuerza Relativa sobre su media de 50 y hace cuánto cruzó'},
+      {label:'Desde', tip:'Cuadrante en el que estaba antes de esta semana'},
+      {label:'Evolución', tip:'RS Score de las últimas semanas'}
+    ], _WB_ROT_TRANS_GRID, 'wb-rot-trans-grid');
+  }
 
   function _wbRotRow(t, rs, qAyer, serie, cruceDias, frOk){
     var qCol = {lideres:'#22c98a', mejorando:'#4f8ef7', debilitando:'#f5a623', rezagado:'#f0605a'}[qAyer] || 'var(--muted)';
@@ -4581,7 +4599,15 @@ if ('serviceWorker' in navigator) {
                                         // el ritmo propio, tiene que superarlo por 1.5x
 
   var _WB_ROT_ACCEL_GRID = '1.3fr 0.85fr 0.9fr 0.85fr 0.85fr';
-  function _wbRotAccelHeader(){ return _wbRotHeaderGrid(['Ticker','RS','FR>SMA50','Ritmo','Hace'], _WB_ROT_ACCEL_GRID, 'wb-rot-accel-grid'); }
+  function _wbRotAccelHeader(){
+    return _wbRotHeaderGrid([
+      'Ticker',
+      {label:'RS', tip:'RS Score actual'},
+      {label:'FR>SMA50', tip:'Fuerza Relativa sobre su media de 50 y hace cuánto cruzó'},
+      {label:'Ritmo', tip:'Cuántas veces más rápido acelera vs. su ritmo normal'},
+      {label:'Hace', tip:'Hace cuántas ruedas empezó a acelerar'}
+    ], _WB_ROT_ACCEL_GRID, 'wb-rot-accel-grid');
+  }
 
   function _wbRotAccelRow(t, rs, factor, dias, cruceDias, frOk){
     return '<div class="wb-rot-accel-grid" style="display:grid;grid-template-columns:'+_WB_ROT_ACCEL_GRID+';align-items:center;gap:4px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04)">'+
