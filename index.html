@@ -795,7 +795,9 @@
         <select id="vinu-umbral" onchange="renderVolInusual()"><option value="30">+30%</option><option value="50" selected>+50%</option><option value="100">+100%</option></select>
         <select id="vinu-n" onchange="renderVolInusual()"><option value="20">Top 20</option><option value="30">Top 30</option></select>
       </div>
-      <div class="panel-body"><div class="chart-wrap" style="height:260px"><canvas id="vinuChart"></canvas></div></div>
+      <div class="panel-body"><div id="vinu-scroll-wrap" style="overflow-x:auto;">
+        <div class="chart-wrap" id="vinu-chart-inner" style="height:260px"><canvas id="vinuChart"></canvas></div>
+      </div></div>
     </div>
     <div class="panel">
       <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div><div class="panel-sub">Principales movimientos y extremos RSI</div></div></div>
@@ -1665,7 +1667,17 @@ const WB_NEON_GREEN = '#2dff9e';
 const WB_NEON_RED   = '#ff3b5c';
 
 function renderSesionesVol() {
-  const n       = parseInt(document.getElementById('sv-n').value);
+  // Default Top 20 en mobile (2026-09-06, pedido del usuario) -- una sola
+  // vez (dataset.mobileDefaultSet), para no pisar la elección del usuario
+  // si después cambia el select a 30/50 manualmente. El wrapper de abajo
+  // (#sv-chart-wrap, overflow-y:auto;max-height:480px) ya scrollea solo
+  // si elige más de 20 -- no hace falta tocar eso.
+  const svSel = document.getElementById('sv-n');
+  if (window.innerWidth <= 600 && svSel.dataset.mobileDefaultSet !== '1') {
+    svSel.value = '20';
+    svSel.dataset.mobileDefaultSet = '1';
+  }
+  const n       = parseInt(svSel.value);
   const diasMin = parseInt(document.getElementById('sv-dias-min').value);
   const rsMin   = parseFloat(document.getElementById('sv-rs-min').value);
 
@@ -1756,6 +1768,16 @@ function renderVolInusual() {
     const v = d['Var Día %'];
     return (v !== null && v !== undefined && v < 0) ? WB_NEON_RED : WB_NEON_GREEN;
   });
+  // Scroll lateral en mobile con muchas barras (2026-09-06, pedido del
+  // usuario): en pantallas chicas, más de 10 tickers se amontonaban y no
+  // se distinguían. Máximo 10 barras "cómodas" por ancho de pantalla --
+  // si hay más, el contenedor interno se ensancha (BAR_PX por barra) y
+  // el wrapper de afuera (#vinu-scroll-wrap) scrollea en vez de achicar
+  // cada barra. En desktop no hace falta -- vuelve a 100% del panel.
+  const isMobile = window.innerWidth <= 600;
+  const BAR_PX = 34;
+  const chartInner = document.getElementById('vinu-chart-inner');
+  chartInner.style.width = (isMobile && data.length > 10) ? (data.length * BAR_PX) + 'px' : '';
   destroyChart('vinuChart');
   charts['vinuChart'] = new Chart(document.getElementById('vinuChart').getContext('2d'), {
     type: 'bar', data: { labels: data.map(d => d['Ticker']), datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
