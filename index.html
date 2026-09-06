@@ -1604,7 +1604,7 @@ function renderTrend() {
           </div>
         </div>
       </td>
-      <td style="padding:4px ${pad}px;vertical-align:middle">${sparklineSVG(vals, sparkW, 32)}</td>
+      <td style="padding:4px ${pad}px;vertical-align:middle"><div style="display:flex;justify-content:center">${sparklineSVG(vals, sparkW, 32)}</div></td>
       <td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
       ${deltaCell(dMes)}
       ${deltaCell(dSem)}
