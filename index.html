@@ -1666,6 +1666,49 @@ const wbNeonGlowPlugin = {
 const WB_NEON_GREEN = '#2dff9e';
 const WB_NEON_RED   = '#ff3b5c';
 
+// ── Días ▲/▼ dentro de la barra (Sesiones & Volumen, 2026-09-06, pedido
+// del usuario) -- para no depender de pasar el mouse por el tooltip. Lee
+// dataset.diasInfo (array paralelo a data, seteado en renderSesionesVol
+// con {diasPos, diasNeg} de cada fila). Si el texto no entra en la barra
+// (barras cortas, ratio bajo), lo dibuja afuera a la derecha en gris en
+// vez de recortarlo. Mismo cálculo de geometría de barra horizontal que
+// wbNeonGlowPlugin, plugin aparte para no afectar a vinuChart (que
+// también usa wbNeonGlowPlugin pero es un gráfico vertical sin este dato).
+const wbSVBarLabelPlugin = {
+  id: 'wbSVBarLabel',
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    chart.data.datasets.forEach((dataset, dsIndex) => {
+      const info = dataset.diasInfo;
+      if (!info) return;
+      const meta = chart.getDatasetMeta(dsIndex);
+      if (meta.hidden) return;
+      meta.data.forEach((bar, i) => {
+        const d = info[i];
+        if (!d || !bar) return;
+        const p = bar.getProps ? bar.getProps(['x', 'y', 'base'], true) : bar;
+        const rx = Math.min(p.x, p.base), rw = Math.abs(p.x - p.base);
+        if (rw <= 0) return;
+        const text = `${d.diasPos}▲ ${d.diasNeg}▼`;
+        ctx.save();
+        ctx.font = "600 9px 'DM Mono', monospace";
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(text).width;
+        if (tw + 10 <= rw) {
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#10121a';
+          ctx.fillText(text, rx + rw / 2, p.y);
+        } else {
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#9ca3af';
+          ctx.fillText(text, rx + rw + 6, p.y);
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+
 function renderSesionesVol() {
   // Default Top 20 en mobile (2026-09-06, pedido del usuario) -- una sola
   // vez (dataset.mobileDefaultSet), para no pisar la elección del usuario
@@ -1714,9 +1757,10 @@ function renderSesionesVol() {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ data: values, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false }]
+      datasets: [{ data: values, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 3, borderSkipped: false,
+        diasInfo: rows.map(r => ({ diasPos: r.diasPos, diasNeg: r.diasNeg })) }]
     },
-    plugins: [wbNeonGlowPlugin],
+    plugins: [wbNeonGlowPlugin, wbSVBarLabelPlugin],
     options: {
       indexAxis: 'y',
       responsive: true, maintainAspectRatio: false,
