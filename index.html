@@ -5353,15 +5353,15 @@ if ('serviceWorker' in navigator) {
     var ahora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 
     body.innerHTML=
-      '<div class="wb-rgm-main">'+
-        '<div class="wb-rgm-layers">'+layerDefs.map(layerHTML).join('')+'</div>'+
-      '</div>'+
       '<div class="wb-rgm-score-expo-row">'+
         '<div class="wb-rgm-gauge-inline">'+gaugeSVG(R.score,R.color)+'</div>'+
         '<div class="wb-rgm-expo" style="background:'+(BGMAP[R.v]||'rgba(148,163,184,0.06)')+';border:1px solid '+(R.color||'#737d8f')+'40">'+
           '<div class="wb-rgm-expo-title">Exposición sugerida</div>'+
           '<div class="wb-rgm-expo-frase" style="color:'+R.color+'">'+(R.expo?R.expo.txt:'Cargando…')+'</div>'+
         '</div>'+
+      '</div>'+
+      '<div class="wb-rgm-main">'+
+        '<div class="wb-rgm-layers">'+layerDefs.map(layerHTML).join('')+'</div>'+
       '</div>'+
       nhnlHoyHTML+
       '<div class="wb-rgm-amplitud-wrap">'+
