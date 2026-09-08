@@ -138,6 +138,13 @@
   .pill-purple{background:var(--purple-bg);color:var(--purple);box-shadow:inset 0 0 0 1px rgba(167,139,250,0.25);}
 
   .sema-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;}
+  /* 2 sectores por fila, centrado (2026-09-09, pedido del usuario --
+     aprovechar el ancho de escritorio) -- en mobile se queda apilado,
+     como siempre. */
+  .sema-sector-grid{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:901px){
+    .sema-sector-grid{grid-template-columns:repeat(2,minmax(0,640px));justify-content:center;gap:16px 32px;}
+  }
   .sema-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 50%),var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;transition:border-color .2s var(--ease),transform .2s var(--ease);}
   .sema-card:hover{border-color:var(--border2);transform:translateY(-1px);}
   .sema-card.has-vol-spike{border-color:rgba(245,166,35,0.45);box-shadow:0 0 14px -6px rgba(245,166,35,0.35);}
@@ -1998,18 +2005,39 @@ function renderSemaforo() {
     </div>`;
   }
 
-  document.getElementById('sema-grid').innerHTML = sectorList.map(sector => {
+  // ETF sectorial SPDR de cada sector (2026-09-09, pedido del usuario:
+  // el RS junto al título pasa a ser el RS del ETF del sector, no el
+  // promedio de los 3 tickers -- y el ETF se agrega al título). Mismo
+  // mapeo ticker->sector que ETF_SECTOR en actualizar_datos.py, pero acá
+  // en sentido inverso (nombre de sector -> ETF), y a nivel de sector
+  // (no de ticker individual).
+  const SEMA_SECTOR_ETF = {
+    'Technology': 'XLK', 'Energy': 'XLE', 'Financial Services': 'XLF',
+    'Healthcare': 'XLV', 'Industrials': 'XLI', 'Consumer Cyclical': 'XLY',
+    'Consumer Defensive': 'XLP', 'Utilities': 'XLU', 'Basic Materials': 'XLB',
+    'Real Estate': 'XLRE', 'Communication Services': 'XLC'
+  };
+
+  document.getElementById('sema-grid').innerHTML = '<div class="sema-sector-grid">' + sectorList.map(sector => {
     const tickers = sectores[sector];
-    const avgRS = tickers.reduce((sum, d) => sum + (d['RS Score'] || 0), 0) / tickers.length;
+    const etfTicker = SEMA_SECTOR_ETF[sector];
+    // el RS del ETF sale de DATOS sin filtrar -- es un dato de referencia
+    // del sector, no debe desaparecer si el usuario filtró por Tipo/etc.
+    const etfData = etfTicker ? DATOS.find(x => x['Ticker'] === etfTicker) : null;
+    const etfRS = etfData ? etfData['RS Score'] : null;
+    const tituloEtf = etfTicker ? ` <span style="color:var(--muted);font-weight:400;text-transform:none">(${etfTicker})</span>` : '';
+    const rsLabel = etfRS !== null && etfRS !== undefined
+      ? `<span style="font-size:10px;font-family:'DM Mono',monospace;color:${colorRS(etfRS)};background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:4px" title="RS Score del ETF del sector">RS ETF ${etfRS.toFixed(1)}</span>`
+      : '';
     return `<div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">${sector}</span>
-        <span style="font-size:10px;font-family:'DM Mono',monospace;color:${colorRS(avgRS)};background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:4px">RS̄ ${avgRS.toFixed(1)}</span>
+        <span style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">${sector}${tituloEtf}</span>
+        ${rsLabel}
         <span style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></span>
       </div>
       <div class="sema-grid">${tickers.map(semaCard).join('')}</div>
     </div>`;
-  }).join('');
+  }).join('') + '</div>';
 }
 
 // 2026-09-08 (pedido del usuario): antes era poblarComparador(), que
