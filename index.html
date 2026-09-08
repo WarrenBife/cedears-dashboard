@@ -4991,8 +4991,18 @@ if ('serviceWorker' in navigator) {
       if(tipo!==wbRsiSemTab) return null;
       var haceSemanas = num(d['RSI Semanal Cruce Hace Semanas']);
       if(haceSemanas==null) return null;
-      return {d:d, haceSemanas:haceSemanas};
-    }).filter(Boolean).sort(function(a,b){ return a.haceSemanas-b.haceSemanas; });
+      // Resaltado (2026-09-09, pedido del usuario): cruce alcista con el
+      // RSI todavía débil (<40) al momento de cruzar, o cruce bajista con
+      // el RSI todavía fuerte (>60) al cruzar -- señal más significativa
+      // que un cruce "en el medio" del rango.
+      var nivelCruce = num(d['RSI Semanal Cruce Nivel']);
+      var destacado = (tipo==='alcista' && nivelCruce!=null && nivelCruce<40) ||
+                      (tipo==='bajista' && nivelCruce!=null && nivelCruce>60);
+      return {d:d, haceSemanas:haceSemanas, destacado:destacado};
+    }).filter(Boolean).sort(function(a,b){
+      if(a.destacado!==b.destacado) return a.destacado?-1:1;
+      return a.haceSemanas-b.haceSemanas;
+    });
 
     if(!rows.length){
       var vacio = wbRsiSemTab==='alcista'
@@ -5005,14 +5015,19 @@ if ('serviceWorker' in navigator) {
       rows.map(function(r){
         var d=r.d;
         var rsiCol = wbRsiSemTab==='alcista' ? 'var(--green)' : 'var(--red)';
-        return '<tr>'+
-            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+        var filaStyle = r.destacado
+          ? (wbRsiSemTab==='alcista' ? 'background:rgba(34,201,138,0.10)' : 'background:rgba(240,96,90,0.10)')
+          : '';
+        var marca = r.destacado ? (wbRsiSemTab==='alcista' ? ' 🟢' : ' 🔴') : '';
+        return '<tr style="'+filaStyle+'">'+
+            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span>'+marca+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:'+rsiCol+'">'+fmt(num(d['RSI Semanal']),1)+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['RSI Semanal SMA14']),1)+'</td>'+
             '<td>'+(r.haceSemanas===0?'esta semana':r.haceSemanas+(r.haceSemanas===1?' semana':' semanas'))+'</td>'+
             '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
           '</tr>';
-      }).join('')+'</tbody></table>';
+      }).join('')+'</tbody></table>'+
+      '<div style="font-size:9.5px;color:var(--muted);margin-top:8px">🟢/🔴 = cruzó todavía débil (RSI&lt;40 al cruzar al alza) o todavía fuerte (RSI&gt;60 al cruzar a la baja) — señal más marcada.</div>';
   }
 
   /* ═══ 6. Calculadora de riesgo ═══ */

@@ -288,8 +288,9 @@ def calcular_rsi_serie(close, periodo=14):
     return 100 - (100 / (1 + rs))
 
 RSI_SMA_CRUCE_VENTANA = 6  # cuenta como "cruce reciente" si pasó en las últimas N velas (semanas)
+RSI_SMA_CRUCE_RUIDO_SEMANAS = 4  # ~1 mes -- si hubo OTRO cruce (cualquier signo) hasta esta cantidad de semanas ANTES del encontrado, se descarta por ruido/zigzagueo
 
-def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA):
+def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA, ruido_semanas=RSI_SMA_CRUCE_RUIDO_SEMANAS):
     """
     "Análisis Semanal" (2026-09-07, pedido del usuario) -- análogo al
     Cruce/Rebote de EMA200 pero para el RSI semanal contra su propia
@@ -297,6 +298,18 @@ def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA
     MÁS RECIENTE dentro de las últimas `ventana` velas semanales, yendo
     hacia atrás desde hoy -- el primero que encuentra es el más nuevo.
     Devuelve None si no hubo ningún cruce en esa ventana.
+
+    2026-09-09 (pedido del usuario), dos agregados:
+    - 'rsi_en_cruce': valor del RSI en la vela del cruce (no el de hoy) --
+      para resaltar en el frontend los cruces al alza con el RSI todavía
+      débil (<40) o los cruces a la baja con el RSI todavía fuerte (>60).
+    - Filtro de ruido: si hubo OTRO cruce (cualquier signo, alcista o
+      bajista) hasta `ruido_semanas` semanas ANTES del cruce encontrado,
+      se descarta -- un RSI zigzagueando contra su SMA14 no es una señal
+      limpia. (El caso "cruzó hace 3 semanas pero la semana pasada volvió
+      a cruzar al revés" YA se resuelve solo con la búsqueda de más
+      reciente-a-más-viejo de más arriba: encuentra el cruce de la semana
+      pasada primero y listo -- no hace falta código extra para eso.)
     """
     try:
         r = rsi_series.dropna()
@@ -308,25 +321,40 @@ def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA
         s = s.loc[comun]
         diff = (r - s).values
         n = len(diff)
+
+        def hay_cruce(idx):
+            return (diff[idx] > 0 and diff[idx - 1] <= 0) or (diff[idx] < 0 and diff[idx - 1] >= 0)
+
+        cruce_ago = None
+        cruce_tipo = None
         for ago in range(min(ventana, n - 1)):
             idx = n - 1 - ago
             if idx <= 0:
                 break
-            if diff[idx] > 0 and diff[idx - 1] <= 0:
-                return {
-                    'tipo': 'alcista',
-                    'hace_velas': ago,
-                    'rsi_hoy': round(float(r.iloc[-1]), 2),
-                    'sma_hoy': round(float(s.iloc[-1]), 2),
-                }
-            if diff[idx] < 0 and diff[idx - 1] >= 0:
-                return {
-                    'tipo': 'bajista',
-                    'hace_velas': ago,
-                    'rsi_hoy': round(float(r.iloc[-1]), 2),
-                    'sma_hoy': round(float(s.iloc[-1]), 2),
-                }
-        return None
+            if hay_cruce(idx):
+                cruce_ago = ago
+                cruce_tipo = 'alcista' if diff[idx] > 0 else 'bajista'
+                break
+        if cruce_ago is None:
+            return None
+
+        # Filtro de ruido: ¿hubo otro cruce (cualquier signo) en las
+        # `ruido_semanas` semanas ANTES de este?
+        idx_cruce = n - 1 - cruce_ago
+        for ago2 in range(cruce_ago + 1, min(cruce_ago + 1 + ruido_semanas, n - 1)):
+            idx2 = n - 1 - ago2
+            if idx2 <= 0:
+                break
+            if hay_cruce(idx2):
+                return None
+
+        return {
+            'tipo': cruce_tipo,
+            'hace_velas': cruce_ago,
+            'rsi_hoy': round(float(r.iloc[-1]), 2),
+            'sma_hoy': round(float(s.iloc[-1]), 2),
+            'rsi_en_cruce': round(float(r.iloc[idx_cruce]), 2),
+        }
     except Exception:
         return None
 
@@ -4186,6 +4214,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
             "RSI Semanal SMA14":   rsi_semanal_sma14,
             "RSI Semanal Cruce Tipo":         rsi_cruce['tipo']        if rsi_cruce else None,
             "RSI Semanal Cruce Hace Semanas": rsi_cruce['hace_velas']  if rsi_cruce else None,
+            "RSI Semanal Cruce Nivel":        rsi_cruce['rsi_en_cruce'] if rsi_cruce else None,
             "Vol Relativa":    vol_rel,
             "Vol Inusual %":   vol_inu,
             "RS Score":        score_actual,
