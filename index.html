@@ -1504,8 +1504,12 @@ function renderTrend() {
   const n     = parseInt(document.getElementById('trend-n').value);
   const rsMin = parseFloat(document.getElementById('trend-rs-min').value);
 
+  // SPY excluido (2026-09-09, pedido del usuario -- mismo motivo que en
+  // wbRenderRRG/Cuadrante de Rotación): su RS Score se calcula contra sí
+  // mismo, así que el percentil salta entre 0 y 100 por ruido de punto
+  // flotante sin ningún significado real.
   const universe = getDatosFiltrados().filter(d =>
-    d['RS Score'] !== null && d['RS Mes ant.'] !== null && d['RS Semana ant.'] !== null
+    d['Ticker'] !== 'SPY' && d['RS Score'] !== null && d['RS Mes ant.'] !== null && d['RS Semana ant.'] !== null
   );
 
   let data = universe.filter(d => d['RS Score'] > d['RS Mes ant.'] && d['RS Score'] >= rsMin);
