@@ -3678,7 +3678,16 @@ if ('serviceWorker' in navigator) {
   .wb-rrg-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
   /* ── Tablas chicas de paneles nuevos ── */
-  .wb-mini-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  /* border-collapse:separate + border-spacing:0 (2026-09-09, pedido del
+     usuario, caso "Bases VCP de Alta Calidad" en celular) -- con
+     border-collapse:collapse el position:sticky de los <th> de abajo
+     no funciona en varios motores (bug conocido, sobre todo WebKit/
+     Safari -- muy relevante en mobile). border-spacing:0 mantiene el
+     resultado visual idéntico (acá solo se usan border-bottom, sin
+     bordes verticales entre celdas, así que no hay riesgo de doble
+     borde). Afecta a todos los paneles que usan esta clase (VCP,
+     EMA200 diario/semanal, RSI semanal, Episodic Pivots). */
+  .wb-mini-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;}
   .wb-mini-table th{text-align:left;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;
     padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0;background:var(--bg2);}
   .wb-mini-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
