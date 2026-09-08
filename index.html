@@ -822,33 +822,12 @@
     </div>
   </div>
 
-  <!-- ── COMPARADOR DE ACTIVOS ──────────────────────────────── -->
+  <!-- cmp-tickers-list: datalist compartido para autocompletar tickers --
+       lo usa el buscador mobile (#wbm-search). Antes también alimentaba
+       el panel "Comparador de activos" (sacado 2026-09-08, reemplazado
+       por "Análisis Semanal"), pero el datalist en sí sigue haciendo
+       falta -- se sigue poblando en poblarTickersDatalist(). -->
   <datalist id="cmp-tickers-list"></datalist>
-  <div class="panel" style="margin-top:14px">
-    <div class="panel-head">
-      <div>
-        <div class="panel-title" data-tooltip="Compara la evolución del RS Score entre dos activos a lo largo del tiempo para analizar cuál tiene mayor fuerza relativa">Comparador de activos</div>
-        <div class="panel-sub">Escribí para buscar un ticker</div>
-      </div>
-    </div>
-    <div class="panel-filters">
-      <span class="pf-label">Activo A:</span>
-      <input id="cmp-a" list="cmp-tickers-list" oninput="renderComparador()" autocomplete="off"
-        style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;width:90px;font-family:'DM Mono',monospace">
-      <span class="pf-label">Activo B:</span>
-      <input id="cmp-b" list="cmp-tickers-list" oninput="renderComparador()" autocomplete="off"
-        style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;width:90px;font-family:'DM Mono',monospace">
-    </div>
-    <div class="panel-body" style="padding:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;min-width:560px">
-        <div id="cmp-tabla"></div>
-        <div>
-          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Fuerza relativa vs SPY (indexada, mes ant. = 100)</div>
-          <div class="chart-wrap" style="height:280px"><canvas id="cmpRSChart"></canvas></div>
-        </div>
-      </div>
-    </div>
-  </div>
 
 </div>
 
@@ -2029,126 +2008,18 @@ function renderSemaforo() {
   }).join('');
 }
 
-function poblarComparador() {
+// 2026-09-08 (pedido del usuario): antes era poblarComparador(), que
+// además de esto armaba los valores por defecto de los inputs cmp-a/
+// cmp-b del panel "Comparador de activos" (sacado, reemplazado por
+// "Análisis Semanal"). El datalist en sí sigue haciendo falta -- lo
+// usa el buscador mobile (#wbm-search) -- así que se deja solo esa
+// parte, renombrada para que quede claro que ya no es del comparador.
+function poblarTickersDatalist() {
   const tickers = [...new Set(DATOS.map(d => d['Ticker']))].sort();
   const dl = document.getElementById('cmp-tickers-list');
   if (dl && dl.options.length === 0) {
     tickers.forEach(t => { const o = document.createElement('option'); o.value = t; dl.appendChild(o); });
   }
-  const inA = document.getElementById('cmp-a');
-  const inB = document.getElementById('cmp-b');
-  if (inA && !inA.value) inA.value = tickers.includes('AAPL') ? 'AAPL' : tickers[0];
-  if (inB && !inB.value) inB.value = tickers.includes('MSFT') ? 'MSFT' : tickers[1];
-  renderComparador();
-}
-
-function renderComparador() {
-  const idA = (document.getElementById('cmp-a')?.value || '').toUpperCase().trim();
-  const idB = (document.getElementById('cmp-b')?.value || '').toUpperCase().trim();
-  if (!idA || !idB) return;
-  const dA = DATOS.find(d => d['Ticker'] === idA);
-  const dB = DATOS.find(d => d['Ticker'] === idB);
-  if (!dA || !dB) return;
-
-  const fmt  = (v, d=1) => v !== null && v !== undefined ? v.toFixed(d) : '—';
-  const pct  = v => v !== null && v !== undefined ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—';
-  const logo = t => `<img src="https://s3-symbol-logo.tradingview.com/${t}--big.svg"
-    style="width:28px;height:28px;border-radius:6px;object-fit:contain;background:#1a1e28;padding:2px"
-    onerror="this.style.display='none'">`;
-
-  const wsA = calcWarrenScore(dA), wsB = calcWarrenScore(dB);
-
-  // color helpers
-  const cGR  = (a, b) => a > b ? ['var(--green)','var(--red)'] : a < b ? ['var(--red)','var(--green)'] : ['var(--text)','var(--text)'];
-  const cGRL = (a, b) => a < b ? ['var(--green)','var(--red)'] : a > b ? ['var(--red)','var(--green)'] : ['var(--text)','var(--text)'];  // lower is better
-
-  const rows = [
-    { label:'Precio',         vA: dA['Precio'] ? `$${dA['Precio'].toFixed(2)}` : '—',  vB: dB['Precio'] ? `$${dB['Precio'].toFixed(2)}` : '—', cA:'var(--text)', cB:'var(--text)' },
-    { label:'Var Día %',      vA: pct(dA['Var Día %']),       vB: pct(dB['Var Día %']),       ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['Var Día %'],dB['Var Día %'])[i]])) },
-    { label:'Warren Score',   vA: wsA,                         vB: wsB,                         ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(wsA,wsB)[i]])) },
-    { label:'RS Score',       vA: fmt(dA['RS Score']),         vB: fmt(dB['RS Score']),         ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['RS Score'],dB['RS Score'])[i]])) },
-    { label:'Δ RS (día)',      vA: pct(dA['RS Score'] != null && dA['RS Ayer'] != null ? dA['RS Score']-dA['RS Ayer'] : null), vB: pct(dB['RS Score'] != null && dB['RS Ayer'] != null ? dB['RS Score']-dB['RS Ayer'] : null), cA: (dA['RS Score']||0)>=(dA['RS Ayer']||0)?'var(--green)':'var(--red)', cB: (dB['RS Score']||0)>=(dB['RS Ayer']||0)?'var(--green)':'var(--red)' },
-    { label:'RSI 14',         vA: fmt(dA['RSI 14']),           vB: fmt(dB['RSI 14']),           cA:'var(--text)', cB:'var(--text)' },
-    { label:'vs EMA200',      vA: pct(dA['Dist EMA200 %']),   vB: pct(dB['Dist EMA200 %']),   ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['Dist EMA200 %'],dB['Dist EMA200 %'])[i]])) },
-    { label:'vs SMA50',       vA: pct(dA['Dist SMA50 %']),    vB: pct(dB['Dist SMA50 %']),    ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['Dist SMA50 %'],dB['Dist SMA50 %'])[i]])) },
-    { label:'vs Máx 52W',     vA: pct(dA['Dist Máx52W %']),   vB: pct(dB['Dist Máx52W %']),   ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['Dist Máx52W %'],dB['Dist Máx52W %'])[i]])) },
-    { label:'vs Mín 52W',     vA: pct(dA['Dist Mín52W %']),   vB: pct(dB['Dist Mín52W %']),   ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGR(dA['Dist Mín52W %'],dB['Dist Mín52W %'])[i]])) },
-    { label:'Vol Relativa',   vA: `${fmt(dA['Vol Relativa'],2)}x`, vB: `${fmt(dB['Vol Relativa'],2)}x`, ...Object.fromEntries(Object.entries({cA:0,cB:1}).map(([k,i])=>[k, cGRL(dA['Vol Relativa'],dB['Vol Relativa'])[i]])) },
-    { label:'MCap',           vA: dA['Market Cap Cat']||'—',  vB: dB['Market Cap Cat']||'—',  cA:'var(--text)', cB:'var(--text)' },
-    { label:'Sector',         vA: dA['Sector']||'—',          vB: dB['Sector']||'—',          cA:'var(--muted)', cB:'var(--muted)' },
-  ];
-
-  document.getElementById('cmp-tabla').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead>
-        <tr>
-          <th style="text-align:left;padding:8px 10px;color:var(--muted);font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Métrica</th>
-          <th style="text-align:center;padding:8px 10px;border-bottom:1px solid var(--border)">
-            <div style="display:flex;align-items:center;justify-content:center;gap:7px">
-              ${logo(idA)}
-              <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#22c98a">${idA}</span>
-            </div>
-          </th>
-          <th style="text-align:center;padding:8px 10px;border-bottom:1px solid var(--border)">
-            <div style="display:flex;align-items:center;justify-content:center;gap:7px">
-              ${logo(idB)}
-              <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#4f8ef7">${idB}</span>
-            </div>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((r,i) => `
-          <tr style="background:${i%2===0?'transparent':'rgba(255,255,255,0.018)'}">
-            <td style="padding:7px 10px;color:var(--muted);font-size:11px">${r.label}</td>
-            <td style="padding:7px 10px;text-align:center;font-family:'DM Mono',monospace;color:${r.cA};font-weight:500">${r.vA}</td>
-            <td style="padding:7px 10px;text-align:center;font-family:'DM Mono',monospace;color:${r.cB};font-weight:500">${r.vB}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-
-  // FR indexada a 100 desde mes ant.
-  function indexFR(d) {
-    const base = d['FR Mes ant.'];
-    if (!base) return [null, null, null, null];
-    return [
-      100,
-      base ? round2(d['FR Semana ant.'] / base * 100) : null,
-      base ? round2(d['FR Ayer']        / base * 100) : null,
-      base ? round2(d['FR Hoy']         / base * 100) : null,
-    ];
-  }
-  function round2(v) { return v !== null && v !== undefined ? Math.round(v * 100) / 100 : null; }
-
-  // Fallback: si FR no está en datos.json todavía, usar RS percentil
-  const hasFR = dA['FR Hoy'] !== undefined && dA['FR Hoy'] !== null;
-  const frA = hasFR ? indexFR(dA) : [dA['RS Mes ant.'], dA['RS Semana ant.'], dA['RS Ayer'], dA['RS Score']];
-  const frB = hasFR ? indexFR(dB) : [dB['RS Mes ant.'], dB['RS Semana ant.'], dB['RS Ayer'], dB['RS Score']];
-  const chartLabel = hasFR ? 'FR vs SPY (base 100)' : 'RS Score (percentil)';
-
-  destroyChart('cmpRSChart');
-  charts['cmpRSChart'] = new Chart(document.getElementById('cmpRSChart'), {
-    type: 'line',
-    data: {
-      labels: ['Mes ant.','Sem ant.','Ayer','Hoy'],
-      datasets: [
-        { label:`${idA}`, data: frA, borderColor:'#22c98a', backgroundColor:'rgba(34,201,138,0.08)', pointBackgroundColor:'#22c98a', borderWidth:2, tension:0.3, fill:true },
-        { label:`${idB}`, data: frB, borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.08)',  pointBackgroundColor:'#4f8ef7', borderWidth:2, tension:0.3, fill:true },
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: {
-        x: { ticks:{color:'#6b7280'}, grid:{color:'rgba(255,255,255,0.05)'} },
-        y: { ticks:{color:'#6b7280', callback: v => v.toFixed(1)}, grid:{color:'rgba(255,255,255,0.05)'} }
-      },
-      plugins: {
-        legend: { labels:{color:'#e8eaf0', font:{size:12}} },
-        tooltip: { callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.raw?.toFixed(2)}` } },
-        annotation: hasFR ? { annotations:{ line100:{ type:'line', yMin:100, yMax:100, borderColor:'rgba(255,255,255,0.15)', borderWidth:1, borderDash:[4,4] } } } : {}
-      }
-    }
-  });
 }
 
 function renderTodo() {
@@ -2164,7 +2035,7 @@ function renderTodo() {
   safe(renderCartelera);
   safe(renderSemaforo);
   safe(renderBreakout);
-  poblarComparador();
+  poblarTickersDatalist();
 }
 
 showView('home');
@@ -3942,7 +3813,7 @@ if ('serviceWorker' in navigator) {
     brk:    panelOf('brk-content'),  trend:  panelOf('trendRankTable'),
     sv:     panelOf('svChart'),      vinu:   panelOf('vinuChart'),
     cart:   panelOf('cartelera-body'),
-    sema:   panelOf('sema-grid'),    cmp:    panelOf('cmp-tabla')
+    sema:   panelOf('sema-grid')
   };
   var statsRow = main.querySelector('.stats-row');
 
@@ -4120,6 +3991,45 @@ if ('serviceWorker' in navigator) {
     '<div id="wb-ema200-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
     'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo o la cruzaron de abajo hacia arriba, con absorción institucional (volumen alto cerrando fuerte) y fuerza relativa confirmando. No es el Warren Score (pre-breakout) — es el "buy the dip"/cruce bien filtrado.');
 
+  /* — Análisis Semanal (2026-09-08, pedido del usuario) -- reemplaza al
+     "Comparador de activos". 2 cuadros complementarios al Warren Score
+     diario, pensados como capa de contexto de más largo plazo (no
+     tocan el Score, son informativos):
+     1) EMA200 Semanal: Rebote/Cruce -- mismo mecanismo que el diario
+        (ema200P arriba) pero sobre velas semanales nativas (EMA200
+        semanal ≈ 4 años de memoria, un nivel MUY significativo y raro
+        de tocar -- no esperar que aparezca casi nunca, a diferencia
+        del diario). Reusa calcEMA200Reversal con los campos "...
+        Semanal" del pipeline en vez de los diarios.
+     2) RSI Semanal: Cruce en su SMA14 -- señal nueva, no existe versión
+        diaria de esto en el dashboard. Es la misma idea que una línea
+        de señal (tipo MACD): cuando el RSI semanal cruza su propia
+        media móvil de 14, no cuando toca 30/70. */
+  var ema200SemP = mkPanel('wb-ema200-sem-panel','📅 EMA200 Semanal: Rebote / Cruce',
+    'Mismo mecanismo que el diario, pero sobre la media de ~4 años — un nivel mucho más raro de tocar',
+    '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
+      '<button class="rrg-pill active" id="ema200sem-tab-rebote" onclick="wbEMA200SemSetTab(\'rebote\')">🔄 Rebote</button>'+
+      '<button class="rrg-pill" id="ema200sem-tab-cruce" onclick="wbEMA200SemSetTab(\'cruce\')">🚀 Cruce al alza</button>'+
+    '</div>'+
+    '<div class="panel-filters" style="margin:0 -18px 12px;">'+
+      '<span class="pf-label">RS mín hoy:</span>'+
+      '<input type="range" id="ema200sem-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200sem-rs-min-val\').textContent=this.value;wbRenderEMA200ReversalSemanal()">'+
+      '<span id="ema200sem-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
+    '</div>'+
+    '<div id="wb-ema200sem-body" style="max-height:315px;overflow-y:auto"></div>'+
+    '<div id="wb-ema200sem-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
+    'Igual que "EMA200: Rebote / Cruce" de arriba, pero calculado sobre velas SEMANALES en vez de diarias. La EMA200 semanal representa ~4 años de historia -- un nivel de mucho más largo plazo, que casi no se toca salvo en correcciones grandes. Vas a ver este cuadro vacío la mayoría de las veces, y es lo esperable.');
+
+  var rsiSemP = mkPanel('wb-rsi-sem-panel','📶 RSI Semanal: Cruce en su SMA14',
+    'El RSI semanal cruza su propia media de 14 — como una línea de señal, no un nivel fijo (30/70)',
+    '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
+      '<button class="rrg-pill active" id="rsisem-tab-alcista" onclick="wbRSISemSetTab(\'alcista\')">🔼 Cruce alcista</button>'+
+      '<button class="rrg-pill" id="rsisem-tab-bajista" onclick="wbRSISemSetTab(\'bajista\')">🔽 Cruce bajista</button>'+
+    '</div>'+
+    '<div id="wb-rsisem-body" style="max-height:315px;overflow-y:auto"></div>'+
+    '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">El RSI semanal (14) cruzando por encima o por debajo de su propia SMA14 -- misma lógica que una línea de señal (tipo MACD). No es sobrecompra/sobreventa (RSI vs. 30/70), es el RSI vs. su propio promedio reciente.</div>',
+    'Cruce del RSI(14) semanal con su SMA14: cuando el RSI viene subiendo/bajando más rápido que su propio promedio de las últimas 14 semanas, la señal cambia de signo. Complementario al Warren Score diario, no forma parte de él.');
+
   /* — Reordenar todo — */
   // 2026-09-06 (pedido del usuario, reorganización de escritorio): debajo
   // del Warren Score, EMA200 Rebote/Cruce pasa a compartir ancho con
@@ -4142,12 +4052,13 @@ if ('serviceWorker' in navigator) {
        antes de hacer nada). */
     mkZone('🔬 &nbsp;Análisis — profundizá'),
     mkGrid(P.trend, P.sv), P.vinu,
-    P.cmp
+    mkZone('📅 &nbsp;Análisis Semanal — la misma foto, más zoom out'),
+    mkGrid(ema200SemP, rsiSemP)
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
   /* eliminar explícitamente los paneles que ya no van en el layout */
   [P.sema, P.resurg, P.brk].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
-  [P.cart, P.warren, snapP, P.cmp].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
+  [P.cart, P.warren, snapP].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
   /* limpiar grid-2 que quedaron vacíos */
   main.querySelectorAll('.grid-2').forEach(function(g){ if(!g.children.length) g.remove(); });
   /* recalcular índices de entrada escalonada con el nuevo orden */
@@ -4936,6 +4847,162 @@ if ('serviceWorker' in navigator) {
       }).join('')+'</tbody></table>';
   }
 
+  /* ═══ 5c. Análisis Semanal — EMA200 Semanal Rebote/Cruce (2026-09-08,
+     pedido del usuario) ═══
+     Mismo mecanismo/fórmula que calcEMA200Reversal (arriba), pero leyendo
+     los campos "... Semanal" del pipeline en vez de los diarios. Dos
+     sustituciones a propósito (no hay versión semanal separada de esos
+     campos):
+       - rsAyer usa "RS Semana ant." (el valor de RS de hace una semana),
+         el análogo natural de "ayer" en cadencia semanal.
+       - Los rangos numéricos de _lin/_tri (ej. "racha 40-120") son los
+         MISMOS que en diario, pero ahora se interpretan en SEMANAS en
+         vez de en ruedas -- una racha de 120 semanas (~2,3 años) sin
+         tocar la media es, si acaso, un evento más raro/válido que su
+         equivalente diario, no menos.
+     Este cuadro va a aparecer vacío la mayoría de las veces -- la
+     EMA200 semanal representa ~4 años, un nivel que casi no se toca
+     salvo en correcciones grandes. Es lo esperable, no un bug. */
+  function calcEMA200ReversalSemanal(d){
+    var slope = num(d['EMA200 Semanal Slope']);
+    if(slope==null || slope<0) return null;
+    var contactoSemanas = num(d['EMA200 Semanal Contacto Semanas']);
+    if(contactoSemanas==null || contactoSemanas>10) return null;
+    var rsHoy=num(d['RS Score']), rsAyer=num(d['RS Semana ant.']), rsContacto=num(d['RS Semanal En Contacto']);
+    if(rsHoy==null || rsContacto==null) return null;
+    var deltaRs = rsHoy - rsContacto;
+    if(rsContacto<25 && deltaRs<=0) return null;
+
+    var distHace20 = num(d['EMA200 Semanal Dist Hace20 %']);
+    var vinoArriba = distHace20>=8 ? 12 : _lin(distHace20,3,8,0,12);
+    var contacto = _tri(num(d['EMA200 Semanal Dist ATRs']), -2, -0.5, 0.5, 2) * 13;
+    var rara = _lin(num(d['EMA200 Semanal Racha Previa']), 40, 120, 0, 10);
+    var p1 = vinoArriba + contacto + rara;
+
+    var climaxVol = num(d['Climax Semanal Vol Ratio']), climaxPos = num(d['Climax Semanal Pos Cierre']);
+    var fuerzaVol = climaxVol==null ? 0 : Math.max(0, Math.min(1, (climaxVol-1.0)/1.0));
+    var p2 = (climaxPos==null?0:climaxPos) * fuerzaVol * 30;
+
+    var factorRecencia = _lin(contactoSemanas, 1, 10, 1.0, 0.7);
+    var repunte = _lin(deltaRs, 0, 30, 0, 22) * factorRecencia;
+    var acelera = (rsHoy>rsAyer && rsAyer>rsContacto) ? 8 : 0;
+    var confirmo = b_(d['Precio Semanal Sobre Climax']) ? 5 : 0;
+    var p3 = repunte + acelera + confirmo;
+
+    var distHoy = num(d['Dist EMA200 Semanal %']);
+    var tipo = (distHace20!=null && distHace20>3) ? 'rebote'
+             : (distHoy!=null && distHoy>0) ? 'cruce' : null;
+    if(tipo==null) return null;
+
+    return {score:Math.round(p1+p2+p3), deltaRs:deltaRs,
+      contactoSemanas:contactoSemanas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto,
+      tipo:tipo};
+  }
+
+  // Humaniza la racha semanal (ya viene en semanas, a diferencia de
+  // _ema200RachaHumano que espera ruedas diarias -- no reusar esa acá).
+  function _ema200SemRachaHumano(racha){
+    if(racha==null) return '—';
+    var anios = racha/52;
+    if(anios < 1){
+      var meses = Math.max(1, Math.round(racha/4.33));
+      return meses+(meses===1?' mes':' meses');
+    }
+    var a = Math.round(anios*10)/10;
+    return a+(a===1?' año':' años');
+  }
+
+  var wbEma200SemTab = 'rebote';
+  window.wbEMA200SemSetTab = function(tipo){
+    wbEma200SemTab = tipo;
+    var rb=$('ema200sem-tab-rebote'), cr=$('ema200sem-tab-cruce');
+    if(rb) rb.classList.toggle('active', tipo==='rebote');
+    if(cr) cr.classList.toggle('active', tipo==='cruce');
+    wbRenderEMA200ReversalSemanal();
+  };
+  window.wbRenderEMA200ReversalSemanal = function(){
+    var body=$('wb-ema200sem-body'); if(!body || !datosOK()) return;
+    var descEl=$('wb-ema200sem-desc');
+    if(descEl) descEl.innerHTML = WB_EMA200_DESC[wbEma200SemTab] || '';
+    var rsMinEl=$('ema200sem-rs-min');
+    var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
+    var rows = filtrados().map(function(d){
+      var r=calcEMA200ReversalSemanal(d); if(!r || r.tipo!==wbEma200SemTab) return null;
+      if((num(d['RS Score'])||0) < rsMin) return null;
+      r.d=d; return r;
+    }).filter(Boolean).sort(function(a,b){ return b.score-a.score; });
+
+    if(!rows.length){
+      var vacio = wbEma200SemTab==='rebote'
+        ? 'Ningún rebote en la EMA200 semanal con confirmación hoy — es un nivel de ~4 años, se toca muy pocas veces (solo en correcciones grandes). Vacío la mayoría del tiempo es lo esperable.'
+        : 'Ningún cruce al alza de la EMA200 semanal con confirmación hoy — mismo criterio, es un evento raro.';
+      body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
+      return;
+    }
+    var colContacto = wbEma200SemTab==='cruce' ? 'Cruce' : 'Contacto';
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>'+colContacto+'</th><th>Clímax</th><th>RS</th><th>Última vez</th></tr></thead><tbody>'+
+      rows.map(function(r){
+        var d=r.d;
+        var climaxTxt = r.climaxVol==null ? '—' :
+          ((r.climaxPos!=null && r.climaxPos>=0.6 && r.climaxVol>=1.5) ? '🌊 ×' : '×')+fmt(r.climaxVol,1);
+        var rsCol = r.deltaRs>=0 ? 'var(--green)' : 'var(--red)';
+        return '<tr>'+
+            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+            '<td>'+r.contactoSemanas+(r.contactoSemanas===1?' semana':' semanas')+'</td>'+
+            '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
+            '<td style="color:'+rsCol+'">'+fmt(r.rsContacto,0)+' → '+fmt(num(d['RS Score']),0)+'</td>'+
+            '<td style="font-weight:600;color:var(--text)">'+_ema200SemRachaHumano(num(d['EMA200 Semanal Racha Previa']))+'</td>'+
+          '</tr>';
+      }).join('')+'</tbody></table>';
+  }
+
+  /* ═══ 5d. Análisis Semanal — RSI Semanal: Cruce en su SMA14 (2026-09-08,
+     pedido del usuario) ═══
+     Señal nueva (sin versión diaria en el dashboard): el RSI(14) semanal
+     cruzando su propia SMA14 -- misma idea que una línea de señal (tipo
+     MACD), no sobrecompra/sobreventa contra 30/70. Los campos vienen
+     calculados en el pipeline (rsi_sma_cruce_features): ya trae el tipo
+     de cruce y hace cuántas semanas pasó, sin necesidad de reconstruir
+     la serie en el frontend. */
+  var wbRsiSemTab = 'alcista';
+  window.wbRSISemSetTab = function(tipo){
+    wbRsiSemTab = tipo;
+    var al=$('rsisem-tab-alcista'), ba=$('rsisem-tab-bajista');
+    if(al) al.classList.toggle('active', tipo==='alcista');
+    if(ba) ba.classList.toggle('active', tipo==='bajista');
+    wbRenderRSISemCruce();
+  };
+  window.wbRenderRSISemCruce = function(){
+    var body=$('wb-rsisem-body'); if(!body || !datosOK()) return;
+    var rows = filtrados().map(function(d){
+      var tipo = d['RSI Semanal Cruce Tipo'];
+      if(tipo!==wbRsiSemTab) return null;
+      var haceSemanas = num(d['RSI Semanal Cruce Hace Semanas']);
+      if(haceSemanas==null) return null;
+      return {d:d, haceSemanas:haceSemanas};
+    }).filter(Boolean).sort(function(a,b){ return a.haceSemanas-b.haceSemanas; });
+
+    if(!rows.length){
+      var vacio = wbRsiSemTab==='alcista'
+        ? 'Ningún cruce alcista del RSI semanal sobre su SMA14 en las últimas 6 semanas.'
+        : 'Ningún cruce bajista del RSI semanal bajo su SMA14 en las últimas 6 semanas.';
+      body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
+      return;
+    }
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>RSI</th><th>SMA14</th><th>Cruzó hace</th><th>RS</th></tr></thead><tbody>'+
+      rows.map(function(r){
+        var d=r.d;
+        var rsiCol = wbRsiSemTab==='alcista' ? 'var(--green)' : 'var(--red)';
+        return '<tr>'+
+            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:'+rsiCol+'">'+fmt(num(d['RSI Semanal']),1)+'</td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['RSI Semanal SMA14']),1)+'</td>'+
+            '<td>'+(r.haceSemanas===0?'esta semana':r.haceSemanas+(r.haceSemanas===1?' semana':' semanas'))+'</td>'+
+            '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
+          '</tr>';
+      }).join('')+'</tbody></table>';
+  }
+
   /* ═══ 6. Calculadora de riesgo ═══ */
   function wbPoblarRiskSelect(){
     var sel=$('wb-risk-ticker'); if(!sel || !datosOK()) return;
@@ -5145,6 +5212,8 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderRotAccel(); }catch(e){ console.error('wbRotAccel',e); }
     try{ wbRenderEP(); }catch(e){ console.error('wbEP',e); }
     try{ wbRenderEMA200Reversal(); }catch(e){ console.error('wbEMA200',e); }
+    try{ wbRenderEMA200ReversalSemanal(); }catch(e){ console.error('wbEMA200Sem',e); }
+    try{ wbRenderRSISemCruce(); }catch(e){ console.error('wbRSISem',e); }
     try{ wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
@@ -7906,7 +7975,9 @@ var panel = wrap.firstElementChild;
    principal que arma el layout corre antes que este bloque V9), así que
    se envuelve a los dos en un .grid-2 nuevo en el mismo lugar donde
    estaba ema200P solo. Fallback al comportamiento viejo si por lo que
-   sea no se encuentra (no debería pasar en un layout normal). */
+   sea no se encuentra (no debería pasar en un layout normal; antes
+   caía antes de "Comparador de activos", sacado 2026-09-08 -- ya no
+   existe ese ancla, el fallback pasa a ser simplemente appendChild). */
 var ema200Panel = document.getElementById('wb-ema200-panel');
 if(ema200Panel && ema200Panel.parentNode){
   var grid = document.createElement('div');
@@ -7915,13 +7986,7 @@ if(ema200Panel && ema200Panel.parentNode){
   grid.appendChild(ema200Panel); // se mueve adentro del grid nuevo
   grid.appendChild(panel);       // Bases VCP de Alta Calidad, al lado
 } else {
-  var cmpEl    = document.getElementById('cmp-tabla');
-  var cmpPanel = cmpEl ? cmpEl.closest('.panel') : null;
-  if(cmpPanel && cmpPanel.parentNode){
-    cmpPanel.parentNode.insertBefore(panel, cmpPanel);
-  } else {
-    main.appendChild(panel);
-  }
+  main.appendChild(panel);
 }
 
 /* Historial de VCP Score en localStorage (alimentaba la columna "Tend."
@@ -9480,6 +9545,14 @@ function wbmBuildMetricsSections(d){
   if (dSma50 != null) boxes += wbmMetricBox('Dist. SMA50', _wbmPct(dSma50,2), dSma50>=0?'var(--green)':'var(--red)');
   var dEma200 = d['Dist EMA200 %'];
   if (dEma200 != null) boxes += wbmMetricBox('Dist. EMA200', _wbmPct(dEma200,2), dEma200>=0?'var(--green)':'var(--red)');
+  // Dist. EMA200 semanal + RSI semanal (2026-09-08, pedido del usuario) --
+  // capa de contexto de más largo plazo, ver "Análisis Semanal" en el
+  // dashboard. Van acá en Tendencia (no en Contracción, donde vive el
+  // RSI diario) porque el pedido fue explícito.
+  var dEma200Sem = d['Dist EMA200 Semanal %'];
+  if (dEma200Sem != null) boxes += wbmMetricBox('Dist. EMA200 semanal', _wbmPct(dEma200Sem,2), dEma200Sem>=0?'var(--green)':'var(--red)');
+  var rsiSem = d['RSI Semanal'];
+  if (rsiSem != null) boxes += wbmMetricBox('RSI semanal', _wbmFmt(rsiSem,1), rsiSem>70?'var(--amber)':rsiSem<30?'var(--red)':'var(--text)');
   var vsSector = d['Vs Sector %'];
   if (vsSector != null) boxes += wbmMetricBox('Vs. sector' + (d['ETF Sector'] ? ' (' + _wbmEsc(d['ETF Sector']) + ')' : ''), _wbmPct(vsSector,2), vsSector>=0?'var(--green)':'var(--red)', true);
   var sTendencia = wbmMetricSection('Tendencia', WBM_COLORS.pa, boxes);

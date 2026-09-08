@@ -274,6 +274,62 @@ def calcular_rsi(close, periodo=14):
     rs = avg_gan / avg_per
     return round((100 - (100 / (1 + rs))).iloc[-1], 2)
 
+def calcular_rsi_serie(close, periodo=14):
+    # Misma cuenta que calcular_rsi() pero devuelve la SERIE completa en
+    # vez de solo el último valor -- 2026-09-07 (pedido del usuario, RSI
+    # semanal + su SMA14): hace falta la serie para poder promediarla.
+    delta = close.diff()
+    ganancia = delta.clip(lower=0)
+    perdida = (-delta.clip(upper=0))
+    alpha = 1 / periodo
+    avg_gan = ganancia.ewm(alpha=alpha, min_periods=periodo, adjust=False).mean()
+    avg_per = perdida.ewm(alpha=alpha, min_periods=periodo, adjust=False).mean()
+    rs = avg_gan / avg_per
+    return 100 - (100 / (1 + rs))
+
+RSI_SMA_CRUCE_VENTANA = 6  # cuenta como "cruce reciente" si pasó en las últimas N velas (semanas)
+
+def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA):
+    """
+    "Análisis Semanal" (2026-09-07, pedido del usuario) -- análogo al
+    Cruce/Rebote de EMA200 pero para el RSI semanal contra su propia
+    SMA14 (misma idea que una línea de señal, tipo MACD). Busca el cruce
+    MÁS RECIENTE dentro de las últimas `ventana` velas semanales, yendo
+    hacia atrás desde hoy -- el primero que encuentra es el más nuevo.
+    Devuelve None si no hubo ningún cruce en esa ventana.
+    """
+    try:
+        r = rsi_series.dropna()
+        s = sma_series.reindex(r.index).dropna()
+        comun = r.index.intersection(s.index)
+        if len(comun) < 2:
+            return None
+        r = r.loc[comun]
+        s = s.loc[comun]
+        diff = (r - s).values
+        n = len(diff)
+        for ago in range(min(ventana, n - 1)):
+            idx = n - 1 - ago
+            if idx <= 0:
+                break
+            if diff[idx] > 0 and diff[idx - 1] <= 0:
+                return {
+                    'tipo': 'alcista',
+                    'hace_velas': ago,
+                    'rsi_hoy': round(float(r.iloc[-1]), 2),
+                    'sma_hoy': round(float(s.iloc[-1]), 2),
+                }
+            if diff[idx] < 0 and diff[idx - 1] >= 0:
+                return {
+                    'tipo': 'bajista',
+                    'hace_velas': ago,
+                    'rsi_hoy': round(float(r.iloc[-1]), 2),
+                    'sma_hoy': round(float(s.iloc[-1]), 2),
+                }
+        return None
+    except Exception:
+        return None
+
 def calcular_volatilidad_relativa(close, high, low, ruedas_corto=5, ruedas_largo=252):
     """
     Promedio del rango diario H-L/Close de los últimos 5 días vs histórico 1 año.
@@ -358,16 +414,23 @@ def calcular_rs_score(close_ticker, close_spy, periodo_sma=50, lookback=252):
         round(float(mes["fr"]),    6),
     )
 
-def rs_score_series(close_ticker, close_spy, lookback=252):
+def rs_score_series(close_ticker, close_spy, lookback=252, lookback_min=None):
     """Serie completa de RS Score (percentrank de ticker/spy), dia por dia.
     Standalone (no comparte tupla con calcular_rs_score) para no tocar esa
     funcion ya probada en produccion. Usada para leer el RS Score en una
     rueda especifica del pasado (ej. el dia de contacto con la EMA200).
     Mismo lookback dinamico que calcular_rs_score() para tickers con poco
-    historial (ver RS_LOOKBACK_MIN)."""
+    historial (ver RS_LOOKBACK_MIN).
+    lookback_min: piso opcional (default RS_LOOKBACK_MIN, pensado para
+    ruedas diarias) -- 2026-09-07, pedido del usuario: para la version
+    semanal (Analisis Semanal), RS_LOOKBACK_MIN=60 (~3 meses en RUEDAS)
+    no tiene sentido con un lookback de 52 SEMANAS: bloquearia siempre.
+    Se le pasa un piso propio en semanas en ese caso."""
+    if lookback_min is None:
+        lookback_min = RS_LOOKBACK_MIN
     df = pd.DataFrame({"ticker": close_ticker, "spy": close_spy}).dropna()
     lb = min(lookback, len(df) - 1)
-    if lb < RS_LOOKBACK_MIN:
+    if lb < lookback_min:
         return None
     fr = df["ticker"] / df["spy"]
     arr = fr.values
@@ -3786,7 +3849,7 @@ ROTACION_HISTORIA_SEMANAS = 20  # ~unas semanas de margen sobre las 16 que pide 
 # el primer día, no arranca vacío.
 AMPLITUD_HISTORIA_DIAS = 45
 
-def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str):
+def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str, hist_spy_semanal=None):
     try:
         tk   = yf.Ticker(ticker_symbol)
         hist = tk.history(period="2y")
@@ -3804,6 +3867,62 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         ema200        = round(ema200_series.iloc[-1], 2)
         ema200_ref    = ema200_series.iloc[-10] if len(ema200_series) >= 10 else ema200_series.iloc[0]
         ema200_slope  = round(ema200 - float(ema200_ref), 4)
+
+        # EMA200 semanal (2026-09-07, pedido del usuario) -- una EMA de 200
+        # períodos necesita bastante historia atrás para converger (con
+        # menos de ~400-500 períodos todavía arrastra el sesgo del
+        # arranque); 200 semanas son ~4 años, mucho más que los 2 años de
+        # historial diario ya descargado (resamplearían a ~100 semanas
+        # nomás). Se pide un historial semanal NATIVO aparte (1 llamada
+        # extra a Yahoo por ticker) en vez de resamplear el diario -- ver
+        # conversación sobre cupo de llamadas, compensada por la limpieza
+        # de la redundancia del ETF de sector más abajo en el loop
+        # principal. None si el ticker no tiene suficiente historia
+        # (IPO reciente). Se guarda la SERIE completa (no solo el último
+        # valor) porque "Análisis Semanal" (Cruce/Rebote EMA200 semanal)
+        # necesita detectar contactos pasados, igual que la versión diaria.
+        ema200_semanal = None
+        ema200_semanal_slope = None
+        dist_ema200_semanal = None
+        dist_atrs_semanal = None
+        reversal_semanal = None
+        try:
+            hist_semanal = tk.history(period="10y", interval="1wk")
+            if not hist_semanal.empty and len(hist_semanal) >= 200:
+                close_semanal_nativo = hist_semanal["Close"]
+                ema200_semanal_series = close_semanal_nativo.ewm(span=200, adjust=False).mean()
+                ema200_semanal = round(ema200_semanal_series.iloc[-1], 2)
+                ema200_semanal_ref = ema200_semanal_series.iloc[-10]
+                ema200_semanal_slope = round(ema200_semanal - float(ema200_semanal_ref), 4)
+                dist_ema200_semanal = round((close_semanal_nativo.iloc[-1] - ema200_semanal) / ema200_semanal * 100, 2)
+
+                # RS Score semanal en serie completa (mismo criterio que
+                # rs_score_series diario, pero con lookback de 52 semanas
+                # ≈ 1 año en vez de 252 ruedas, y un mínimo de 13 semanas
+                # ≈ 3 meses en vez de 60 ruedas -- ver rs_score_series().
+                # OJO: usa hist_spy_semanal NATIVO (mismo interval='1wk'
+                # que el ticker), no un resample del diario -- yfinance
+                # ancla las velas semanales nativas al lunes, mientras que
+                # resamplear a "W-FRI" ancla al viernes; son índices de
+                # fechas distintos que no calzan al cruzarlos (probado).
+                spy_semanal = hist_spy_semanal["Close"] if hist_spy_semanal is not None and not hist_spy_semanal.empty else None
+                rs_semanal_series = rs_score_series(close_semanal_nativo, spy_semanal, lookback=52, lookback_min=13) if spy_semanal is not None else None
+
+                reversal_semanal = ema200_reversal_features(hist_semanal, ema200_semanal_series, rs_semanal_series)
+
+                # Distancia en ATRs semanales (mismo criterio que "EMA200
+                # Dist ATRs" diario, que sale de visita_ema200() -- acá se
+                # calcula directo porque solo hace falta este número, no
+                # el resto de esa función (que es para otro campo,
+                # "EMA200 Visita", sin versión semanal por ahora).
+                atr14_semanal_series = _atr14_series(hist_semanal)
+                if atr14_semanal_series is not None and not pd.isna(atr14_semanal_series.iloc[-1]) and atr14_semanal_series.iloc[-1] > 0:
+                    dist_atrs_semanal = round(float((close_semanal_nativo.iloc[-1] - ema200_semanal) / atr14_semanal_series.iloc[-1]), 2)
+                else:
+                    dist_atrs_semanal = None
+        except Exception:
+            pass
+
         sma50_series  = close.rolling(window=50).mean()
         sma50         = round(sma50_series.iloc[-1], 2)
         sma50_ref     = sma50_series.iloc[-10] if len(sma50_series.dropna()) >= 10 else sma50_series.dropna().iloc[0]
@@ -3848,6 +3967,22 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
         rsi     = calcular_rsi(close)
         vol_rel = calcular_volatilidad_relativa(close, high, low)
         vol_inu = calcular_volumen_inusual(volume, 20)
+
+        # RSI semanal + su SMA14 (2026-09-07, pedido del usuario) --
+        # resamplea el mismo historial diario ya descargado a velas
+        # semanales (cierre de cada semana), sin llamada nueva a Yahoo.
+        # Necesita ~14 velas semanales para el RSI + 14 más para su SMA;
+        # con 2 años (~100 semanas) sobra de margen.
+        close_semanal     = close.resample('W-FRI').last().dropna()
+        rsi_semanal_serie = calcular_rsi_serie(close_semanal, 14)
+        rsi_semanal_validos = rsi_semanal_serie.dropna()
+        rsi_semanal       = round(rsi_semanal_validos.iloc[-1], 2) if len(rsi_semanal_validos) >= 1 else None
+        rsi_semanal_sma14_serie = rsi_semanal_serie.rolling(14).mean().dropna()
+        rsi_semanal_sma14 = round(rsi_semanal_sma14_serie.iloc[-1], 2) if len(rsi_semanal_sma14_serie) >= 1 else None
+
+        # Cruce del RSI semanal con su propia SMA14 (2026-09-07, pedido del
+        # usuario, "Análisis Semanal") -- ver rsi_sma_cruce_features().
+        rsi_cruce = rsi_sma_cruce_features(rsi_semanal_serie, rsi_semanal_serie.rolling(14).mean())
 
         # Sesiones 10 ruedas
         dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
@@ -4015,6 +4150,17 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "EMA200":          ema200,
             "EMA200 Slope":    ema200_slope,
             "Dist EMA200 %":   dist_ema200,
+            "EMA200 Semanal":  ema200_semanal,
+            "EMA200 Semanal Slope": ema200_semanal_slope,
+            "Dist EMA200 Semanal %": dist_ema200_semanal,
+            "EMA200 Semanal Contacto Semanas": reversal_semanal['contacto_ruedas']     if reversal_semanal else None,
+            "EMA200 Semanal Racha Previa":     reversal_semanal['racha_previa']        if reversal_semanal else None,
+            "EMA200 Semanal Dist Hace20 %":    reversal_semanal['dist_hace20']         if reversal_semanal else None,
+            "EMA200 Semanal Dist ATRs":        dist_atrs_semanal,
+            "Climax Semanal Vol Ratio":        reversal_semanal['climax_vol_ratio']    if reversal_semanal else None,
+            "Climax Semanal Pos Cierre":       reversal_semanal['climax_pos_cierre']   if reversal_semanal else None,
+            "RS Semanal En Contacto":          reversal_semanal['rs_en_contacto']      if reversal_semanal else None,
+            "Precio Semanal Sobre Climax":     reversal_semanal['precio_sobre_climax'] if reversal_semanal else False,
             "SMA50":           sma50,
             "SMA50 Slope":     sma50_slope,
             "SMA50 Slope Pct 20r": sma50_slope_pct20,
@@ -4026,6 +4172,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "Mín 52W":         min_52w,
             "Dist Mín52W %":   dist_min52,
             "RSI 14":          rsi,
+            "RSI Semanal":         rsi_semanal,
+            "RSI Semanal SMA14":   rsi_semanal_sma14,
+            "RSI Semanal Cruce Tipo":         rsi_cruce['tipo']        if rsi_cruce else None,
+            "RSI Semanal Cruce Hace Semanas": rsi_cruce['hace_velas']  if rsi_cruce else None,
             "Vol Relativa":    vol_rel,
             "Vol Inusual %":   vol_inu,
             "RS Score":        score_actual,
@@ -4132,6 +4282,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str)
             "RSI Sobrecompra Sin Confirmar": rsi_sin_confirmar,
             "_rs_score_semanal":       rs_semanal,
             "_ema200_diaria":          ema200_diaria,
+            # Últimos ~3 meses del propio cierre (2026-09-07, pedido del
+            # usuario, limpieza de redundancia): antes el loop principal
+            # volvía a pedirle a Yahoo el precio de ESTE MISMO ticker para
+            # compararlo contra su sector, cuando ya está acá arriba --
+            # se pasa recortado en vez de descargarlo de nuevo. Se saca
+            # del dict antes de que "datos" termine en datos.json.
+            "_close_3m": close[close.index >= (close.index[-1] - pd.Timedelta(days=90))],
         }
     except Exception as e:
         print(f"  ⚠️ Error con {ticker_symbol}: {e}")
@@ -4306,6 +4463,14 @@ def calcular_regimen(hist_spy, hist_qqq):
 print("⏳ Descargando SPY como referencia...")
 hist_spy = yf.Ticker("SPY").history(period="2y")
 
+# SPY semanal NATIVO (2026-09-07, pedido del usuario, RS Score semanal
+# para "Análisis Semanal") -- OJO: yfinance ancla las velas semanales
+# nativas al LUNES de cada semana; resamplear el historial diario a
+# "W-FRI" (viernes) da un índice de fechas DISTINTO que no calza con el
+# de SPY y deja el join vacío (probado, rs_score_series devolvía None
+# siempre). Por eso se pide nativo acá una sola vez, igual que el diario.
+hist_spy_semanal = yf.Ticker("SPY").history(period="10y", interval="1wk")
+
 print("⏳ Descargando QQQ para régimen de mercado...")
 hist_qqq = yf.Ticker("QQQ").history(period="2y")
 
@@ -4384,6 +4549,19 @@ except Exception as e:
 
 hoy_str = datetime.now().strftime('%Y-%m-%d')
 
+# Cache de ETFs de sector (2026-09-07, pedido del usuario, limpieza de
+# redundancia): ETF_SECTOR mapea 329 tickers a solo 20 ETFs distintos,
+# pero antes se pedía el historial de cada ETF una vez POR TICKER (ej.
+# XLK se pedía 56 veces, una por cada ticker de tecnología). Se pide 1
+# sola vez por ETF único acá y se reusa abajo para los 329.
+print("⏳ Cacheando historial de ETFs de sector...")
+sector_close_cache = {}
+for etf in set(ETF_SECTOR.values()):
+    try:
+        sector_close_cache[etf] = yf.Ticker(etf).history(period="3mo")["Close"]
+    except Exception:
+        sector_close_cache[etf] = None
+
 # ── LOOP PRINCIPAL ────────────────────────────────────────────
 print("⏳ Calculando KPIs + Market Cap + Sector + Volumen...")
 todos_los_datos = []
@@ -4399,7 +4577,7 @@ for grupo, tickers in TICKERS.items():
         tickers_procesados.add(ticker)
         print(f"  → {ticker}")
 
-        datos = calcular_kpis(ticker, hist_spy, breakouts_log, rebote_state, hoy_str)
+        datos = calcular_kpis(ticker, hist_spy, breakouts_log, rebote_state, hoy_str, hist_spy_semanal)
         if not datos:
             continue
 
@@ -4430,11 +4608,19 @@ for grupo, tickers in TICKERS.items():
         info = obtener_info_ticker(ticker)
         datos.update(info)
 
+        # 2026-09-07 (pedido del usuario, limpieza de redundancia): antes
+        # acá se volvía a pedir el precio del propio ticker Y el del ETF
+        # de sector, cuando el primero ya se había descargado arriba (en
+        # calcular_kpis, viaja en "_close_3m") y el segundo ya está
+        # cacheado una vez por ETF único (sector_close_cache, más arriba
+        # del loop). Se saca "_close_3m" del dict siempre (no es un valor
+        # de tabla) haya o no sector_etf.
+        close_3m_self = datos.pop("_close_3m", None)
         sector_etf = ETF_SECTOR.get(ticker, None)
         if sector_etf:
             try:
-                t  = yf.Ticker(ticker).history(period="3mo")["Close"]
-                s  = yf.Ticker(sector_etf).history(period="3mo")["Close"]
+                t  = close_3m_self
+                s  = sector_close_cache.get(sector_etf)
                 vs = round(((t.iloc[-1]/t.iloc[0]) / (s.iloc[-1]/s.iloc[0]) - 1) * 100, 2)
                 datos["Vs Sector %"] = vs
                 datos["ETF Sector"]  = sector_etf
