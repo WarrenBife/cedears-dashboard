@@ -874,6 +874,23 @@ def ema200_reversal_features(hist, ema200_series, rs_series, ventana=EMA200R_VEN
         if idx20 >= 0 and not np.isnan(ema200[idx20]) and ema200[idx20] != 0:
             dist_hace20 = round(float((close[idx20] - ema200[idx20]) / ema200[idx20] * 100), 2)
 
+        # dist_max_previo: el MÁXIMO (no una foto puntual) de distancia
+        # sobre la EMA200 en las 20 ruedas previas al contacto (2026-09-09,
+        # pedido del usuario -- caso ETSY semanal: cruzó hace 12 semanas,
+        # dist_hace20 mira 20 semanas atrás desde HOY -- antes de ese cruce
+        # -- y concluye "viene de abajo" aunque el precio ya esté
+        # establecido arriba desde hace rato y esto sea un retest/rebote,
+        # no un cruce fresco. Usado solo por el llamado semanal, no toca
+        # el diario -- ver "EMA200 Semanal Dist Max Previo %").
+        lo_prev = max(0, contacto_idx - 20)
+        dist_max_previo = None
+        if lo_prev < contacto_idx:
+            seg_close = close[lo_prev:contacto_idx]
+            seg_ema   = ema200[lo_prev:contacto_idx]
+            validos = ~np.isnan(seg_ema) & (seg_ema != 0)
+            if validos.any():
+                dist_max_previo = round(float(np.max((seg_close[validos] - seg_ema[validos]) / seg_ema[validos] * 100)), 2)
+
         lo = max(0, contacto_idx - EMA200R_CLIMAX_MARGEN)
         hi = min(n - 1, contacto_idx + EMA200R_CLIMAX_MARGEN)
         climax_idx = max(range(lo, hi + 1), key=lambda i: volume[i])
@@ -900,6 +917,7 @@ def ema200_reversal_features(hist, ema200_series, rs_series, ventana=EMA200R_VEN
             'contacto_ruedas':     contacto_ruedas,
             'racha_previa':        racha_previa,
             'dist_hace20':         dist_hace20,
+            'dist_max_previo':     dist_max_previo,
             'climax_vol_ratio':    climax_vol_ratio,
             'climax_pos_cierre':   climax_pos_cierre,
             'rs_en_contacto':      rs_en_contacto,
@@ -4254,6 +4272,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
             "EMA200 Semanal Contacto Semanas": reversal_semanal['contacto_ruedas']     if reversal_semanal else None,
             "EMA200 Semanal Racha Previa":     reversal_semanal['racha_previa']        if reversal_semanal else None,
             "EMA200 Semanal Dist Hace20 %":    reversal_semanal['dist_hace20']         if reversal_semanal else None,
+            "EMA200 Semanal Dist Max Previo %": reversal_semanal['dist_max_previo']    if reversal_semanal else None,
             "EMA200 Semanal Dist ATRs":        dist_atrs_semanal,
             "Climax Semanal Vol Ratio":        reversal_semanal['climax_vol_ratio']    if reversal_semanal else None,
             "Climax Semanal Pos Cierre":       reversal_semanal['climax_pos_cierre']   if reversal_semanal else None,

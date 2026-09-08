@@ -4894,8 +4894,18 @@ if ('serviceWorker' in navigator) {
     var deltaRs = rsHoy - rsContacto;
     if(rsContacto<25 && deltaRs<=0) return null;
 
+    // dist_max_previo (2026-09-09, pedido del usuario -- caso ETSY):
+    // máximo de distancia sobre la EMA200 en las 20 semanas previas al
+    // contacto, en vez de una foto puntual de hace exactamente 20
+    // semanas. Con la foto puntual, un cruce real de hace 12 semanas
+    // seguido de un retest esta semana se leía como "viene de abajo"
+    // (hace 20 semanas todavía estaba abajo, antes del cruce) en vez de
+    // reconocer que ya estuvo establecido arriba desde entonces. Fallback
+    // a distHace20 por si el pipeline todavía no corrió con el campo nuevo.
     var distHace20 = num(d['EMA200 Semanal Dist Hace20 %']);
-    var vinoArriba = distHace20>=8 ? 12 : _lin(distHace20,3,8,0,12);
+    var distMaxPrevio = num(d['EMA200 Semanal Dist Max Previo %']);
+    var distReferencia = distMaxPrevio!=null ? distMaxPrevio : distHace20;
+    var vinoArriba = distReferencia>=8 ? 12 : _lin(distReferencia,3,8,0,12);
     var contacto = _tri(num(d['EMA200 Semanal Dist ATRs']), -2, -0.5, 0.5, 2) * 13;
     var rara = _lin(num(d['EMA200 Semanal Racha Previa']), 40, 120, 0, 10);
     var p1 = vinoArriba + contacto + rara;
@@ -4911,7 +4921,7 @@ if ('serviceWorker' in navigator) {
     var p3 = repunte + acelera + confirmo;
 
     var distHoy = num(d['Dist EMA200 Semanal %']);
-    var tipo = (distHace20!=null && distHace20>3) ? 'rebote'
+    var tipo = (distReferencia!=null && distReferencia>3) ? 'rebote'
              : (distHoy!=null && distHoy>0) ? 'cruce' : null;
     if(tipo==null) return null;
 
