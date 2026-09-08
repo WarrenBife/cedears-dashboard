@@ -4867,7 +4867,10 @@ if ('serviceWorker' in navigator) {
     var slope = num(d['EMA200 Semanal Slope']);
     if(slope==null || slope<0) return null;
     var contactoSemanas = num(d['EMA200 Semanal Contacto Semanas']);
-    if(contactoSemanas==null || contactoSemanas>10) return null;
+    // hasta 3 semanas atrás (2026-09-09, pedido del usuario) -- el
+    // pipeline ya busca con ese mismo límite (ventana=4 en
+    // ema200_reversal_features), esto es un resguardo extra acá.
+    if(contactoSemanas==null || contactoSemanas>3) return null;
     var rsHoy=num(d['RS Score']), rsAyer=num(d['RS Semana ant.']), rsContacto=num(d['RS Semanal En Contacto']);
     if(rsHoy==null || rsContacto==null) return null;
     var deltaRs = rsHoy - rsContacto;
@@ -4984,8 +4987,8 @@ if ('serviceWorker' in navigator) {
 
     if(!rows.length){
       var vacio = wbRsiSemTab==='alcista'
-        ? 'Ningún cruce alcista del RSI semanal sobre su SMA14 en las últimas 6 semanas.'
-        : 'Ningún cruce bajista del RSI semanal bajo su SMA14 en las últimas 6 semanas.';
+        ? 'Ningún cruce alcista del RSI semanal sobre su SMA14 en las últimas 3 semanas.'
+        : 'Ningún cruce bajista del RSI semanal bajo su SMA14 en las últimas 3 semanas.';
       body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
       return;
     }

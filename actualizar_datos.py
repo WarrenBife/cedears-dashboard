@@ -770,11 +770,11 @@ EMA200R_CONTACTO_PCT  = 1.0   # "en contacto" = distancia a la EMA200 <= 1% del 
 EMA200R_VENTANA       = 10    # el contacto cuenta si ocurrió en las últimas 10 ruedas
 EMA200R_CLIMAX_MARGEN = 3     # la vela de clímax se busca en contacto ± 3 ruedas
 
-def ema200_reversal_features(hist, ema200_series, rs_series):
+def ema200_reversal_features(hist, ema200_series, rs_series, ventana=EMA200R_VENTANA):
     """
     Features para el EMA200 Reversal Score (calculado en el frontend):
     - contacto_ruedas: ruedas atrás (0=hoy) del contacto más reciente con la
-      EMA200 (distancia <= 1% del precio) dentro de las últimas 10 ruedas.
+      EMA200 (distancia <= 1% del precio) dentro de las últimas `ventana` ruedas.
     - racha_previa: ruedas que estuvo lejos de la EMA200 (> 1%) antes de que
       empezara este acercamiento (cuanto más rara la visita, más vale).
     - dist_hace20: Dist EMA200 % de hace 20 ruedas (para ver si "venía de arriba").
@@ -783,6 +783,10 @@ def ema200_reversal_features(hist, ema200_series, rs_series):
     - rs_en_contacto: RS Score en la rueda del contacto.
     - precio_sobre_climax: si el precio actual ya superó el máximo de la vela de clímax.
     Devuelve None si no hay suficiente historia o no hubo contacto en ventana.
+    ventana: parametrizable (default EMA200R_VENTANA, para no tocar el
+    comportamiento diario) -- 2026-09-09, pedido del usuario: "Análisis
+    Semanal" la llama con ventana=4 (hasta 3 semanas atrás) para no
+    inundar el panel de eventos viejos.
     """
     try:
         close  = hist['Close'].values
@@ -799,7 +803,7 @@ def ema200_reversal_features(hist, ema200_series, rs_series):
         cerca[valid] = np.abs(close[valid] - ema200[valid]) / np.abs(ema200[valid]) * 100 <= EMA200R_CONTACTO_PCT
 
         contacto_ruedas = None
-        for ago in range(EMA200R_VENTANA):
+        for ago in range(ventana):
             idx = n - 1 - ago
             if idx >= 0 and cerca[idx]:
                 contacto_ruedas = ago
@@ -3908,7 +3912,11 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
                 spy_semanal = hist_spy_semanal["Close"] if hist_spy_semanal is not None and not hist_spy_semanal.empty else None
                 rs_semanal_series = rs_score_series(close_semanal_nativo, spy_semanal, lookback=52, lookback_min=13) if spy_semanal is not None else None
 
-                reversal_semanal = ema200_reversal_features(hist_semanal, ema200_semanal_series, rs_semanal_series)
+                # ventana=4 (2026-09-09, pedido del usuario): hasta 3
+                # semanas atrás -- con el default (10, pensado para
+                # ruedas diarias) el panel semanal se llenaba de eventos
+                # demasiado viejos.
+                reversal_semanal = ema200_reversal_features(hist_semanal, ema200_semanal_series, rs_semanal_series, ventana=4)
 
                 # Distancia en ATRs semanales (mismo criterio que "EMA200
                 # Dist ATRs" diario, que sale de visita_ema200() -- acá se
@@ -3982,7 +3990,9 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
 
         # Cruce del RSI semanal con su propia SMA14 (2026-09-07, pedido del
         # usuario, "Análisis Semanal") -- ver rsi_sma_cruce_features().
-        rsi_cruce = rsi_sma_cruce_features(rsi_semanal_serie, rsi_semanal_serie.rolling(14).mean())
+        # ventana=4 (2026-09-09, pedido del usuario): hasta 3 semanas
+        # atrás, mismo criterio que el cruce/rebote EMA200 semanal.
+        rsi_cruce = rsi_sma_cruce_features(rsi_semanal_serie, rsi_semanal_serie.rolling(14).mean(), ventana=4)
 
         # Sesiones 10 ruedas
         dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
