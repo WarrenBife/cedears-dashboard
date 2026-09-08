@@ -4880,8 +4880,10 @@ if ('serviceWorker' in navigator) {
      EMA200 semanal representa ~4 años, un nivel que casi no se toca
      salvo en correcciones grandes. Es lo esperable, no un bug. */
   function calcEMA200ReversalSemanal(d){
-    var slope = num(d['EMA200 Semanal Slope']);
-    if(slope==null || slope<0) return null;
+    // (2026-09-08, pedido del usuario) -- se sacó el gate de pendiente
+    // EMA200 semanal >= 0. Descartaba casos como OKLO (media semanal
+    // todavía con pendiente casi nula, -0,01, pero precio ya reclamado
+    // por arriba con RS acelerando) antes de mirar cualquier otra cosa.
     var contactoSemanas = num(d['EMA200 Semanal Contacto Semanas']);
     // hasta 3 semanas atrás (2026-09-09, pedido del usuario) -- el
     // pipeline ya busca con ese mismo límite (ventana=4 en
