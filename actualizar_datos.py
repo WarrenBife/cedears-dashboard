@@ -290,30 +290,32 @@ def calcular_rsi_serie(close, periodo=14):
 RSI_SMA_CRUCE_VENTANA = 6  # cuenta como "cruce reciente" si pasó en las últimas N velas (semanas)
 RSI_SMA_CRUCE_RUIDO_SEMANAS = 4  # ~1 mes -- si hubo OTRO cruce (cualquier signo) hasta esta cantidad de semanas ANTES del encontrado, se descarta por ruido/zigzagueo
 
-def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA, ruido_semanas=RSI_SMA_CRUCE_RUIDO_SEMANAS):
+def cruce_linea_senal_features(linea, senal, ventana=RSI_SMA_CRUCE_VENTANA, ruido=RSI_SMA_CRUCE_RUIDO_SEMANAS):
     """
-    "Análisis Semanal" (2026-09-07, pedido del usuario) -- análogo al
-    Cruce/Rebote de EMA200 pero para el RSI semanal contra su propia
-    SMA14 (misma idea que una línea de señal, tipo MACD). Busca el cruce
-    MÁS RECIENTE dentro de las últimas `ventana` velas semanales, yendo
-    hacia atrás desde hoy -- el primero que encuentra es el más nuevo.
-    Devuelve None si no hubo ningún cruce en esa ventana.
+    Genérica: cruce MÁS RECIENTE entre una línea y su propia señal/promedio
+    (RSI vs. su SMA14, o MACD vs. su línea de señal -- mismo mecanismo),
+    dentro de las últimas `ventana` velas, yendo hacia atrás desde hoy --
+    el primero que encuentra es el más nuevo. Devuelve None si no hubo
+    ningún cruce en esa ventana. `ventana`/`ruido` están en la unidad de
+    la serie que se le pase (ruedas para diario, semanas para semanal).
+    Originalmente escrita solo para "RSI semanal vs. su SMA14" (2026-09-07,
+    "Análisis Semanal"), generalizada 2026-09-09 (pedido del usuario) para
+    reusarla también en MACD diario y semanal (línea vs. señal).
 
-    2026-09-09 (pedido del usuario), dos agregados:
-    - 'rsi_en_cruce': valor del RSI en la vela del cruce (no el de hoy) --
-      para resaltar en el frontend los cruces al alza con el RSI todavía
-      débil (<40) o los cruces a la baja con el RSI todavía fuerte (>60).
-    - Filtro de ruido: si hubo OTRO cruce (cualquier signo, alcista o
-      bajista) hasta `ruido_semanas` semanas ANTES del cruce encontrado,
-      se descarta -- un RSI zigzagueando contra su SMA14 no es una señal
-      limpia. (El caso "cruzó hace 3 semanas pero la semana pasada volvió
-      a cruzar al revés" YA se resuelve solo con la búsqueda de más
-      reciente-a-más-viejo de más arriba: encuentra el cruce de la semana
-      pasada primero y listo -- no hace falta código extra para eso.)
+    Dos agregados 2026-09-09 (pedido del usuario, primero para RSI):
+    - 'nivel_en_cruce': valor de `linea` en la vela del cruce (no el de
+      hoy) -- para resaltar en el frontend los cruces con contexto (ej.
+      RSI todavía débil/fuerte al cruzar).
+    - Filtro de ruido: si hubo OTRO cruce (cualquier signo) hasta `ruido`
+      velas ANTES del cruce encontrado, se descarta -- zigzagueando
+      contra su señal no es limpio. (El caso "cruzó hace 3 semanas pero
+      la semana pasada volvió a cruzar al revés" YA se resuelve solo con
+      la búsqueda de más reciente-a-más-viejo de más arriba: encuentra el
+      cruce más nuevo primero y listo -- no hace falta código extra.)
     """
     try:
-        r = rsi_series.dropna()
-        s = sma_series.reindex(r.index).dropna()
+        r = linea.dropna()
+        s = senal.reindex(r.index).dropna()
         comun = r.index.intersection(s.index)
         if len(comun) < 2:
             return None
@@ -339,9 +341,9 @@ def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA
             return None
 
         # Filtro de ruido: ¿hubo otro cruce (cualquier signo) en las
-        # `ruido_semanas` semanas ANTES de este?
+        # `ruido` velas ANTES de este?
         idx_cruce = n - 1 - cruce_ago
-        for ago2 in range(cruce_ago + 1, min(cruce_ago + 1 + ruido_semanas, n - 1)):
+        for ago2 in range(cruce_ago + 1, min(cruce_ago + 1 + ruido, n - 1)):
             idx2 = n - 1 - ago2
             if idx2 <= 0:
                 break
@@ -351,12 +353,27 @@ def rsi_sma_cruce_features(rsi_series, sma_series, ventana=RSI_SMA_CRUCE_VENTANA
         return {
             'tipo': cruce_tipo,
             'hace_velas': cruce_ago,
-            'rsi_hoy': round(float(r.iloc[-1]), 2),
-            'sma_hoy': round(float(s.iloc[-1]), 2),
-            'rsi_en_cruce': round(float(r.iloc[idx_cruce]), 2),
+            'linea_hoy': round(float(r.iloc[-1]), 4),
+            'senal_hoy': round(float(s.iloc[-1]), 4),
+            'nivel_en_cruce': round(float(r.iloc[idx_cruce]), 4),
         }
     except Exception:
         return None
+
+def calcular_macd_series(close, rapida=12, lenta=26, señal=9):
+    """
+    Serie completa de MACD (línea = EMA rápida - EMA lenta, señal = EMA de
+    la línea, histograma = línea - señal) -- 2026-09-09, pedido del
+    usuario. Estándar 12/26/9, sirve igual para diario o semanal: el
+    "período" lo da la vela que se le pase, no hace falta una versión
+    separada por timeframe.
+    """
+    ema_rapida = close.ewm(span=rapida, adjust=False).mean()
+    ema_lenta  = close.ewm(span=lenta, adjust=False).mean()
+    linea = ema_rapida - ema_lenta
+    linea_senal = linea.ewm(span=señal, adjust=False).mean()
+    histograma = linea - linea_senal
+    return linea, linea_senal, histograma
 
 def calcular_volatilidad_relativa(close, high, low, ruedas_corto=5, ruedas_largo=252):
     """
@@ -3918,6 +3935,10 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         dist_ema200_semanal = None
         dist_atrs_semanal = None
         reversal_semanal = None
+        macd_semanal = None
+        macd_senal_semanal = None
+        macd_hist_semanal = None
+        macd_cruce_semanal = None
         try:
             hist_semanal = tk.history(period="10y", interval="1wk")
             if not hist_semanal.empty and len(hist_semanal) >= 200:
@@ -3956,6 +3977,17 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
                     dist_atrs_semanal = round(float((close_semanal_nativo.iloc[-1] - ema200_semanal) / atr14_semanal_series.iloc[-1]), 2)
                 else:
                     dist_atrs_semanal = None
+
+                # MACD semanal (2026-09-09, pedido del usuario) -- mismo
+                # estándar 12/26/9, sobre el historial semanal nativo ya
+                # descargado acá arriba (sin costo nuevo). ventana=4
+                # (hasta 3 semanas atrás) y ruido=4 (~1 mes), mismo
+                # criterio que el resto de "Análisis Semanal".
+                macd_linea_s, macd_senal_serie_s, macd_hist_serie_s = calcular_macd_series(close_semanal_nativo)
+                macd_semanal = round(float(macd_linea_s.iloc[-1]), 4)
+                macd_senal_semanal = round(float(macd_senal_serie_s.iloc[-1]), 4)
+                macd_hist_semanal = round(float(macd_hist_serie_s.iloc[-1]), 4)
+                macd_cruce_semanal = cruce_linea_senal_features(macd_linea_s, macd_senal_serie_s, ventana=4, ruido=4)
         except Exception:
             pass
 
@@ -4017,10 +4049,20 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         rsi_semanal_sma14 = round(rsi_semanal_sma14_serie.iloc[-1], 2) if len(rsi_semanal_sma14_serie) >= 1 else None
 
         # Cruce del RSI semanal con su propia SMA14 (2026-09-07, pedido del
-        # usuario, "Análisis Semanal") -- ver rsi_sma_cruce_features().
+        # usuario, "Análisis Semanal") -- ver cruce_linea_senal_features().
         # ventana=4 (2026-09-09, pedido del usuario): hasta 3 semanas
         # atrás, mismo criterio que el cruce/rebote EMA200 semanal.
-        rsi_cruce = rsi_sma_cruce_features(rsi_semanal_serie, rsi_semanal_serie.rolling(14).mean(), ventana=4)
+        rsi_cruce = cruce_linea_senal_features(rsi_semanal_serie, rsi_semanal_serie.rolling(14).mean(), ventana=4)
+
+        # MACD diario (2026-09-09, pedido del usuario) -- estándar 12/26/9
+        # sobre el mismo cierre diario ya descargado, sin costo nuevo.
+        # ventana=15 ruedas (~3 semanas) y ruido=21 ruedas (~1 mes), mismo
+        # criterio que el RSI semanal pero trasladado a ruedas diarias.
+        macd_linea_d, macd_senal_serie_d, macd_hist_serie_d = calcular_macd_series(close)
+        macd = round(float(macd_linea_d.iloc[-1]), 4)
+        macd_senal = round(float(macd_senal_serie_d.iloc[-1]), 4)
+        macd_hist = round(float(macd_hist_serie_d.iloc[-1]), 4)
+        macd_cruce = cruce_linea_senal_features(macd_linea_d, macd_senal_serie_d, ventana=15, ruido=21)
 
         # Sesiones 10 ruedas
         dias_pos_10, dias_neg_10, vol_pos_10, vol_neg_10 = calcular_sesiones_10(close, volume)
@@ -4199,6 +4241,11 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
             "Climax Semanal Pos Cierre":       reversal_semanal['climax_pos_cierre']   if reversal_semanal else None,
             "RS Semanal En Contacto":          reversal_semanal['rs_en_contacto']      if reversal_semanal else None,
             "Precio Semanal Sobre Climax":     reversal_semanal['precio_sobre_climax'] if reversal_semanal else False,
+            "MACD Semanal":            macd_semanal,
+            "MACD Semanal Señal":      macd_senal_semanal,
+            "MACD Semanal Hist":       macd_hist_semanal,
+            "MACD Semanal Cruce Tipo":         macd_cruce_semanal['tipo']       if macd_cruce_semanal else None,
+            "MACD Semanal Cruce Hace Semanas": macd_cruce_semanal['hace_velas'] if macd_cruce_semanal else None,
             "SMA50":           sma50,
             "SMA50 Slope":     sma50_slope,
             "SMA50 Slope Pct 20r": sma50_slope_pct20,
@@ -4214,7 +4261,12 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
             "RSI Semanal SMA14":   rsi_semanal_sma14,
             "RSI Semanal Cruce Tipo":         rsi_cruce['tipo']        if rsi_cruce else None,
             "RSI Semanal Cruce Hace Semanas": rsi_cruce['hace_velas']  if rsi_cruce else None,
-            "RSI Semanal Cruce Nivel":        rsi_cruce['rsi_en_cruce'] if rsi_cruce else None,
+            "RSI Semanal Cruce Nivel":        rsi_cruce['nivel_en_cruce'] if rsi_cruce else None,
+            "MACD":            macd,
+            "MACD Señal":      macd_senal,
+            "MACD Hist":       macd_hist,
+            "MACD Cruce Tipo":         macd_cruce['tipo']       if macd_cruce else None,
+            "MACD Cruce Hace Ruedas":  macd_cruce['hace_velas'] if macd_cruce else None,
             "Vol Relativa":    vol_rel,
             "Vol Inusual %":   vol_inu,
             "RS Score":        score_actual,
