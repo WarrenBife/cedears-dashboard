@@ -4054,7 +4054,7 @@ if ('serviceWorker' in navigator) {
     spot, statsRow,
     P.cart,
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
-    rrgP,
+    rrgP, P.sema,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
     P.warren, ema200P, epP,
     /* snapP (Retorno Top 10 de la semana) oculto a pedido del usuario
@@ -4069,8 +4069,11 @@ if ('serviceWorker' in navigator) {
     mkGrid(ema200SemP, rsiSemP)
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
-  /* eliminar explícitamente los paneles que ya no van en el layout */
-  [P.sema, P.resurg, P.brk].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
+  /* eliminar explícitamente los paneles que ya no van en el layout
+     (Semáforo por sector se revive 2026-09-08, pedido del usuario en la
+     reorganización de pestañas -- ver arriba en `orden`, ahora al lado
+     del cuadrante de rotación) */
+  [P.resurg, P.brk].forEach(function(p){ if(p && p.parentNode) p.parentNode.removeChild(p); });
   [P.cart, P.warren, snapP].forEach(function(p){ if(p){ p.classList.add('wb-mb'); p.style.marginTop='0'; } });
   /* limpiar grid-2 que quedaron vacíos */
   main.querySelectorAll('.grid-2').forEach(function(g){ if(!g.children.length) g.remove(); });
@@ -10187,6 +10190,275 @@ window.wbFeedbackEnviar = async function(){
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V35 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V36 — Pestañas de escritorio ═══════════════
+     (2026-09-XX, pedido del usuario): agrupa los paneles YA EXISTENTES
+     (construidos por los scripts de arriba, sin tocar ninguno) en 5
+     pestañas -- Resumen / Warren Score / Señales / Rotación / Análisis --
+     en vez del scroll infinito de ~12 cuadros apilados. No cambia el
+     render ni la lógica de ningún cuadro: solo MUEVE (appendChild) los
+     mismos <div class="panel">/.grid-2 ya construidos a un contenedor
+     por pestaña. Corre al final del documento a propósito, para que
+     TODOS los scripts anteriores (incluido el que empareja EMA200+VCP
+     en un grid-2, WB UPGRADE V9, y el que arma Régimen+Cartelera en
+     .wb-rgm-cart-row) ya hayan terminado de construir y posicionar sus
+     paneles. Solo aplica en desktop (>900px) -- mobile queda con el
+     layout de siempre por ahora, es un paso aparte. -->
+<style id="wb-v36-css">
+  @media(min-width:901px){
+    #wb-tabs-ministrip{position:sticky;z-index:99;display:flex;align-items:center;gap:18px;
+      padding:9px 24px;background:rgba(13,17,24,0.88);backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border);font-size:11.5px;}
+    #wb-tabs-ministrip .mini-gauge{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+    #wb-tabs-ministrip .mini-gauge-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;
+      line-height:1;color:var(--text);}
+    #wb-tabs-ministrip .mini-gauge-lbl{color:var(--muted);font-size:9px;text-transform:uppercase;
+      letter-spacing:.06em;line-height:1.3;}
+    #wb-tabs-ministrip .mini-expo{display:flex;align-items:center;gap:5px;padding:4px 12px;
+      border-radius:8px;font-weight:600;font-size:11.5px;}
+    #wb-tabs-ministrip .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
+      letter-spacing:.06em;color:var(--muted);}
+
+    #wb-tabs-bar{position:sticky;z-index:98;display:flex;gap:4px;padding:0 24px;
+      background:var(--bg);border-bottom:1px solid var(--border);}
+    #wb-tabs-bar .wb-tab-btn{appearance:none;border:none;background:none;cursor:pointer;
+      font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;color:var(--muted);
+      padding:12px 15px 10px;border-bottom:2px solid transparent;
+      transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px;}
+    #wb-tabs-bar .wb-tab-btn:hover{color:var(--text);}
+    #wb-tabs-bar .wb-tab-btn.active{color:var(--green);border-bottom-color:var(--green);}
+
+    .wb-tab-content{display:none;padding-top:18px;}
+    .wb-tab-content.active{display:block;}
+
+    .wb-senal-pill{appearance:none;border:1px solid var(--border2);background:var(--bg3);
+      color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:500;
+      padding:6px 14px;border-radius:999px;cursor:pointer;transition:all .15s;}
+    .wb-senal-pill.active{background:var(--green-bg);border-color:rgba(34,201,138,0.4);color:var(--green);}
+  }
+  @media(max-width:900px){
+    #wb-tabs-ministrip, #wb-tabs-bar{display:none !important;}
+  }
+</style>
+<script id="wb-v36-js">
+(function(){
+'use strict';
+try{
+
+var main = document.querySelector('#view-dashboard .main');
+if(!main) return;
+// Solo desktop -- mobile se deja con el layout apilado de siempre por
+// ahora (reorganización mobile es un paso aparte, con su propio nav).
+if(window.innerWidth <= 900) return;
+
+function byInner(id){ var el=document.getElementById(id); return el ? el.closest('.panel') : null; }
+
+var pSpotlight    = document.getElementById('wb-spotlight');
+var statsRow      = main.querySelector('.stats-row');
+var pRgmCart      = document.querySelector('.wb-rgm-cart-row');
+var pVinu         = byInner('vinuChart');
+var pWarren       = byInner('warren-table');
+var pEma200       = document.getElementById('wb-ema200-panel');
+var gridEma200Vcp = pEma200 ? pEma200.closest('.grid-2') : null;
+var pEpisodic     = document.getElementById('wb-ep-panel');
+var pEma200Sem    = document.getElementById('wb-ema200-sem-panel');
+var gridSemanal   = pEma200Sem ? pEma200Sem.closest('.grid-2') : null;
+var pRRG          = document.getElementById('wb-rrg-panel');
+var pSema         = byInner('sema-grid');
+var pTrend        = byInner('trendRankTable');
+var gridAnalisis  = pTrend ? pTrend.closest('.grid-2') : null;
+
+// Si falta algún ancla clave (layout inesperado), no reorganizamos --
+// mejor el scroll de siempre que una página rota.
+if(!pSpotlight || !pWarren || !pRRG || !pRgmCart){ return; }
+
+// ── Franja mini de Régimen + barra de pestañas, ambas sticky ──
+var topbarEl = document.querySelector('.topbar');
+var topbarH = topbarEl ? topbarEl.offsetHeight : 55;
+
+var ministrip = document.createElement('div');
+ministrip.id = 'wb-tabs-ministrip';
+ministrip.style.top = topbarH + 'px';
+ministrip.innerHTML =
+  '<div class="mini-gauge"><span class="mini-gauge-num" id="wb-mini-gauge-num">—</span>'+
+    '<span class="mini-gauge-lbl">Régimen<br>de 100</span></div>'+
+  '<div class="mini-expo" id="wb-mini-expo"><span class="mini-expo-lbl">Exposición:&nbsp;</span>'+
+    '<span id="wb-mini-expo-txt">—</span></div>';
+
+var tabsBar = document.createElement('div');
+tabsBar.id = 'wb-tabs-bar';
+tabsBar.innerHTML =
+  '<button class="wb-tab-btn active" data-wbtab="resumen">📋 Resumen</button>'+
+  '<button class="wb-tab-btn" data-wbtab="warren">🎯 Warren Score</button>'+
+  '<button class="wb-tab-btn" data-wbtab="senales">⚡ Señales</button>'+
+  '<button class="wb-tab-btn" data-wbtab="rotacion">📡 Rotación</button>'+
+  '<button class="wb-tab-btn" data-wbtab="analisis">🔬 Análisis</button>';
+
+main.parentNode.insertBefore(ministrip, main);
+main.parentNode.insertBefore(tabsBar, main);
+
+function ajustarStickyTop(){
+  topbarH = topbarEl ? topbarEl.offsetHeight : 55;
+  ministrip.style.top = topbarH + 'px';
+  tabsBar.style.top = (topbarH + ministrip.offsetHeight) + 'px';
+}
+ajustarStickyTop();
+window.addEventListener('resize', ajustarStickyTop);
+
+// ── Un contenedor por pestaña ──
+var tabIds = ['resumen','warren','senales','rotacion','analisis'];
+var tabContents = {};
+tabIds.forEach(function(id){
+  var d = document.createElement('div');
+  d.className = 'wb-tab-content' + (id==='resumen' ? ' active' : '');
+  d.id = 'wb-tabcontent-' + id;
+  tabContents[id] = d;
+});
+
+// ── Mover los paneles YA EXISTENTES a su pestaña (mismo render de siempre) ──
+// Resumen: stats-row + Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
+if(statsRow) tabContents.resumen.appendChild(statsRow);
+tabContents.resumen.appendChild(pSpotlight);
+tabContents.resumen.appendChild(pRgmCart);
+if(pVinu) tabContents.resumen.appendChild(pVinu);
+
+// Warren Score: tabla completa, sola
+tabContents.warren.appendChild(pWarren);
+
+// Señales: sub-toggle Diario/Semanal interno (Diario = EMA200+VCP+EP,
+// ya emparejados por V9; Semanal = EMA200 Sem + RSI Sem, ya emparejados
+// por el bloque de Análisis Semanal)
+var senalesToggle = document.createElement('div');
+senalesToggle.className = 'subtoggle';
+senalesToggle.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;';
+senalesToggle.innerHTML =
+  '<button class="wb-senal-pill active" data-senalview="diario">Diario</button>'+
+  '<button class="wb-senal-pill" data-senalview="semanal">Semanal</button>';
+var senalDiario = document.createElement('div'); senalDiario.id = 'wb-senalview-diario';
+var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-senalview-semanal'; senalSemanal.style.display = 'none';
+if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
+if(pEpisodic) senalDiario.appendChild(pEpisodic);
+if(gridSemanal) senalSemanal.appendChild(gridSemanal);
+tabContents.senales.appendChild(senalesToggle);
+tabContents.senales.appendChild(senalDiario);
+tabContents.senales.appendChild(senalSemanal);
+senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    var which = btn.dataset.senalview;
+    senalDiario.style.display = which==='diario' ? '' : 'none';
+    senalSemanal.style.display = which==='semanal' ? '' : 'none';
+  });
+});
+
+// Rotación: Cuadrante (ya incluye Recién a Líderes + Aceleración
+// inusual como secciones internas, con su propio toggle Acciones/ETFs
+// -- se mueve entero, sin tocar nada de adentro) + Semáforo por sector
+// (revivido 2026-09-08, pedido del usuario -- estaba descartado del
+// layout desde wb-v2-js, ver P.sema)
+tabContents.rotacion.appendChild(pRRG);
+if(pSema) tabContents.rotacion.appendChild(pSema);
+
+// Análisis: Sesiones & Volumen + Tendencia RS Score (ya emparejados)
+if(gridAnalisis) tabContents.analisis.appendChild(gridAnalisis);
+
+tabIds.forEach(function(id){ main.appendChild(tabContents[id]); });
+
+// ── Limpiar lo que haya quedado suelto en main (zonas, grids vacíos) --
+// cualquier hijo directo de main que no sea un wb-tab-content ya no
+// tiene destino (zonas de sección, grids que quedaron vacíos al mover
+// su contenido, etc.) ──
+Array.prototype.slice.call(main.children).forEach(function(el){
+  if(el.classList.contains('wb-tab-content')) return;
+  el.remove();
+});
+
+// Neutraliza animaciones de entrada residuales (backwards fill-mode)
+// para que no "reaparezcan" al reordenar el DOM.
+main.querySelectorAll('.wb-tab-content .panel').forEach(function(p){ p.style.animation='none'; });
+
+// Los cuadros con gráficos Chart.js (RRG, Sesiones & Volumen) se
+// renderizan la primera vez con su pestaña todavía oculta (display:none,
+// solo "Resumen" arranca activa) -- Chart.js les da ancho/alto CERO
+// porque el contenedor no ocupa espacio en ese momento, y un resize()
+// posterior no lo corrige (el layout definitivo del canvas solo se
+// calcula bien en el momento de construcción del chart). La forma
+// segura de arreglarlo sin tocar la lógica de cada gráfico es volver a
+// llamar a su MISMA función de render (la que ya existe y ya se llama
+// sola con cada refresh de datos) una vez que la pestaña está visible
+// -- reconstruye el chart igual que siempre, ahora con el contenedor ya
+// midiendo su tamaño real.
+var pestañasYaVistas = {resumen: true};
+var RENDER_POR_PESTAÑA = {
+  rotacion: function(){ if(typeof window.wbRenderRRG === 'function') window.wbRenderRRG(); },
+  analisis: function(){ if(typeof window.renderSesionesVol === 'function') window.renderSesionesVol(); }
+};
+function refrescarChartsDeLaPestaña(tabId){
+  if(pestañasYaVistas[tabId]) return;
+  pestañasYaVistas[tabId] = true;
+  var fn = RENDER_POR_PESTAÑA[tabId];
+  if(fn){ try{ fn(); }catch(e){} }
+}
+
+// ── Click en las pestañas ──
+tabsBar.querySelectorAll('.wb-tab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    tabsBar.querySelectorAll('.wb-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    Object.keys(tabContents).forEach(function(id){ tabContents[id].classList.remove('active'); });
+    btn.classList.add('active');
+    var tabId = btn.dataset.wbtab;
+    tabContents[tabId].classList.add('active');
+    // setTimeout en vez de rAF: esperar a que el navegador aplique
+    // display:block antes de medir el contenedor para el resize (si se
+    // mide en el mismo tick todavía puede leer el tamaño viejo, oculto).
+    // rAF quedaba sin disparar nunca en pestañas que el navegador trata
+    // como no visibles (backgrounded) -- setTimeout sí corre ahí.
+    setTimeout(function(){ refrescarChartsDeLaPestaña(tabId); }, 50);
+  });
+});
+
+// ── Sincronizar la franja mini de Régimen con el panel completo ──
+// (no duplica el cálculo: lee el resultado YA renderizado adentro de
+// #wb-rgm-panel por wbRenderRegimenPanel, que sigue corriendo exacto
+// igual que siempre -- esta franja solo espeja ese resultado).
+function sincronizarMiniRegimen(){
+  try{
+    var scoreEl = document.querySelector('#wb-rgm-panel svg text');
+    var fraseEl = document.querySelector('#wb-rgm-panel .wb-rgm-expo-frase');
+    var numEl = document.getElementById('wb-mini-gauge-num');
+    var expoTxtEl = document.getElementById('wb-mini-expo-txt');
+    var expoBoxEl = document.getElementById('wb-mini-expo');
+    if(scoreEl && numEl){
+      numEl.textContent = scoreEl.textContent;
+      numEl.style.color = scoreEl.getAttribute('fill') || 'inherit';
+    }
+    if(fraseEl && expoTxtEl && expoBoxEl){
+      expoTxtEl.textContent = fraseEl.textContent;
+      var color = fraseEl.style.color || '';
+      expoTxtEl.style.color = color || 'inherit';
+      if(color){
+        expoBoxEl.style.background = color.replace('rgb(', 'rgba(').replace(')', ',0.1)');
+        expoBoxEl.style.border = '1px solid ' + color.replace('rgb(', 'rgba(').replace(')', ',0.4)');
+      }
+    }
+  }catch(e){}
+}
+try{
+  if(typeof window.renderTodo === 'function'){
+    var _rt36 = window.renderTodo;
+    window.renderTodo = function(){
+      var r = _rt36.apply(this, arguments);
+      setTimeout(sincronizarMiniRegimen, 50);
+      return r;
+    };
+  }
+}catch(e){}
+setTimeout(sincronizarMiniRegimen, 800);
+
+}catch(e){ console.error('WB V36 tabs error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V36 ═══════════════ -->
 
 </body>
 </html>
