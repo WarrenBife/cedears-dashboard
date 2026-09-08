@@ -10230,14 +10230,19 @@ window.wbFeedbackEnviar = async function(){
     #wb-tabs-ministrip .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
       letter-spacing:.06em;color:var(--muted);}
 
-    #wb-tabs-bar{position:sticky;z-index:98;display:flex;gap:4px;padding:0 24px;
+    #wb-tabs-bar{position:sticky;z-index:98;display:flex;gap:10px;padding:12px 24px;
       background:var(--bg);border-bottom:1px solid var(--border);}
-    #wb-tabs-bar .wb-tab-btn{appearance:none;border:none;background:none;cursor:pointer;
-      font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;color:var(--muted);
-      padding:12px 15px 10px;border-bottom:2px solid transparent;
-      transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px;}
-    #wb-tabs-bar .wb-tab-btn:hover{color:var(--text);}
-    #wb-tabs-bar .wb-tab-btn.active{color:var(--green);border-bottom-color:var(--green);}
+    #wb-tabs-bar .wb-tab-btn{appearance:none;border:1px solid var(--border2);background:var(--bg3);
+      cursor:pointer;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
+      color:var(--muted);padding:12px 24px;border-radius:11px;letter-spacing:.01em;
+      transition:color .18s,background-color .18s,border-color .18s,box-shadow .18s,text-shadow .18s;
+      display:flex;align-items:center;gap:8px;}
+    #wb-tabs-bar .wb-tab-btn:hover{color:var(--text);border-color:rgba(148,163,184,0.3);}
+    #wb-tabs-bar .wb-tab-btn.active{
+      color:#5ffbb3;background:rgba(34,201,138,0.12);border-color:rgba(94,251,179,0.65);
+      box-shadow:0 0 1px rgba(94,251,179,0.8),0 0 16px rgba(34,201,138,0.55),
+        0 0 36px rgba(34,201,138,0.25),inset 0 0 14px rgba(34,201,138,0.12);
+      text-shadow:0 0 10px rgba(94,251,179,0.85);}
 
     .wb-tab-content{display:none;padding-top:18px;}
     .wb-tab-content.active{display:block;}
@@ -10327,8 +10332,13 @@ tabIds.forEach(function(id){
 });
 
 // ── Mover los paneles YA EXISTENTES a su pestaña (mismo render de siempre) ──
-// Resumen: stats-row + Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
-if(statsRow) tabContents.resumen.appendChild(statsRow);
+// stats-row (Tickers activos, Sobre EMA200, etc.) se deja FUERA de
+// cualquier pestaña puntual (2026-09-09, pedido del usuario) -- queda
+// como hijo directo de .main, arriba de todos los wb-tab-content, así
+// se ve siempre sin importar qué pestaña esté activa (ver el filtro de
+// la limpieza final, más abajo, que la deja afuera de la remoción).
+
+// Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
 tabContents.resumen.appendChild(pSpotlight);
 tabContents.resumen.appendChild(pRgmCart);
 if(pVinu) tabContents.resumen.appendChild(pVinu);
@@ -10382,6 +10392,7 @@ tabIds.forEach(function(id){ main.appendChild(tabContents[id]); });
 // su contenido, etc.) ──
 Array.prototype.slice.call(main.children).forEach(function(el){
   if(el.classList.contains('wb-tab-content')) return;
+  if(el === statsRow) return;
   el.remove();
 });
 
