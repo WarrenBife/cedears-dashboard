@@ -24,6 +24,7 @@ const BYPASS_USERS = {
 const TRIAL_CODES = {
   acceso7: { products: ['dashboard', 'planilla'], exp: new Date('2026-06-27T03:00:00Z').getTime() },
   elpipo:  { products: ['dashboard', 'planilla'], exp: new Date('2027-01-01T03:00:00Z').getTime() },
+  inversoramateur: { products: ['dashboard', 'planilla'], exp: new Date('2027-01-01T03:00:00Z').getTime() },
 };
 
 module.exports = async (req, res) => {
