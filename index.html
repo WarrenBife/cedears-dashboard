@@ -10727,7 +10727,9 @@ tabIds.forEach(function(id){
 // ── Mover los paneles YA EXISTENTES a su pestaña (mismo reparto que
 // desktop, WB UPGRADE V36) ──
 // stats-row queda FUERA de cualquier pestaña puntual -- hijo directo de
-// .main, siempre visible arriba del contenido de la pestaña activa.
+// .main -- pero SOLO se ve en Resumen (2026-09-09, pedido del usuario,
+// mismo criterio que ya tiene desktop): el toggle está en el click de
+// abajo, junto al cambio de pestaña.
 
 // Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
 tabContents.resumen.appendChild(pSpotlight);
@@ -10807,6 +10809,7 @@ mtabsBar.querySelectorAll('.wb-mtab-btn').forEach(function(btn){
     btn.classList.add('active');
     var tabId = btn.dataset.wbmtab;
     tabContents[tabId].classList.add('active');
+    if(statsRow) statsRow.style.display = (tabId === 'resumen') ? '' : 'none';
     window.scrollTo(0,0);
     setTimeout(function(){ refrescarChartsDeLaPestaña(tabId); }, 50);
   });
