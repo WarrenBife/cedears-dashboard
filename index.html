@@ -10303,11 +10303,6 @@ window.wbFeedbackEnviar = async function(){
 
     .wb-tab-content{display:none;padding-top:18px;}
     .wb-tab-content.active{display:block;}
-
-    .wb-senal-pill{appearance:none;border:1px solid var(--border2);background:var(--bg3);
-      color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:500;
-      padding:6px 14px;border-radius:999px;cursor:pointer;transition:all .15s;}
-    .wb-senal-pill.active{background:var(--green-bg);border-color:rgba(34,201,138,0.4);color:var(--green);}
   }
   @media(max-width:900px){
     #wb-tabs-ministrip, #wb-tabs-bar{display:none !important;}
@@ -10407,11 +10402,11 @@ tabContents.warren.appendChild(pWarren);
 // ya emparejados por V9; Semanal = EMA200 Sem + RSI Sem, ya emparejados
 // por el bloque de Análisis Semanal)
 var senalesToggle = document.createElement('div');
-senalesToggle.className = 'subtoggle';
-senalesToggle.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;';
+senalesToggle.className = 'rrg-toggle-wrap';
+senalesToggle.style.cssText = 'margin-bottom:14px;';
 senalesToggle.innerHTML =
-  '<button class="wb-senal-pill active" data-senalview="diario">Diario</button>'+
-  '<button class="wb-senal-pill" data-senalview="semanal">Semanal</button>';
+  '<button class="rrg-pill active" data-senalview="diario">📅 Diario</button>'+
+  '<button class="rrg-pill" data-senalview="semanal">🗓️ Semanal</button>';
 var senalDiario = document.createElement('div'); senalDiario.id = 'wb-senalview-diario';
 var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-senalview-semanal'; senalSemanal.style.display = 'none';
 if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
@@ -10420,9 +10415,9 @@ if(gridSemanal) senalSemanal.appendChild(gridSemanal);
 tabContents.senales.appendChild(senalesToggle);
 tabContents.senales.appendChild(senalDiario);
 tabContents.senales.appendChild(senalSemanal);
-senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(btn){
+senalesToggle.querySelectorAll('.rrg-pill').forEach(function(btn){
   btn.addEventListener('click', function(){
-    senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(b){ b.classList.remove('active'); });
+    senalesToggle.querySelectorAll('.rrg-pill').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     var which = btn.dataset.senalview;
     senalDiario.style.display = which==='diario' ? '' : 'none';
@@ -10660,11 +10655,11 @@ tabContents.warren.appendChild(pWarren);
 
 // Señales: mismo sub-toggle Diario/Semanal que V36
 var senalesToggle = document.createElement('div');
-senalesToggle.className = 'subtoggle';
-senalesToggle.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;';
+senalesToggle.className = 'rrg-toggle-wrap';
+senalesToggle.style.cssText = 'margin-bottom:14px;';
 senalesToggle.innerHTML =
-  '<button class="wb-senal-pill active" data-senalview="diario">Diario</button>'+
-  '<button class="wb-senal-pill" data-senalview="semanal">Semanal</button>';
+  '<button class="rrg-pill active" data-senalview="diario">📅 Diario</button>'+
+  '<button class="rrg-pill" data-senalview="semanal">🗓️ Semanal</button>';
 var senalDiario = document.createElement('div'); senalDiario.id = 'wb-msenalview-diario';
 var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-msenalview-semanal'; senalSemanal.style.display = 'none';
 if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
@@ -10673,9 +10668,9 @@ if(gridSemanal) senalSemanal.appendChild(gridSemanal);
 tabContents.senales.appendChild(senalesToggle);
 tabContents.senales.appendChild(senalDiario);
 tabContents.senales.appendChild(senalSemanal);
-senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(btn){
+senalesToggle.querySelectorAll('.rrg-pill').forEach(function(btn){
   btn.addEventListener('click', function(){
-    senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(b){ b.classList.remove('active'); });
+    senalesToggle.querySelectorAll('.rrg-pill').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     var which = btn.dataset.senalview;
     senalDiario.style.display = which==='diario' ? '' : 'none';
