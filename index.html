@@ -46,10 +46,23 @@
 
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);}
   .topbar::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(34,201,138,0.45) 18%,rgba(79,142,247,0.3) 60%,transparent);pointer-events:none;}
-  .topbar-left{display:flex;align-items:center;gap:14px;}
-  .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.05em;background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent);}
-  .tagline{color:var(--muted);font-size:12px;letter-spacing:0.02em;}
-  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  /* topbar-left/right a flex:1 con basis 0 (2026-09-09, pedido del
+     usuario) -- truco clásico de centrado: como los dos crecen igual
+     desde 0, topbar-center (flex:0 0 auto, sin crecer) queda exactamente
+     en el medio de la barra sin importar cuánto contenido tenga cada
+     lado. min-width:0 para que puedan encogerse (si no, un flex-basis:0
+     con contenido ancho puede desbordar en vez de wrappear). */
+  .topbar-left{display:flex;align-items:center;gap:14px;flex:1 1 0;min-width:0;}
+  .topbar-center{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+  .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.05em;background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent);white-space:nowrap;}
+  .tagline{color:var(--muted);font-size:12px;letter-spacing:0.02em;white-space:nowrap;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 0;min-width:0;justify-content:flex-end;}
+
+  /* Botón de actualizar mobile (2026-09-09, pedido del usuario): versión
+     resumida (solo la flecha) al lado del link de X -- reemplaza en
+     mobile al botón de texto completo de topbar-right (ver
+     wb-topbar-refresh-d, oculto en el mismo breakpoint más abajo). */
+  .wb-topbar-refresh-m{display:none;}
   .btn-guia{font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;text-decoration:none;white-space:nowrap;transition:color .2s,border-color .2s,background .2s;}
   .btn-guia:hover{color:var(--blue);border-color:rgba(79,142,247,0.4);background:rgba(79,142,247,0.07);}
   @media(max-width:600px){.btn-guia{display:none;}}
@@ -550,7 +563,7 @@
     </div>
   </div>
   <div style="background:var(--amber-bg);border-bottom:1px solid rgba(245,166,35,0.3);padding:8px 20px;text-align:center;font-size:11.5px;color:var(--amber);line-height:1.4;">
-    ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor. Nada de lo presentado son recomendaciones de compra/venta.
+    ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor, no es recomendación de compra.
   </div>
   <div class="pl-grid" id="pl-grid"></div>
 </div>
@@ -564,27 +577,36 @@
   <div id="loading-sub">Conectando con Google Sheets</div>
 </div>
 
+<!-- Topbar reorganizada en 3 zonas (2026-09-09, pedido del usuario):
+     izquierda = volver al menú + link a X (+ botón resumido de
+     actualizar, solo mobile); centro = logo/título, bien centrado
+     (topbar-left/topbar-right a flex:1 para centrarlo, ver CSS);
+     derecha = guía + en vivo + actualizado + actualizar (se ocultan
+     en mobile el de en vivo/actualizado, ver @media(max-width:600px)). -->
 <div class="topbar">
   <div class="topbar-left">
     <button class="back-btn" onclick="showView('home')" style="margin-right:6px">← Menú</button>
-    <img src="https://i.imgur.com/GuVsAWY.jpeg" style="height:36px;border-radius:50%;margin-right:10px;" onerror="this.style.display='none'">
-    <div class="logo">Warren Bife Dashboard</div>
     <a href="https://x.com/Warren_Bife" target="_blank" style="display:flex;align-items:center;gap:5px;text-decoration:none;color:#9ca3af;font-size:12px;transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       @Warren_Bife
     </a>
+    <button class="btn wb-topbar-refresh-m" onclick="cargarDatos()" title="Actualizar" aria-label="Actualizar">↺</button>
+  </div>
+  <div class="topbar-center">
+    <img src="https://i.imgur.com/GuVsAWY.jpeg" style="height:36px;border-radius:50%;margin-right:10px;" onerror="this.style.display='none'">
+    <div class="logo">Warren Bife Dashboard</div>
     <div class="tagline">Monitor de mercado</div>
   </div>
   <div class="topbar-right">
     <a href="/guia.html" target="_blank" rel="noopener" class="btn-guia">¿Qué significa cada gráfico?</a>
     <div class="live-badge"><span class="live-dot"></span>EN VIVO</div>
     <div class="time-info">Actualizado: <span id="last-kpi-update">—</span></div>
-    <button class="btn" onclick="cargarDatos()">↺ Actualizar</button>
+    <button class="btn wb-topbar-refresh-d" onclick="cargarDatos()">↺ Actualizar</button>
   </div>
 </div>
 
 <div style="background:var(--amber-bg);border-bottom:1px solid rgba(245,166,35,0.3);padding:8px 20px;text-align:center;font-size:11.5px;color:var(--amber);line-height:1.4;">
-  ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor. Nada de lo presentado son recomendaciones de compra/venta.
+  ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor, no es recomendación de compra.
 </div>
 
 <div class="gf-bar">
@@ -3466,6 +3488,14 @@ if ('serviceWorker' in navigator) {
     .panel-title{font-size:14px;}
     .tagline{display:none;}
 
+    /* Topbar mobile (2026-09-09, pedido del usuario): se sacan "EN VIVO"
+       y "Actualizado: --", y el botón de actualizar de topbar-right
+       (de texto completo) se reemplaza por la versión resumida de al
+       lado del link de X -- ver .wb-topbar-refresh-m arriba. */
+    .live-badge,.time-info,.wb-topbar-refresh-d{display:none;}
+    .wb-topbar-refresh-m{display:inline-flex;align-items:center;justify-content:center;
+      width:30px;height:30px;padding:0;border-radius:999px;font-size:15px;line-height:1;flex-shrink:0;}
+
     /* Stat cards: carrusel horizontal con snap */
     .stats-row{display:flex;overflow-x:auto;gap:10px;scroll-snap-type:x mandatory;
       margin:0 -14px 18px;padding:2px 14px 6px;scrollbar-width:none;}
@@ -6017,7 +6047,7 @@ if ('serviceWorker' in navigator) {
     </div>
   </div>
   <div style="background:var(--amber-bg);border-bottom:1px solid rgba(245,166,35,0.3);padding:7px 14px;text-align:center;font-size:11px;color:var(--amber);line-height:1.4;">
-    ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor. Nada de lo presentado son recomendaciones de compra/venta.
+    ⚠️ El material presentado tiene el objetivo de facilitar el análisis del inversor, no es recomendación de compra.
   </div>
   <div style="flex:1;display:flex;flex-direction:column;padding:10px 14px 10px;gap:8px;min-height:0;">
     <div id="wb-hm-container" style="flex:1;min-height:70vh;border-radius:10px;overflow:auto;background:var(--bg2);border:1px solid var(--border);position:relative;">
