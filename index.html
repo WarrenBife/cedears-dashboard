@@ -3710,20 +3710,36 @@ if ('serviceWorker' in navigator) {
   .wb-rrg-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
   /* ── Tablas chicas de paneles nuevos ── */
-  /* border-collapse:separate + border-spacing:0 (2026-09-09, pedido del
+  /* border-collapse:separate + border-spacing (2026-09-09, pedido del
      usuario, caso "Bases VCP de Alta Calidad" en celular) -- con
      border-collapse:collapse el position:sticky de los <th> de abajo
      no funciona en varios motores (bug conocido, sobre todo WebKit/
-     Safari -- muy relevante en mobile). border-spacing:0 mantiene el
-     resultado visual idéntico (acá solo se usan border-bottom, sin
-     bordes verticales entre celdas, así que no hay riesgo de doble
-     borde). Afecta a todos los paneles que usan esta clase (VCP,
-     EMA200 diario/semanal, RSI semanal, Episodic Pivots). */
-  .wb-mini-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;}
+     Safari -- muy relevante en mobile). Afecta a todos los paneles que
+     usan esta clase (VCP, EMA200 diario/semanal, RSI semanal, Episodic
+     Pivots).
+     Filas-tarjeta con borde de color (2026-09-09, "vuelta de rosca" a
+     la pestaña Señales, pedido del usuario -- Opción C del mockup, sin
+     la barra de fuerza): cada fila pasa a tener separación/fondo/
+     esquinas propias (antes eran líneas planas separadas solo por un
+     border-bottom) y un borde izquierdo de color según la fuerza de
+     esa fila puntual -- verde/azul/ámbar fuerte a floja, gris cuando no
+     aplica banda. Ninguna tabla suma columnas ni datos nuevos: la
+     clase wb-band-* se agrega al <tr> ya en el momento de armarlo,
+     usando el mismo dato que esa fila ya mostraba antes de este
+     cambio (ver cada wbRender* para qué campo decide la banda). */
+  .wb-mini-table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:11.5px;}
   .wb-mini-table th{text-align:left;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;
-    padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0;background:var(--bg2);}
-  .wb-mini-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
-  .wb-mini-table tr:hover td{background:rgba(255,255,255,0.02);}
+    padding:6px 8px 8px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0;background:var(--bg2);}
+  .wb-mini-table td{padding:7px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+    background:var(--bg3);font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
+  .wb-mini-table tr:hover td{background:rgba(255,255,255,0.05);}
+  .wb-mini-table tr td:first-child{border-left:3px solid var(--border2);border-radius:8px 0 0 8px;}
+  .wb-mini-table tr td:last-child{border-right:1px solid var(--border);border-radius:0 8px 8px 0;}
+  .wb-mini-table tr.wb-band-green td:first-child{border-left-color:var(--green);box-shadow:inset 3px 0 10px -5px rgba(34,201,138,0.55);}
+  .wb-mini-table tr.wb-band-blue td:first-child{border-left-color:var(--blue);box-shadow:inset 3px 0 10px -5px rgba(79,142,247,0.45);}
+  .wb-mini-table tr.wb-band-amber td:first-child{border-left-color:var(--amber);box-shadow:inset 3px 0 10px -5px rgba(245,166,35,0.4);}
+  .wb-mini-table tr.wb-band-red td:first-child{border-left-color:var(--red);box-shadow:inset 3px 0 10px -5px rgba(240,96,90,0.45);}
+  .wb-mini-table tr.wb-band-muted td:first-child{border-left-color:var(--border2);}
   .wb-empty{color:var(--muted);font-size:11.5px;padding:22px 14px;text-align:center;line-height:1.6;}
 
   /* ── Retorno Top 10 de la semana -- rediseño visual (2026-08), sobre
@@ -4784,7 +4800,9 @@ if ('serviceWorker' in navigator) {
     var epHtml = '<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>Var día</th><th>Vol inusual</th><th>RS</th><th>Stage</th></tr></thead><tbody>'+
         rows.map(function(d){
           var st=wbStage(d);
-          return '<tr><td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+          var rs=num(d['RS Score']);
+          var band = rs==null ? '' : rs>=70 ? 'wb-band-green' : rs>=40 ? 'wb-band-amber' : 'wb-band-muted';
+          return '<tr class="'+band+'"><td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
             '<td style="color:var(--green)">+'+fmt(num(d['Var Día %']),1)+'%</td>'+
             '<td style="color:var(--amber)">+'+fmt(num(d['Vol Inusual %']),0)+'%</td>'+
             '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
@@ -4910,7 +4928,8 @@ if ('serviceWorker' in navigator) {
         var climaxTxt = r.climaxVol==null ? '—' :
           ((r.climaxPos!=null && r.climaxPos>=0.6 && r.climaxVol>=1.5) ? '🌊 ×' : '×')+fmt(r.climaxVol,1);
         var rsCol = r.deltaRs>=0 ? 'var(--green)' : 'var(--red)';
-        return '<tr>'+
+        var band = r.score>=70 ? 'wb-band-green' : r.score>=40 ? 'wb-band-amber' : 'wb-band-muted';
+        return '<tr class="'+band+'">'+
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
             '<td>'+r.contactoRuedas+(r.contactoRuedas===1?' rueda':' ruedas')+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
@@ -5034,7 +5053,8 @@ if ('serviceWorker' in navigator) {
         var climaxTxt = r.climaxVol==null ? '—' :
           ((r.climaxPos!=null && r.climaxPos>=0.6 && r.climaxVol>=1.5) ? '🌊 ×' : '×')+fmt(r.climaxVol,1);
         var rsCol = r.deltaRs>=0 ? 'var(--green)' : 'var(--red)';
-        return '<tr>'+
+        var band = r.score>=70 ? 'wb-band-green' : r.score>=40 ? 'wb-band-amber' : 'wb-band-muted';
+        return '<tr class="'+band+'">'+
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
             '<td>'+r.contactoSemanas+(r.contactoSemanas===1?' semana':' semanas')+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
@@ -5091,11 +5111,11 @@ if ('serviceWorker' in navigator) {
       rows.map(function(r){
         var d=r.d;
         var rsiCol = wbRsiSemTab==='alcista' ? 'var(--green)' : 'var(--red)';
-        var filaStyle = r.destacado
-          ? (wbRsiSemTab==='alcista' ? 'background:rgba(34,201,138,0.10)' : 'background:rgba(240,96,90,0.10)')
-          : '';
+        var band = r.destacado
+          ? (wbRsiSemTab==='alcista' ? 'wb-band-green' : 'wb-band-red')
+          : 'wb-band-muted';
         var marca = r.destacado ? (wbRsiSemTab==='alcista' ? ' 🟢' : ' 🔴') : '';
-        return '<tr style="'+filaStyle+'">'+
+        return '<tr class="'+band+'">'+
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span>'+marca+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:'+rsiCol+'">'+fmt(num(d['RSI Semanal']),1)+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['RSI Semanal SMA14']),1)+'</td>'+
@@ -8153,7 +8173,10 @@ function wbRenderVcpQuality(){
     var volDec = _bool_v9(m.volDec) ? '✅' : '—';
     var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || '—';
     var lcCol = VCPQ_LIFECYCLE_COL[m.lifecycle] || 'var(--muted)';
-    return '<tr>'+
+    // Misma banda que ya usa vsCls arriba (verde ≥80 / azul 70-79 / ámbar
+    // 60-69, este panel ya filtra a VCP Score ≥60) -- no un umbral nuevo.
+    var band = vsCls==='pill-green' ? 'wb-band-green' : vsCls==='pill-blue' ? 'wb-band-blue' : 'wb-band-amber';
+    return '<tr class="'+band+'">'+
       '<td><span class="wb-vcpq-ticker"><img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(t)+'.png" onerror="this.style.display=\'none\'">'+
         '<span class="ticker-badge" title="'+t+'" onmouseenter="mostrarGrafico(\''+t+'\',this)" onmouseleave="ocultarGrafico()">'+t+'</span></span></td>'+
       '<td class="wb-vcpq-col-vcp"><span class="score-pill '+vsCls+'">'+vs.toFixed(0)+'</span></td>'+
