@@ -98,6 +98,20 @@
   .stat-hint{color:rgba(115,125,143,0.45);font-size:9px;margin-top:3px;letter-spacing:0.03em;}
   .c-green{color:var(--green);}.c-red{color:var(--red);}.c-amber{color:var(--amber);}.c-blue{color:var(--blue);}.c-purple{color:var(--purple);}.c-text{color:var(--text);}
 
+  /* Anillo de porcentaje de cada stat-card (2026-09-09, pedido del
+     usuario -- ver Opción C + anillos de Opción B del mockup "Cabecera
+     Dashboard"). Reemplaza a .wb-statbar (la barra plana de abajo, ver
+     WB VISUAL UPGRADE): mismo % calculado en wbAfterStats, mostrado como
+     anillo en vez de barra -- actualizarAnillo() completa el dashoffset
+     y el texto del medio en cada refresh de datos. */
+  .stat-body{display:flex;align-items:center;gap:10px;margin-top:2px;}
+  .stat-ring{position:relative;width:40px;height:40px;flex-shrink:0;}
+  .stat-ring-bg{stroke:rgba(255,255,255,0.07);}
+  .stat-ring-fill{stroke:currentColor;stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease);}
+  .stat-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'DM Mono',monospace;font-size:8.5px;color:var(--muted);}
+  .stat-val-wrap{min-width:0;}
+
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
 
   .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 55%),var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;position:relative;box-shadow:var(--shadow-panel);transition:border-color .3s var(--ease);}
@@ -640,12 +654,17 @@
 
 <div class="main">
 
+  <!-- Anillo de porcentaje por card (2026-09-09, pedido del usuario, sobre
+       Opción C del mockup "Cabecera Dashboard"): reemplaza la barra plana
+       .wb-statbar de abajo -- mismo dato (ver wbAfterStats/actualizarAnillo
+       en WB VISUAL UPGRADE), nomás mostrado como anillo en vez de barra.
+       id/onclick/estructura de label/value/sub/hint sin tocar. -->
   <div class="stats-row">
-    <div class="stat-card" id="sc-total" onclick="setQuickFilter('total')"><div class="stat-label">Tickers activos</div><div class="stat-value c-blue" id="st-total">—</div><div class="stat-sub">con filtros aplicados</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-ema" onclick="setQuickFilter('ema')"><div class="stat-label">Sobre EMA200</div><div class="stat-value c-green" id="st-ema">—</div><div class="stat-sub">tendencia alcista</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-rs" onclick="setQuickFilter('rs')"><div class="stat-label">RS Score &gt; 70</div><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-sma50" onclick="setQuickFilter('sma50')"><div class="stat-label">Sobre SMA50</div><div class="stat-value c-green" id="st-sma50">—</div><div class="stat-sub">precio sobre SMA50</div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-vol" onclick="setQuickFilter('vol')"><div class="stat-label">Vol inusual hoy</div><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-total" onclick="setQuickFilter('total')"><div class="stat-label">Tickers activos</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-blue" id="st-total">—</div><div class="stat-sub">con filtros aplicados</div></div></div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-ema" onclick="setQuickFilter('ema')"><div class="stat-label">Sobre EMA200</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-ema">—</div><div class="stat-sub">tendencia alcista</div></div></div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-rs" onclick="setQuickFilter('rs')"><div class="stat-label">RS Score &gt; 70</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div></div></div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-sma50" onclick="setQuickFilter('sma50')"><div class="stat-label">Sobre SMA50</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-sma50">—</div><div class="stat-sub">precio sobre SMA50</div></div></div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-vol" onclick="setQuickFilter('vol')"><div class="stat-label">Vol inusual hoy</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div></div></div><div class="stat-hint">click para filtrar</div></div>
   </div>
 
   <div class="grid-2">
@@ -3587,16 +3606,21 @@ if ('serviceWorker' in navigator) {
     el._wbRaf = requestAnimationFrame(step);
   }
 
-  function asegurarBarra(card, valueEl){
-    var bar = card.querySelector('.wb-statbar');
-    if(!bar){
-      bar = document.createElement('div');
-      bar.className = 'wb-statbar';
-      bar.appendChild(document.createElement('i'));
-      card.appendChild(bar);
-    }
-    try{ bar.firstChild.style.color = getComputedStyle(valueEl).color; }catch(e){}
-    return bar.firstChild;
+  // Anillo de porcentaje (2026-09-09, pedido del usuario, reemplaza a la
+  // barra plana .wb-statbar -- mismo % de siempre, mostrado como anillo).
+  // r=16 en el SVG estático de cada card (ver stats-row en el HTML) ->
+  // circunferencia = 2*pi*16 ≈ 100.5.
+  var STAT_RING_C = 2 * Math.PI * 16;
+  function actualizarAnillo(card, valueEl, pct){
+    var ring = card.querySelector('.stat-ring');
+    if(!ring) return;
+    var fill = ring.querySelector('.stat-ring-fill');
+    var pctEl = ring.querySelector('.stat-ring-pct');
+    if(!fill) return;
+    try{ fill.style.color = getComputedStyle(valueEl).color; }catch(e){}
+    var offset = STAT_RING_C * (1 - pct/100);
+    requestAnimationFrame(function(){ fill.style.strokeDashoffset = offset.toFixed(1); });
+    if(pctEl) pctEl.textContent = Math.round(pct) + '%';
   }
 
   function wbAfterStats(){
@@ -3619,10 +3643,9 @@ if ('serviceWorker' in navigator) {
 
         var card = el.closest('.stat-card');
         if(!card) return;
-        var fill = asegurarBarra(card, el);
         var denom = (id === 'st-total') ? universo : (total || 1);
         var pct = denom > 0 ? Math.max(0, Math.min(100, val/denom*100)) : 0;
-        requestAnimationFrame(function(){ fill.style.width = pct.toFixed(1) + '%'; });
+        actualizarAnillo(card, el, pct);
       });
     }catch(e){}
   }
@@ -10297,38 +10320,65 @@ window.wbFeedbackEnviar = async function(){
      layout de siempre por ahora, es un paso aparte. -->
 <style id="wb-v36-css">
   @media(min-width:901px){
-    #wb-tabs-ministrip{position:sticky;z-index:99;display:flex;align-items:center;gap:18px;
-      padding:9px 24px;background:rgba(13,17,24,0.88);backdrop-filter:blur(12px);
-      -webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border);font-size:11.5px;}
-    #wb-tabs-ministrip .mini-gauge{display:flex;align-items:center;gap:7px;flex-shrink:0;}
-    #wb-tabs-ministrip .mini-gauge-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;
+    /* Panel unificado (2026-09-09, pedido del usuario, sobre Opción C del
+       mockup "Cabecera Dashboard"): reemplaza los 2 elementos sueltos de
+       antes (#wb-tabs-ministrip arriba + #wb-tabs-bar abajo, cada uno con
+       su propio borde) por UNO solo -- pestañas a la izquierda, régimen/
+       exposición a la derecha (invertido respecto al mockup, pedido del
+       usuario), y las stat-cards (Tickers activos, Sobre EMA200, ...)
+       viven adentro del mismo panel pero SOLO se muestran en la pestaña
+       Resumen (#wb-cmd-kpis.mostrar, toggle por JS más abajo) -- en el
+       resto de las pestañas se ve el panel igual, sin esa franja. */
+    #wb-cmd-panel{position:sticky;z-index:99;background:rgba(13,17,24,0.88);
+      backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+      border:1px solid var(--border);border-radius:var(--r-lg);
+      box-shadow:var(--shadow-panel);overflow:hidden;margin-bottom:18px;}
+    #wb-cmd-top{display:flex;align-items:center;justify-content:space-between;
+      gap:18px;padding:11px 20px;flex-wrap:wrap;}
+    #wb-cmd-right{display:flex;align-items:center;gap:18px;flex-shrink:0;}
+
+    #wb-cmd-top .pill-group{display:inline-flex;gap:3px;background:rgba(255,255,255,0.03);
+      border:1px solid var(--border);border-radius:11px;padding:3px;}
+    #wb-cmd-top .wb-tab-btn{appearance:none;border:none;background:none;cursor:pointer;
+      font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:600;color:var(--muted);
+      padding:9px 16px;border-radius:8px;letter-spacing:.01em;
+      transition:color .18s,background-color .18s,box-shadow .18s,text-shadow .18s;
+      display:flex;align-items:center;gap:7px;white-space:nowrap;}
+    #wb-cmd-top .wb-tab-btn:hover{color:var(--text);}
+    #wb-cmd-top .wb-tab-btn.active{
+      color:#5ffbb3;background:rgba(34,201,138,0.12);
+      box-shadow:inset 0 0 0 1px rgba(94,251,179,0.55),0 0 14px rgba(34,201,138,0.25);
+      text-shadow:0 0 10px rgba(94,251,179,0.85);}
+
+    #wb-cmd-top .mini-gauge{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+    #wb-cmd-top .mini-gauge-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;
       line-height:1;color:var(--text);}
-    #wb-tabs-ministrip .mini-gauge-lbl{color:var(--muted);font-size:9px;text-transform:uppercase;
+    #wb-cmd-top .mini-gauge-lbl{color:var(--muted);font-size:9px;text-transform:uppercase;
       letter-spacing:.06em;line-height:1.3;}
-    #wb-tabs-ministrip .mini-expo{display:flex;align-items:center;gap:5px;padding:4px 12px;
-      border-radius:8px;font-weight:600;font-size:11.5px;}
-    #wb-tabs-ministrip .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
+    #wb-cmd-top .mini-expo{display:flex;align-items:center;gap:5px;padding:4px 12px;
+      border-radius:8px;font-weight:600;font-size:11.5px;white-space:nowrap;}
+    #wb-cmd-top .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
       letter-spacing:.06em;color:var(--muted);}
 
-    #wb-tabs-bar{position:sticky;z-index:98;display:flex;gap:10px;padding:12px 24px;
-      background:var(--bg);border-bottom:1px solid var(--border);}
-    #wb-tabs-bar .wb-tab-btn{appearance:none;border:1px solid var(--border2);background:var(--bg3);
-      cursor:pointer;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
-      color:var(--muted);padding:12px 24px;border-radius:11px;letter-spacing:.01em;
-      transition:color .18s,background-color .18s,border-color .18s,box-shadow .18s,text-shadow .18s;
-      display:flex;align-items:center;gap:8px;}
-    #wb-tabs-bar .wb-tab-btn:hover{color:var(--text);border-color:rgba(148,163,184,0.3);}
-    #wb-tabs-bar .wb-tab-btn.active{
-      color:#5ffbb3;background:rgba(34,201,138,0.12);border-color:rgba(94,251,179,0.65);
-      box-shadow:0 0 1px rgba(94,251,179,0.8),0 0 16px rgba(34,201,138,0.55),
-        0 0 36px rgba(34,201,138,0.25),inset 0 0 14px rgba(34,201,138,0.12);
-      text-shadow:0 0 10px rgba(94,251,179,0.85);}
+    #wb-cmd-kpis{display:none;border-top:1px solid var(--border);}
+    #wb-cmd-kpis.mostrar{display:block;}
+    #wb-cmd-kpis .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:0;}
+    #wb-cmd-kpis .stat-card{background:none;border:none;border-right:1px solid var(--border);
+      border-radius:0;box-shadow:none;padding:12px 20px;}
+    #wb-cmd-kpis .stat-card:last-child{border-right:none;}
+    #wb-cmd-kpis .stat-card::after{display:none;}
+    #wb-cmd-kpis .stat-card:hover{background:rgba(255,255,255,0.02);border-color:var(--border);
+      transform:none;box-shadow:none;}
+    #wb-cmd-kpis .stat-card.active{position:relative;background:rgba(34,201,138,0.06);
+      border-color:var(--border);}
+    #wb-cmd-kpis .stat-card.active::before{content:'';position:absolute;left:0;top:0;bottom:0;
+      width:2px;background:var(--green);box-shadow:0 0 8px rgba(34,201,138,0.7);}
 
     .wb-tab-content{display:none;padding-top:18px;}
     .wb-tab-content.active{display:block;}
   }
   @media(max-width:900px){
-    #wb-tabs-ministrip, #wb-tabs-bar{display:none !important;}
+    #wb-cmd-panel{display:none !important;}
   }
 </style>
 <script id="wb-v36-js">
@@ -10363,35 +10413,45 @@ var gridAnalisis  = pTrend ? pTrend.closest('.grid-2') : null;
 // mejor el scroll de siempre que una página rota.
 if(!pSpotlight || !pWarren || !pRRG || !pRgmCart){ return; }
 
-// ── Franja mini de Régimen + barra de pestañas, ambas sticky ──
+// ── Panel unificado: pestañas a la izquierda, régimen/exposición a la
+// derecha, sticky (2026-09-09, pedido del usuario -- reemplaza los 2
+// elementos sueltos de antes, #wb-tabs-ministrip + #wb-tabs-bar) ──
 var topbarEl = document.querySelector('.topbar');
 var topbarH = topbarEl ? topbarEl.offsetHeight : 55;
 
-var ministrip = document.createElement('div');
-ministrip.id = 'wb-tabs-ministrip';
-ministrip.style.top = topbarH + 'px';
-ministrip.innerHTML =
-  '<div class="mini-gauge"><span class="mini-gauge-num" id="wb-mini-gauge-num">—</span>'+
-    '<span class="mini-gauge-lbl">Régimen<br>de 100</span></div>'+
-  '<div class="mini-expo" id="wb-mini-expo"><span class="mini-expo-lbl">Exposición:&nbsp;</span>'+
-    '<span id="wb-mini-expo-txt">—</span></div>';
+var cmdPanel = document.createElement('div');
+cmdPanel.id = 'wb-cmd-panel';
+cmdPanel.style.top = topbarH + 'px';
+cmdPanel.innerHTML =
+  '<div id="wb-cmd-top">'+
+    '<div class="pill-group">'+
+      '<button class="wb-tab-btn active" data-wbtab="resumen">📋 Resumen</button>'+
+      '<button class="wb-tab-btn" data-wbtab="warren">🎯 Warren Score</button>'+
+      '<button class="wb-tab-btn" data-wbtab="senales">⚡ Señales</button>'+
+      '<button class="wb-tab-btn" data-wbtab="rotacion">📡 Rotación</button>'+
+      '<button class="wb-tab-btn" data-wbtab="analisis">🔬 Análisis</button>'+
+    '</div>'+
+    '<div id="wb-cmd-right">'+
+      '<div class="mini-gauge"><span class="mini-gauge-num" id="wb-mini-gauge-num">—</span>'+
+        '<span class="mini-gauge-lbl">Régimen<br>de 100</span></div>'+
+      '<div class="mini-expo" id="wb-mini-expo"><span class="mini-expo-lbl">Exposición:&nbsp;</span>'+
+        '<span id="wb-mini-expo-txt">—</span></div>'+
+    '</div>'+
+  '</div>'+
+  '<div id="wb-cmd-kpis" class="mostrar"></div>';
 
-var tabsBar = document.createElement('div');
-tabsBar.id = 'wb-tabs-bar';
-tabsBar.innerHTML =
-  '<button class="wb-tab-btn active" data-wbtab="resumen">📋 Resumen</button>'+
-  '<button class="wb-tab-btn" data-wbtab="warren">🎯 Warren Score</button>'+
-  '<button class="wb-tab-btn" data-wbtab="senales">⚡ Señales</button>'+
-  '<button class="wb-tab-btn" data-wbtab="rotacion">📡 Rotación</button>'+
-  '<button class="wb-tab-btn" data-wbtab="analisis">🔬 Análisis</button>';
+main.parentNode.insertBefore(cmdPanel, main);
 
-main.parentNode.insertBefore(ministrip, main);
-main.parentNode.insertBefore(tabsBar, main);
+// El stats-row real (con sus ids/onclick de siempre, ver setQuickFilter/
+// wbAfterStats) se REPARENTA adentro del panel -- no se recrea. Así
+// arranca visible (Resumen es la pestaña inicial) y el toggle de abajo
+// solo le cambia la clase "mostrar" al contenedor.
+var wbCmdKpis = document.getElementById('wb-cmd-kpis');
+if(statsRow) wbCmdKpis.appendChild(statsRow);
 
 function ajustarStickyTop(){
   topbarH = topbarEl ? topbarEl.offsetHeight : 55;
-  ministrip.style.top = topbarH + 'px';
-  tabsBar.style.top = (topbarH + ministrip.offsetHeight) + 'px';
+  cmdPanel.style.top = topbarH + 'px';
 }
 ajustarStickyTop();
 window.addEventListener('resize', ajustarStickyTop);
@@ -10407,11 +10467,10 @@ tabIds.forEach(function(id){
 });
 
 // ── Mover los paneles YA EXISTENTES a su pestaña (mismo render de siempre) ──
-// stats-row (Tickers activos, Sobre EMA200, etc.) se deja FUERA de
-// cualquier pestaña puntual (2026-09-09, pedido del usuario) -- queda
-// como hijo directo de .main, arriba de todos los wb-tab-content, así
-// se ve siempre sin importar qué pestaña esté activa (ver el filtro de
-// la limpieza final, más abajo, que la deja afuera de la remoción).
+// stats-row (Tickers activos, Sobre EMA200, etc.) ya se reparentó adentro
+// de #wb-cmd-kpis más arriba -- no vive en ninguna pestaña puntual, así
+// que no hace falta excluirla acá abajo (ver el toggle mostrar/ocultar
+// por pestaña, más abajo junto al click de las pestañas).
 
 // Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
 tabContents.resumen.appendChild(pSpotlight);
@@ -10499,13 +10558,17 @@ function refrescarChartsDeLaPestaña(tabId){
 }
 
 // ── Click en las pestañas ──
-tabsBar.querySelectorAll('.wb-tab-btn').forEach(function(btn){
+cmdPanel.querySelectorAll('.wb-tab-btn').forEach(function(btn){
   btn.addEventListener('click', function(){
-    tabsBar.querySelectorAll('.wb-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    cmdPanel.querySelectorAll('.wb-tab-btn').forEach(function(b){ b.classList.remove('active'); });
     Object.keys(tabContents).forEach(function(id){ tabContents[id].classList.remove('active'); });
     btn.classList.add('active');
     var tabId = btn.dataset.wbtab;
     tabContents[tabId].classList.add('active');
+    // Las stat-cards (Tickers activos, Sobre EMA200, ...) solo se ven en
+    // Resumen (2026-09-09, pedido del usuario) -- pestañas y régimen
+    // arriba quedan igual en todas.
+    wbCmdKpis.classList.toggle('mostrar', tabId === 'resumen');
     // setTimeout en vez de rAF: esperar a que el navegador aplique
     // display:block antes de medir el contenedor para el resize (si se
     // mide en el mismo tick todavía puede leer el tamaño viejo, oculto).
