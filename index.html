@@ -3925,7 +3925,10 @@ if ('serviceWorker' in navigator) {
       '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
       '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
       '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span>'+
-      '<select id="wbRrgMesFilter" onchange="try{wbRenderRRG()}catch(e){}" style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);font-size:9.5px;padding:2px 6px;border-radius:6px;cursor:pointer;">'+
+      '<input id="wbRrgBuscar" list="cmp-tickers-list" autocomplete="off" placeholder="🔍 Buscar acción..." '+
+        'oninput="try{wbRrgBuscarTicker(this.value)}catch(e){}" '+
+        'style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-size:9.5px;padding:3px 8px;border-radius:6px;width:126px;">'+
+      '<select id="wbRrgMesFilter" onchange="try{wbRenderRRG()}catch(e){}" style="background:var(--bg2);border:1px solid var(--border2);color:var(--muted);font-size:9.5px;padding:2px 6px;border-radius:6px;cursor:pointer;">'+
         '<option value="all">Todos</option>'+
         '<option value="mes">RS subió vs mes ant.</option>'+
       '</select>'+
@@ -4227,6 +4230,17 @@ if ('serviceWorker' in navigator) {
       else if(vi>=100) r = Math.min(20, r+1);
       return {x:rs, y:dy, r:r, t:d['Ticker'], cap:cap, brk:isBrk, vi:vi};
     }).filter(Boolean);
+    // Buscador de acciones (2026-09-09, pedido del usuario): resalta la
+    // burbuja del ticker buscado por sobre cualquier otro estilo (breakout,
+    // vol inusual). window._wbRrgResaltado lo setea wbRrgBuscarTicker().
+    var resaltado = window._wbRrgResaltado || null;
+    var buscarInput = $('wbRrgBuscar');
+    if(buscarInput && resaltado){
+      var hayMatch = pts.some(function(p){ return p.t===resaltado; });
+      buscarInput.style.borderColor = hayMatch ? 'rgba(94,251,179,0.6)' : 'rgba(240,96,90,0.6)';
+    } else if(buscarInput){
+      buscarInput.style.borderColor = '';
+    }
     /* mismo estilo que el Mapa de Resurgimiento: fill ~30% + border ~92% */
     function quadFill(p){
       if(p.x>=50 && p.y>=0) return 'rgba(34,201,138,0.28)';
@@ -4241,35 +4255,42 @@ if ('serviceWorker' in navigator) {
       return 'rgba(240,96,90,0.92)';
     }
     var bgColors = pts.map(function(p){
+      if(resaltado && p.t===resaltado) return 'rgba(255,255,255,0.4)'; /* buscador, máxima prioridad */
       if(p.brk)     return 'rgba(167,139,250,0.25)';   /* violeta */
       if(p.vi>=100) return 'rgba(34,238,232,0.22)';    /* cyan */
       return quadFill(p);
     });
     var borderColors = pts.map(function(p){
+      if(resaltado && p.t===resaltado) return '#ffffff';
       if(p.brk)     return 'rgba(167,139,250,0.97)';   /* violeta brillante */
       if(p.vi>=100) return 'rgba(34,238,232,0.95)';    /* cyan */
       return quadBorder(p);
     });
     var borderWidths = pts.map(function(p){
+      if(resaltado && p.t===resaltado) return 4;
       if(p.brk)     return 2.5;
       if(p.vi>=100) return 2;
       return 1.5;
     });
-    /* plugin de labels progresivos: aparecen a medida que se hace zoom */
+    /* plugin de labels progresivos: aparecen a medida que se hace zoom --
+       el ticker resaltado por el buscador siempre muestra su etiqueta,
+       sin importar el zoom (2026-09-09, pedido del usuario). */
     var wbLabelPlugin = { id:'wbLabels', afterDatasetsDraw:function(chart){
       var xs=chart.scales.x, range=xs.max-xs.min;
-      if(range>65) return;
-      var opacity=Math.min(1,(65-range)/25);
+      var opacityBase = range>65 ? 0 : Math.min(1,(65-range)/25);
       var ctx=chart.ctx, meta=chart.getDatasetMeta(0);
       ctx.save();
-      ctx.font='600 9px "DM Mono",monospace';
       ctx.textAlign='center'; ctx.textBaseline='bottom';
       pts.forEach(function(pt,i){
         var el=meta.data[i]; if(!el) return;
+        var esResaltado = resaltado && pt.t===resaltado;
+        var opacity = esResaltado ? 1 : opacityBase;
+        if(opacity<=0) return;
         var r=el.options.radius||4;
-        ctx.shadowColor='rgba(0,0,0,0.85)'; ctx.shadowBlur=4;
-        ctx.fillStyle='rgba(255,255,255,'+opacity.toFixed(2)+')';
-        ctx.fillText(pt.t, el.x, el.y-r-2);
+        ctx.font = esResaltado ? '700 11px "DM Mono",monospace' : '600 9px "DM Mono",monospace';
+        ctx.shadowColor='rgba(0,0,0,0.85)'; ctx.shadowBlur = esResaltado ? 6 : 4;
+        ctx.fillStyle = esResaltado ? '#ffffff' : 'rgba(255,255,255,'+opacity.toFixed(2)+')';
+        ctx.fillText(pt.t, el.x, el.y-r-(esResaltado?4:2));
       });
       ctx.restore();
       /* mostrar/ocultar botón reset */
@@ -4367,6 +4388,14 @@ if ('serviceWorker' in navigator) {
   }
 
   window.wbRenderRRG = wbRenderRRG; /* exponer globalmente para onchange inline */
+
+  // Buscador de acciones del Cuadrante de Rotación (2026-09-09, pedido
+  // del usuario): resalta la burbuja del ticker buscado -- ver el uso de
+  // window._wbRrgResaltado adentro de wbRenderRRG.
+  window.wbRrgBuscarTicker = function(val){
+    window._wbRrgResaltado = (val || '').trim().toUpperCase() || null;
+    try{ wbRenderRRG(); }catch(e){}
+  };
 
   /* ═══ 4b. Cuadrante de Rotación — historial semanal (rotacion_historia.json):
      "Recién a Líderes" (transiciones) + "Aceleración inusual". Pedido del
