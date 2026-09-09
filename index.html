@@ -98,19 +98,6 @@
   .stat-hint{color:rgba(115,125,143,0.45);font-size:9px;margin-top:3px;letter-spacing:0.03em;}
   .c-green{color:var(--green);}.c-red{color:var(--red);}.c-amber{color:var(--amber);}.c-blue{color:var(--blue);}.c-purple{color:var(--purple);}.c-text{color:var(--text);}
 
-  /* Anillo de porcentaje de cada stat-card (2026-09-09, pedido del
-     usuario -- ver Opción C + anillos de Opción B del mockup "Cabecera
-     Dashboard"). Reemplaza a .wb-statbar (la barra plana de abajo, ver
-     WB VISUAL UPGRADE): mismo % calculado en wbAfterStats, mostrado como
-     anillo en vez de barra -- actualizarAnillo() completa el dashoffset
-     y el texto del medio en cada refresh de datos. */
-  .stat-body{display:flex;align-items:center;gap:10px;margin-top:2px;}
-  .stat-ring{position:relative;width:40px;height:40px;flex-shrink:0;}
-  .stat-ring-bg{stroke:rgba(255,255,255,0.07);}
-  .stat-ring-fill{stroke:currentColor;stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease);}
-  .stat-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:'DM Mono',monospace;font-size:8.5px;color:var(--muted);}
-  .stat-val-wrap{min-width:0;}
 
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
 
@@ -654,17 +641,50 @@
 
 <div class="main">
 
-  <!-- Anillo de porcentaje por card (2026-09-09, pedido del usuario, sobre
-       Opción C del mockup "Cabecera Dashboard"): reemplaza la barra plana
-       .wb-statbar de abajo -- mismo dato (ver wbAfterStats/actualizarAnillo
-       en WB VISUAL UPGRADE), nomás mostrado como anillo en vez de barra.
-       id/onclick/estructura de label/value/sub/hint sin tocar. -->
+  <!-- KPI cards (2026-09-09, pedido del usuario, spec "Estética KPI
+       cards -- barra superior de métricas"): reemplaza el anillo de
+       porcentaje de antes por este look (glow de acento, número grande
+       con text-shadow, sparkline puramente decorativo -- no representa
+       ningún dato real, es la misma curva en las 5 cards, solo cambia
+       de color via --accent). SOLO estas 5 cards -- el panel que las
+       contiene (#wb-cmd-panel/pestañas/régimen) no se toca.
+       id/onclick/label/value/sub/hint sin tocar. -->
   <div class="stats-row">
-    <div class="stat-card" id="sc-total" onclick="setQuickFilter('total')"><div class="stat-label">Tickers activos</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-blue" id="st-total">—</div><div class="stat-sub">con filtros aplicados</div></div></div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-ema" onclick="setQuickFilter('ema')"><div class="stat-label">Sobre EMA200</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-ema">—</div><div class="stat-sub">tendencia alcista</div></div></div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-rs" onclick="setQuickFilter('rs')"><div class="stat-label">RS Score &gt; 70</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-rs">—</div><div class="stat-sub">fuerza relativa alta</div></div></div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-sma50" onclick="setQuickFilter('sma50')"><div class="stat-label">Sobre SMA50</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-green" id="st-sma50">—</div><div class="stat-sub">precio sobre SMA50</div></div></div><div class="stat-hint">click para filtrar</div></div>
-    <div class="stat-card" id="sc-vol" onclick="setQuickFilter('vol')"><div class="stat-label">Vol inusual hoy</div><div class="stat-body"><div class="stat-ring"><svg width="40" height="40" viewBox="0 0 40 40"><circle class="stat-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3.5"/><circle class="stat-ring-fill" cx="20" cy="20" r="16" fill="none" stroke-width="3.5" stroke-dasharray="100.5" stroke-dashoffset="100.5" transform="rotate(-90 20 20)"/></svg><span class="stat-ring-pct"></span></div><div class="stat-val-wrap"><div class="stat-value c-amber" id="st-vol">—</div><div class="stat-sub">+50% sobre promedio</div></div></div><div class="stat-hint">click para filtrar</div></div>
+    <div class="stat-card" id="sc-total" style="--accent:#3b82f6" onclick="setQuickFilter('total')">
+      <svg class="stat-spark" viewBox="0 0 200 110" preserveAspectRatio="none"><defs><linearGradient id="spark-total" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:1"/></linearGradient></defs><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-total)" stroke-width="2" stroke-linecap="round" style="filter:blur(6px);opacity:.6"/><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-total)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="stat-label">Tickers activos</div>
+      <div class="stat-value" id="st-total">—</div>
+      <div class="stat-sub">con filtros aplicados</div>
+      <div class="stat-hint">click para filtrar</div>
+    </div>
+    <div class="stat-card" id="sc-ema" style="--accent:#22d3a5" onclick="setQuickFilter('ema')">
+      <svg class="stat-spark" viewBox="0 0 200 110" preserveAspectRatio="none"><defs><linearGradient id="spark-ema" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:1"/></linearGradient></defs><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-ema)" stroke-width="2" stroke-linecap="round" style="filter:blur(6px);opacity:.6"/><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-ema)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="stat-label">Sobre EMA200</div>
+      <div class="stat-value" id="st-ema">—</div>
+      <div class="stat-sub">tendencia alcista</div>
+      <div class="stat-hint">click para filtrar</div>
+    </div>
+    <div class="stat-card" id="sc-rs" style="--accent:#a855f7" onclick="setQuickFilter('rs')">
+      <svg class="stat-spark" viewBox="0 0 200 110" preserveAspectRatio="none"><defs><linearGradient id="spark-rs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:1"/></linearGradient></defs><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-rs)" stroke-width="2" stroke-linecap="round" style="filter:blur(6px);opacity:.6"/><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-rs)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="stat-label">RS Score &gt; 70</div>
+      <div class="stat-value" id="st-rs">—</div>
+      <div class="stat-sub">fuerza relativa alta</div>
+      <div class="stat-hint">click para filtrar</div>
+    </div>
+    <div class="stat-card" id="sc-sma50" style="--accent:#34d399" onclick="setQuickFilter('sma50')">
+      <svg class="stat-spark" viewBox="0 0 200 110" preserveAspectRatio="none"><defs><linearGradient id="spark-sma50" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:1"/></linearGradient></defs><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-sma50)" stroke-width="2" stroke-linecap="round" style="filter:blur(6px);opacity:.6"/><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-sma50)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="stat-label">Sobre SMA50</div>
+      <div class="stat-value" id="st-sma50">—</div>
+      <div class="stat-sub">precio sobre SMA50</div>
+      <div class="stat-hint">click para filtrar</div>
+    </div>
+    <div class="stat-card" id="sc-vol" style="--accent:#f59e0b" onclick="setQuickFilter('vol')">
+      <svg class="stat-spark" viewBox="0 0 200 110" preserveAspectRatio="none"><defs><linearGradient id="spark-vol" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:1"/></linearGradient></defs><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-vol)" stroke-width="2" stroke-linecap="round" style="filter:blur(6px);opacity:.6"/><path d="M0,92 C35,88 48,64 78,58 C108,52 118,32 148,26 Q176,20 200,8" fill="none" stroke="url(#spark-vol)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="stat-label">Vol inusual hoy</div>
+      <div class="stat-value" id="st-vol">—</div>
+      <div class="stat-sub">+50% sobre promedio</div>
+      <div class="stat-hint">click para filtrar</div>
+    </div>
   </div>
 
   <div class="grid-2">
@@ -3606,30 +3626,12 @@ if ('serviceWorker' in navigator) {
     el._wbRaf = requestAnimationFrame(step);
   }
 
-  // Anillo de porcentaje (2026-09-09, pedido del usuario, reemplaza a la
-  // barra plana .wb-statbar -- mismo % de siempre, mostrado como anillo).
-  // r=16 en el SVG estático de cada card (ver stats-row en el HTML) ->
-  // circunferencia = 2*pi*16 ≈ 100.5.
-  var STAT_RING_C = 2 * Math.PI * 16;
-  function actualizarAnillo(card, valueEl, pct){
-    var ring = card.querySelector('.stat-ring');
-    if(!ring) return;
-    var fill = ring.querySelector('.stat-ring-fill');
-    var pctEl = ring.querySelector('.stat-ring-pct');
-    if(!fill) return;
-    try{ fill.style.color = getComputedStyle(valueEl).color; }catch(e){}
-    var offset = STAT_RING_C * (1 - pct/100);
-    requestAnimationFrame(function(){ fill.style.strokeDashoffset = offset.toFixed(1); });
-    if(pctEl) pctEl.textContent = Math.round(pct) + '%';
-  }
-
+  // (2026-09-09, pedido del usuario: se sacó el anillo de porcentaje --
+  // spec "Estética KPI cards" nueva, el sparkline de esas cards es
+  // decorativo y no representa datos reales, así que ya no hace falta
+  // calcular ningún % acá. wbAfterStats queda solo con el count-up.)
   function wbAfterStats(){
     try{
-      var totalEl = document.getElementById('st-total');
-      if(!totalEl) return;
-      var total = parseInt(totalEl.textContent, 10);
-      var universo = (typeof DATOS !== 'undefined' && DATOS && DATOS.length) ? DATOS.length : total;
-
       STAT_IDS.forEach(function(id){
         var el = document.getElementById(id);
         if(!el) return;
@@ -3640,12 +3642,6 @@ if ('serviceWorker' in navigator) {
         if(isNaN(prev)) prev = 0;
         el.dataset.wbPrev = val;
         countUp(el, prev, val);
-
-        var card = el.closest('.stat-card');
-        if(!card) return;
-        var denom = (id === 'st-total') ? universo : (total || 1);
-        var pct = denom > 0 ? Math.max(0, Math.min(100, val/denom*100)) : 0;
-        actualizarAnillo(card, el, pct);
       });
     }catch(e){}
   }
@@ -10360,19 +10356,51 @@ window.wbFeedbackEnviar = async function(){
     #wb-cmd-top .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
       letter-spacing:.06em;color:var(--muted);}
 
-    #wb-cmd-kpis{display:none;border-top:1px solid var(--border);}
+    #wb-cmd-kpis{display:none;padding:16px 20px;border-top:1px solid var(--border);}
     #wb-cmd-kpis.mostrar{display:block;}
-    #wb-cmd-kpis .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:0;}
-    #wb-cmd-kpis .stat-card{background:none;border:none;border-right:1px solid var(--border);
-      border-radius:0;box-shadow:none;padding:12px 20px;}
-    #wb-cmd-kpis .stat-card:last-child{border-right:none;}
-    #wb-cmd-kpis .stat-card::after{display:none;}
-    #wb-cmd-kpis .stat-card:hover{background:rgba(255,255,255,0.02);border-color:var(--border);
-      transform:none;box-shadow:none;}
-    #wb-cmd-kpis .stat-card.active{position:relative;background:rgba(34,201,138,0.06);
-      border-color:var(--border);}
-    #wb-cmd-kpis .stat-card.active::before{content:'';position:absolute;left:0;top:0;bottom:0;
-      width:2px;background:var(--green);box-shadow:0 0 8px rgba(34,201,138,0.7);}
+    #wb-cmd-kpis .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:0;}
+
+    /* Estética "KPI cards" (2026-09-09, pedido del usuario, spec aparte) --
+       SOLO estas 5 cards, nada más del panel se toca. Cada card trae su
+       propio --accent (inline style en el HTML) y todo lo demás (número,
+       glow, sparkline, barra inferior) deriva de esa variable. */
+    #wb-cmd-kpis .stat-card{
+      padding:18px 20px;border-radius:12px;min-height:110px;
+      position:relative;overflow:hidden;cursor:pointer;
+      background:linear-gradient(160deg,#0d1117 0%,#080b10 100%);
+      border:1px solid rgba(255,255,255,0.06);box-shadow:none;
+      transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;}
+    #wb-cmd-kpis .stat-card::before{
+      content:'';position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 60%);
+      transition:background .2s ease;}
+    #wb-cmd-kpis .stat-card::after{
+      content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+      width:85%;height:3px;border-radius:2px;
+      background:linear-gradient(90deg, transparent, var(--accent));}
+    #wb-cmd-kpis .stat-card:hover{
+      transform:translateY(-2px);border-color:rgba(255,255,255,0.14);
+      box-shadow:0 8px 28px rgba(0,0,0,0.5);}
+    #wb-cmd-kpis .stat-card:hover::before{
+      background:radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 27%, transparent) 0%, transparent 60%);}
+    #wb-cmd-kpis .stat-card.active{
+      border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+      box-shadow:inset 0 0 20px -6px color-mix(in srgb, var(--accent) 35%, transparent);}
+
+    #wb-cmd-kpis .stat-spark{position:absolute;right:0;top:0;width:55%;height:100%;
+      pointer-events:none;opacity:.55;z-index:0;}
+
+    #wb-cmd-kpis .stat-label{position:relative;z-index:1;font-size:10px;font-weight:600;
+      text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,0.5);margin-bottom:0;}
+    #wb-cmd-kpis .stat-value{position:relative;z-index:1;display:block;font-size:46px;
+      font-weight:700;line-height:1;font-family:'DM Mono',monospace;letter-spacing:normal;
+      font-variant-numeric:tabular-nums;color:var(--accent);margin-top:6px;
+      text-shadow:0 0 28px color-mix(in srgb, var(--accent) 40%, transparent);}
+    #wb-cmd-kpis .stat-sub{position:relative;z-index:1;font-size:11.5px;
+      color:rgba(255,255,255,0.45);margin-top:4px;}
+    #wb-cmd-kpis .stat-hint{position:relative;z-index:1;font-size:9.5px;
+      color:rgba(255,255,255,0.22);transition:color .2s ease;margin-top:3px;}
+    #wb-cmd-kpis .stat-card:hover .stat-hint{color:rgba(255,255,255,0.5);}
 
     .wb-tab-content{display:none;padding-top:18px;}
     .wb-tab-content.active{display:block;}
