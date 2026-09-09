@@ -34,7 +34,16 @@ module.exports = async (req, res) => {
 
     // external_reference = "email|product1,product2" (plan anual, default)
     //                    o "email|product1,product2|manual35" (mensual pago único manual)
-    const ref      = req.query.external_reference || '';
+    // IMPORTANTE (fix seguridad 9/9/2026): se lee de result.external_reference
+    // (verificado contra la API de MP, atado al payment_id ya confirmado como
+    // 'approved') y NUNCA de req.query.external_reference -- ese query param
+    // es parte de la URL de redirección, así que cualquiera podría armar a mano
+    // un link con su propio payment_id aprobado (de cualquier monto) pero con un
+    // external_reference distinto, y auto-otorgarse (o regalar) acceso a
+    // cualquier email/producto/plan sin pagarlo. webhook-mp.js y
+    // confirmar-suscripcion.js ya leían del objeto verificado -- éste era el
+    // único de los tres que confiaba en el valor sin verificar.
+    const ref      = result.external_reference || '';
     const [rawEmail, productsStr, planTag] = ref.split('|');
     const email    = (rawEmail || '').toLowerCase().trim();
     const products = productsStr ? productsStr.split(',').filter(Boolean) : ['dashboard'];

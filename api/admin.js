@@ -1,5 +1,6 @@
 const { Redis } = require('@upstash/redis');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
+const crypto = require('crypto');
 const kv = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const SITE_URL = process.env.SITE_URL
@@ -69,7 +70,20 @@ module.exports = async (req, res) => {
 
   const { action, secret } = req.query;
 
-  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+  // Comparación en tiempo constante (fix seguridad 9/9/2026): "!==" normal
+  // compara caracter por caracter y corta apenas encuentra una diferencia,
+  // así que el tiempo de respuesta varía con cuántos caracteres iniciales
+  // coinciden -- en teoría permite reconstruir el secreto probando de a un
+  // caracter y midiendo timing. timingSafeEqual tarda siempre lo mismo.
+  const secretOk = (() => {
+    const expected = process.env.ADMIN_SECRET;
+    if (!expected || !secret) return false;
+    const a = Buffer.from(String(secret));
+    const b = Buffer.from(expected);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  })();
+  if (!secretOk) {
     return res.status(401).json({ error: 'No autorizado' });
   }
 

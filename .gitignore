@@ -1,0 +1,11 @@
+.vercel
+.env*
+node_modules
+
+# Datos reales de suscriptores/pagos -- nunca deben terminar en el repo
+# (contienen email, DNI, tarjeta parcial de clientes reales)
+Suscriptores*.csv
+mp_payment_*.json
+
+__pycache__/
+*.pyc
