@@ -10396,6 +10396,8 @@ function byInner(id){ var el=document.getElementById(id); return el ? el.closest
 
 var pSpotlight    = document.getElementById('wb-spotlight');
 var statsRow      = main.querySelector('.stats-row');
+var pTicker       = document.querySelector('.ticker-strip-outer');
+var pEarnings     = document.getElementById('earnings-strip');
 var pRgmCart      = document.querySelector('.wb-rgm-cart-row');
 var pVinu         = byInner('vinuChart');
 var pWarren       = byInner('warren-table');
@@ -10472,7 +10474,18 @@ tabIds.forEach(function(id){
 // que no hace falta excluirla acá abajo (ver el toggle mostrar/ocultar
 // por pestaña, más abajo junto al click de las pestañas).
 
-// Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
+// Resumen: Ticker tape + Earnings + Top 3 Warren Score + Régimen/Cartelera
+// + Vol. inusual. Ticker/Earnings bajan de arriba de todo (2026-09-09,
+// pedido del usuario) a ser parte del contenido de Resumen -- quedan
+// por debajo de las pestañas y se ven SOLO ahí, heredando el
+// display:none/.active de .wb-tab-content como cualquier otro panel de
+// esta pestaña. #earnings-strip sigue manejando su propio
+// display:block/none según haya earnings esa semana (buildEarningsCards/
+// renderEarnings, en WB VISUAL UPGRADE) -- como ahora vive ADENTRO de un
+// contenedor que se oculta entero en el resto de las pestañas, no hace
+// falta ningún toggle extra acá.
+if(pTicker) tabContents.resumen.appendChild(pTicker);
+if(pEarnings) tabContents.resumen.appendChild(pEarnings);
 tabContents.resumen.appendChild(pSpotlight);
 tabContents.resumen.appendChild(pRgmCart);
 if(pVinu) tabContents.resumen.appendChild(pVinu);
@@ -10669,6 +10682,13 @@ setTimeout(sincronizarMiniRegimen, 800);
        por la bottom nav fija */
     body.wb-mdash #view-dashboard .main{padding-bottom:70px;}
   }
+  /* Ticker tape + Earnings ocultos fuera de Resumen en mobile (2026-09-09,
+     pedido del usuario -- acá NO se mueven de lugar, solo se ocultan).
+     !important a propósito: #earnings-strip tiene su PROPIO
+     display:block/none inline (según haya earnings esa semana) que puede
+     reescribirse en cualquier momento por un refresh de datos -- esta
+     clase tiene que ganarle siempre a ese inline, sin importar el orden. */
+  .wb-mtab-hide{display:none !important;}
 </style>
 <script id="wb-v37-js">
 (function(){
@@ -10685,6 +10705,8 @@ function byInner(id){ var el=document.getElementById(id); return el ? el.closest
 
 var pSpotlight    = document.getElementById('wb-spotlight');
 var statsRow      = main.querySelector('.stats-row');
+var pTicker       = document.querySelector('.ticker-strip-outer');
+var pEarnings     = document.getElementById('earnings-strip');
 var pRgmCart      = document.querySelector('.wb-rgm-cart-row');
 var pVinu         = byInner('vinuChart');
 var pWarren       = byInner('warren-table');
@@ -10810,6 +10832,17 @@ mtabsBar.querySelectorAll('.wb-mtab-btn').forEach(function(btn){
     var tabId = btn.dataset.wbmtab;
     tabContents[tabId].classList.add('active');
     if(statsRow) statsRow.style.display = (tabId === 'resumen') ? '' : 'none';
+    // Ticker tape + Earnings (2026-09-09, pedido del usuario): en mobile
+    // NO se mueven de lugar, solo se ocultan fuera de Resumen. Con clase
+    // + !important en vez de tocar el style inline: #earnings-strip ya
+    // maneja su PROPIO display:block/none según haya earnings esa semana
+    // (buildEarningsCards/renderEarnings, en WB VISUAL UPGRADE) y ese
+    // refresh puede correr en cualquier momento -- si pisáramos el style
+    // inline acá, un refresh de datos mientras se está en otra pestaña
+    // podría volver a mostrarlo. La clase !important gana siempre,
+    // pisar o no pisar el inline no importa.
+    if(pTicker) pTicker.classList.toggle('wb-mtab-hide', tabId !== 'resumen');
+    if(pEarnings) pEarnings.classList.toggle('wb-mtab-hide', tabId !== 'resumen');
     window.scrollTo(0,0);
     setTimeout(function(){ refrescarChartsDeLaPestaña(tabId); }, 50);
   });
