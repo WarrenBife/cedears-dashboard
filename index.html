@@ -10511,5 +10511,222 @@ setTimeout(sincronizarMiniRegimen, 800);
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V36 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V37 — Pestañas de mobile ═══════════════
+     (2026-09-XX, pedido del usuario): mismo reparto de paneles que
+     WB UPGRADE V36 (Resumen/Warren Score/Señales/Rotación/Análisis),
+     pero manejado desde la bottom nav en vez de una barra de pestañas
+     arriba -- no hay espacio horizontal para eso en mobile. Solo aplica
+     ≤600px (mismo corte que #wb-bottomnav); no toca nada de V36 (ese
+     corta en >900px, así que nunca corren los dos a la vez sobre los
+     mismos paneles). Igual que V36: no cambia el render ni la lógica de
+     ningún cuadro, solo MUEVE (appendChild) los <div class="panel">/
+     .grid-2 ya construidos.
+
+     Mecanismo de navegación: la bottom nav de siempre (#wb-bottomnav:
+     Inicio/Dashboard/Planilla/Mapa) se OCULTA y se reemplaza por una
+     nueva (#wb-mtabs-bar: las 5 pestañas) mientras el usuario está
+     DENTRO del dashboard -- se vuelve a la nav de siempre al salir. Para
+     salir del dashboard se sigue usando el botón "← Menú" que ya existe
+     en el topbar (showView('home')), sin cambios ahí. La vista mobile
+     propia de Warren Score (lista+detalle, WB UPGRADE V32, CSS-condicional
+     dentro del mismo panel) sigue andando igual: se mueve el panel
+     ENTERO, no se toca su contenido. -->
+<style id="wb-v37-css">
+  #wb-mtabs-bar{display:none;}
+  @media(max-width:600px){
+    body.wb-mdash #wb-bottomnav{display:none;}
+    body.wb-mdash #wb-mtabs-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:500;
+      background:rgba(10,13,19,0.88);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      border-top:1px solid var(--border2);
+      padding:5px 3px calc(5px + env(safe-area-inset-bottom));
+      justify-content:space-around;align-items:stretch;}
+    body.wb-mdash #wb-mtabs-bar::before{content:'';position:absolute;left:0;right:0;top:-1px;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(34,201,138,0.4) 30%,rgba(79,142,247,0.3) 70%,transparent);}
+    .wb-mtab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+      background:none;border:none;cursor:pointer;color:var(--muted);
+      font-family:'DM Sans',sans-serif;font-size:8.5px;letter-spacing:0.01em;
+      padding:5px 1px;min-height:46px;border-radius:9px;transition:color .2s var(--ease);}
+    .wb-mtab-ic{font-size:16px;line-height:1;filter:grayscale(1) opacity(0.75);transition:filter .2s var(--ease);}
+    .wb-mtab-btn.active{color:#5ffbb3;text-shadow:0 0 8px rgba(94,251,179,0.7);}
+    .wb-mtab-btn.active .wb-mtab-ic{filter:none;}
+    .wb-mtab-btn.active::after{content:'';width:4px;height:4px;border-radius:50%;
+      background:var(--green);box-shadow:0 0 8px rgba(34,201,138,0.9);}
+
+    /* Reusa la misma pestaña Señales de V36 (subtoggle Diario/Semanal) */
+    .wb-mtab-content{display:none;}
+    .wb-mtab-content.active{display:block;}
+    /* Espacio para que el último cuadro de cada pestaña no quede tapado
+       por la bottom nav fija */
+    body.wb-mdash #view-dashboard .main{padding-bottom:70px;}
+  }
+</style>
+<script id="wb-v37-js">
+(function(){
+'use strict';
+try{
+
+var main = document.querySelector('#view-dashboard .main');
+if(!main) return;
+// Solo mobile chico (mismo corte que #wb-bottomnav) -- desktop/tablet
+// quedan con V36 o con el scroll de siempre, según su propio corte.
+if(window.innerWidth > 600) return;
+
+function byInner(id){ var el=document.getElementById(id); return el ? el.closest('.panel') : null; }
+
+var pSpotlight    = document.getElementById('wb-spotlight');
+var statsRow      = main.querySelector('.stats-row');
+var pRgmCart      = document.querySelector('.wb-rgm-cart-row');
+var pVinu         = byInner('vinuChart');
+var pWarren       = byInner('warren-table');
+var pEma200       = document.getElementById('wb-ema200-panel');
+var gridEma200Vcp = pEma200 ? pEma200.closest('.grid-2') : null;
+var pEpisodic     = document.getElementById('wb-ep-panel');
+var pEma200Sem    = document.getElementById('wb-ema200-sem-panel');
+var gridSemanal   = pEma200Sem ? pEma200Sem.closest('.grid-2') : null;
+var pRRG          = document.getElementById('wb-rrg-panel');
+var pSema         = byInner('sema-grid');
+var pTrend        = byInner('trendRankTable');
+var gridAnalisis  = pTrend ? pTrend.closest('.grid-2') : null;
+
+// Si falta algún ancla clave (layout inesperado), no reorganizamos --
+// mejor el scroll de siempre que una página rota.
+if(!pSpotlight || !pWarren || !pRRG || !pRgmCart){ return; }
+
+// ── Nueva bottom nav de 5 pestañas (reemplaza a #wb-bottomnav mientras
+// se está en el dashboard) ──
+var mtabsBar = document.createElement('nav');
+mtabsBar.id = 'wb-mtabs-bar';
+mtabsBar.innerHTML =
+  '<button class="wb-mtab-btn active" data-wbmtab="resumen"><span class="wb-mtab-ic">📋</span>Resumen</button>'+
+  '<button class="wb-mtab-btn" data-wbmtab="warren"><span class="wb-mtab-ic">🎯</span>Score</button>'+
+  '<button class="wb-mtab-btn" data-wbmtab="senales"><span class="wb-mtab-ic">⚡</span>Señales</button>'+
+  '<button class="wb-mtab-btn" data-wbmtab="rotacion"><span class="wb-mtab-ic">📡</span>Rotación</button>'+
+  '<button class="wb-mtab-btn" data-wbmtab="analisis"><span class="wb-mtab-ic">🔬</span>Análisis</button>';
+document.body.appendChild(mtabsBar);
+
+// ── Un contenedor por pestaña ──
+var tabIds = ['resumen','warren','senales','rotacion','analisis'];
+var tabContents = {};
+tabIds.forEach(function(id){
+  var d = document.createElement('div');
+  d.className = 'wb-mtab-content' + (id==='resumen' ? ' active' : '');
+  d.id = 'wb-mtabcontent-' + id;
+  tabContents[id] = d;
+});
+
+// ── Mover los paneles YA EXISTENTES a su pestaña (mismo reparto que
+// desktop, WB UPGRADE V36) ──
+// stats-row queda FUERA de cualquier pestaña puntual -- hijo directo de
+// .main, siempre visible arriba del contenido de la pestaña activa.
+
+// Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
+tabContents.resumen.appendChild(pSpotlight);
+tabContents.resumen.appendChild(pRgmCart);
+if(pVinu) tabContents.resumen.appendChild(pVinu);
+
+// Warren Score: tabla completa (en mobile, la vista lista+detalle de
+// WB UPGRADE V32 sigue andando igual -- es CSS-condicional adentro del
+// MISMO panel, no se toca nada de eso al moverlo entero)
+tabContents.warren.appendChild(pWarren);
+
+// Señales: mismo sub-toggle Diario/Semanal que V36
+var senalesToggle = document.createElement('div');
+senalesToggle.className = 'subtoggle';
+senalesToggle.style.cssText = 'display:flex;gap:6px;margin-bottom:14px;';
+senalesToggle.innerHTML =
+  '<button class="wb-senal-pill active" data-senalview="diario">Diario</button>'+
+  '<button class="wb-senal-pill" data-senalview="semanal">Semanal</button>';
+var senalDiario = document.createElement('div'); senalDiario.id = 'wb-msenalview-diario';
+var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-msenalview-semanal'; senalSemanal.style.display = 'none';
+if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
+if(pEpisodic) senalDiario.appendChild(pEpisodic);
+if(gridSemanal) senalSemanal.appendChild(gridSemanal);
+tabContents.senales.appendChild(senalesToggle);
+tabContents.senales.appendChild(senalDiario);
+tabContents.senales.appendChild(senalSemanal);
+senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    senalesToggle.querySelectorAll('.wb-senal-pill').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    var which = btn.dataset.senalview;
+    senalDiario.style.display = which==='diario' ? '' : 'none';
+    senalSemanal.style.display = which==='semanal' ? '' : 'none';
+  });
+});
+
+// Rotación: Cuadrante (incluye Recién a Líderes + Aceleración inusual)
+// + Semáforo por sector
+tabContents.rotacion.appendChild(pRRG);
+if(pSema) tabContents.rotacion.appendChild(pSema);
+
+// Análisis: Tendencia RS Score + Sesiones & Volumen
+if(gridAnalisis) tabContents.analisis.appendChild(gridAnalisis);
+
+tabIds.forEach(function(id){ main.appendChild(tabContents[id]); });
+
+// ── Limpiar lo que haya quedado suelto en main ──
+Array.prototype.slice.call(main.children).forEach(function(el){
+  if(el.classList.contains('wb-mtab-content')) return;
+  if(el === statsRow) return;
+  el.remove();
+});
+
+main.querySelectorAll('.wb-mtab-content .panel').forEach(function(p){ p.style.animation='none'; });
+
+// Mismo fix que V36: los charts Chart.js (RRG, Sesiones & Volumen) se
+// construyen con su pestaña todavía oculta y quedan en 0×0 -- resize()
+// no lo arregla, hay que volver a llamar a la función de render de cada
+// uno la primera vez que se ve su pestaña.
+var pestañasYaVistas = {resumen: true};
+var RENDER_POR_PESTAÑA = {
+  rotacion: function(){ if(typeof window.wbRenderRRG === 'function') window.wbRenderRRG(); },
+  analisis: function(){ if(typeof window.renderSesionesVol === 'function') window.renderSesionesVol(); }
+};
+function refrescarChartsDeLaPestaña(tabId){
+  if(pestañasYaVistas[tabId]) return;
+  pestañasYaVistas[tabId] = true;
+  var fn = RENDER_POR_PESTAÑA[tabId];
+  if(fn){ try{ fn(); }catch(e){} }
+}
+
+// ── Click en las pestañas de la bottom nav ──
+mtabsBar.querySelectorAll('.wb-mtab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    mtabsBar.querySelectorAll('.wb-mtab-btn').forEach(function(b){ b.classList.remove('active'); });
+    Object.keys(tabContents).forEach(function(id){ tabContents[id].classList.remove('active'); });
+    btn.classList.add('active');
+    var tabId = btn.dataset.wbmtab;
+    tabContents[tabId].classList.add('active');
+    window.scrollTo(0,0);
+    setTimeout(function(){ refrescarChartsDeLaPestaña(tabId); }, 50);
+  });
+});
+
+// ── Mostrar #wb-mtabs-bar (y ocultar #wb-bottomnav) mientras se está en
+// el dashboard -- vía clase en <body>, sincronizada con showView. Para
+// volver al menú se usa el "← Menú" del topbar que ya existe (showView
+// ('home')), sin cambios ahí. ──
+try{
+  if(typeof window.showView === 'function'){
+    var _sv37 = window.showView;
+    window.showView = function(name){
+      var r = _sv37.apply(this, arguments);
+      document.body.classList.toggle('wb-mdash', name === 'dashboard');
+      return r;
+    };
+  }
+}catch(e){}
+// Si la página carga directo en el dashboard (deep link / recarga con
+// el gate de pago ya validado), sincronizar el estado inicial.
+try{
+  var vd = document.getElementById('view-dashboard');
+  if(vd && vd.style.display !== 'none') document.body.classList.add('wb-mdash');
+}catch(e){}
+
+}catch(e){ console.error('WB V37 tabs mobile error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V37 ═══════════════ -->
+
 </body>
 </html>
