@@ -4164,7 +4164,13 @@ if ('serviceWorker' in navigator) {
      pullbacks reales con cruces de abajo hacia arriba bajo el mismo
      "rebote"). Mismo score en las dos, solo cambia el filtro por 'tipo'. */
   var ema200P = mkPanel('wb-ema200-panel','🎯 EMA200: Rebote / Cruce',
-    'Contacto con la media de largo plazo — desde arriba (rebote) o desde abajo (cruce)',
+    // Sub enriquecido 2026-09-10 (pedido del usuario): el detalle de
+    // Clímax + 🌊 que antes vivía fijo al pie del cuadro (#wb-ema200-desc,
+    // WB_EMA200_DESC) pasa acá adentro, junto con la aclaración de las
+    // abreviaturas d/s/m de las columnas Contacto/Cruce y Última vez.
+    'Contacto con la media de largo plazo — desde arriba (rebote) o desde abajo (cruce)<br><br>'+
+    '<b>Clímax</b> — la vela de mayor volumen en el contacto, cerrando fuerte (no un derrumbe/pinchazo): señal de absorción institucional en el rebote o de demanda real detrás del cruce. <b>🌊</b> = clímax especialmente fuerte (cerró en el 60%+ superior de la vela, con volumen ≥1,5x el normal).<br><br>'+
+    '<b>d</b> = ruedas · <b>s</b> = semanas · <b>m</b> = meses',
     '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
       '<button class="rrg-pill active" id="ema200-tab-rebote" onclick="wbEMA200SetTab(\'rebote\')">🔄 Rebote</button>'+
       '<button class="rrg-pill" id="ema200-tab-cruce" onclick="wbEMA200SetTab(\'cruce\')">🚀 Cruce al alza</button>'+
@@ -4178,8 +4184,7 @@ if ('serviceWorker' in navigator) {
     // pedido del usuario). 315px = header (24.5px) + 10 filas (29px c/u
     // en esta tabla) medido en vivo -- mismo criterio en wb-vcpq-body,
     // que usa otro valor porque sus filas son más altas (llevan logo).
-    '<div id="wb-ema200-body" style="max-height:315px;overflow-y:auto"></div>'+
-    '<div id="wb-ema200-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
+    '<div id="wb-ema200-body" style="max-height:315px;overflow-y:auto"></div>',
     'EMA200 Reversal Score: rankea líderes que corrigieron hasta su media de largo plazo o la cruzaron de abajo hacia arriba, con absorción institucional (volumen alto cerrando fuerte) y fuerza relativa confirmando. No es el Warren Score (pre-breakout) — es el "buy the dip"/cruce bien filtrado.');
 
   /* — Análisis Semanal (2026-09-08, pedido del usuario) -- reemplaza al
@@ -4197,7 +4202,13 @@ if ('serviceWorker' in navigator) {
         de señal (tipo MACD): cuando el RSI semanal cruza su propia
         media móvil de 14, no cuando toca 30/70. */
   var ema200SemP = mkPanel('wb-ema200-sem-panel','📅 EMA200 Semanal: Rebote / Cruce',
-    'Mismo mecanismo que el diario, pero sobre la media de ~4 años — un nivel mucho más raro de tocar',
+    // Mismo criterio que ema200P (2026-09-10, pedido del usuario): sub
+    // enriquecido con Clímax/🌊 (antes #wb-ema200sem-desc, fijo al pie)
+    // y la aclaración de abreviaturas -- acá s/m/a porque "Última vez"
+    // puede llegar a mostrar años (_ema200SemRachaHumano).
+    'Mismo mecanismo que el diario, pero sobre la media de ~4 años — un nivel mucho más raro de tocar<br><br>'+
+    '<b>Clímax</b> — la vela semanal de mayor volumen en el contacto, cerrando fuerte: señal de absorción institucional o demanda real. <b>🌊</b> = clímax especialmente fuerte (cerró en el 60%+ superior de la vela, con volumen ≥1,5x el normal).<br><br>'+
+    '<b>s</b> = semanas · <b>m</b> = meses · <b>a</b> = años',
     '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
       '<button class="rrg-pill active" id="ema200sem-tab-rebote" onclick="wbEMA200SemSetTab(\'rebote\')">🔄 Rebote</button>'+
       '<button class="rrg-pill" id="ema200sem-tab-cruce" onclick="wbEMA200SemSetTab(\'cruce\')">🚀 Cruce al alza</button>'+
@@ -4207,18 +4218,23 @@ if ('serviceWorker' in navigator) {
       '<input type="range" id="ema200sem-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200sem-rs-min-val\').textContent=this.value;wbRenderEMA200ReversalSemanal()">'+
       '<span id="ema200sem-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
     '</div>'+
-    '<div id="wb-ema200sem-body" style="max-height:315px;overflow-y:auto"></div>'+
-    '<div id="wb-ema200sem-desc" style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5"></div>',
+    '<div id="wb-ema200sem-body" style="max-height:315px;overflow-y:auto"></div>',
     'Igual que "EMA200: Rebote / Cruce" de arriba, pero calculado sobre velas SEMANALES en vez de diarias. La EMA200 semanal representa ~4 años de historia -- un nivel de mucho más largo plazo, que casi no se toca salvo en correcciones grandes. Vas a ver este cuadro vacío la mayoría de las veces, y es lo esperable.');
 
   var rsiSemP = mkPanel('wb-rsi-sem-panel','📶 RSI Semanal: Cruce en su SMA14',
-    'El RSI semanal cruza su propia media de 14 — como una línea de señal, no un nivel fijo (30/70)',
+    // Sub enriquecido 2026-09-10 (pedido del usuario): las 2 notas que
+    // antes vivían al pie del cuadro (esta descripción MACD-like, fija
+    // en el bodyHTML, y el 🟢/🔴 armado en wbRenderRSISemCruce) pasan
+    // acá, junto con la aclaración de la abreviatura "s" de la columna
+    // "Cruzó hace".
+    'El RSI semanal cruza su propia media de 14 — como una línea de señal (tipo MACD), no un nivel fijo (30/70): es el RSI vs. su propio promedio reciente.<br><br>'+
+    '<b>🟢/🔴</b> — cruzó todavía débil (RSI &lt;40 al cruzar al alza) o todavía fuerte (RSI &gt;60 al cruzar a la baja): señal más marcada.<br><br>'+
+    '<b>s</b> = semanas',
     '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
       '<button class="rrg-pill active" id="rsisem-tab-alcista" onclick="wbRSISemSetTab(\'alcista\')">🔼 Cruce alcista</button>'+
       '<button class="rrg-pill" id="rsisem-tab-bajista" onclick="wbRSISemSetTab(\'bajista\')">🔽 Cruce bajista</button>'+
     '</div>'+
-    '<div id="wb-rsisem-body" style="max-height:315px;overflow-y:auto"></div>'+
-    '<div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.5">El RSI semanal (14) cruzando por encima o por debajo de su propia SMA14 -- misma lógica que una línea de señal (tipo MACD). No es sobrecompra/sobreventa (RSI vs. 30/70), es el RSI vs. su propio promedio reciente.</div>',
+    '<div id="wb-rsisem-body" style="max-height:315px;overflow-y:auto"></div>',
     'Cruce del RSI(14) semanal con su SMA14: cuando el RSI viene subiendo/bajando más rápido que su propio promedio de las últimas 14 semanas, la señal cambia de signo. Complementario al Warren Score diario, no forma parte de él.');
 
   /* — Reordenar todo — */
@@ -4944,15 +4960,17 @@ if ('serviceWorker' in navigator) {
   }
 
   /* ═══ 5b. EMA200 Reversal Score — clímax de volumen + repunte de RS en el contacto ═══ */
+  // Abreviado d/s/m (2026-09-10, pedido del usuario -- aclarado en el
+  // popup "⋮" de cada cuadro que usa esto).
   function _ema200RachaHumano(racha){
     if(racha==null) return '—';
     var meses = racha/21;
     if(meses < 2){
       var semanas = Math.max(1, Math.round(racha/5));
-      return semanas+(semanas===1?' semana':' semanas');
+      return semanas+'s';
     }
     var m = Math.round(meses);
-    return m+(m===1?' mes':' meses');
+    return m+'m';
   }
   function _lin(x,x0,x1,y0,y1){
     if(x==null || x<=x0) return y0;
@@ -5019,13 +5037,9 @@ if ('serviceWorker' in navigator) {
   window.calcEMA200Reversal = calcEMA200Reversal;
 
   var wbEma200Tab = 'rebote';
-  // 🌊 explicado acá abajo del cuadro (2026-09-06, pedido del usuario) --
-  // mismo criterio que ya arma climaxTxt en wbRenderEMA200Reversal.
-  var WB_EMA200_OLA = '<b>🌊</b>: el clímax fue especialmente fuerte — cerró en el 60%+ superior de la vela, con volumen ≥1,5x el normal.';
-  var WB_EMA200_DESC = {
-    rebote: '<b>Clímax:</b> la vela de mayor volumen en el toque a la media, cerrando fuerte — no un derrumbe. Señal de absorción institucional en el rebote.<br>'+WB_EMA200_OLA,
-    cruce: '<b>Clímax:</b> la vela de mayor volumen en el cruce, cerrando fuerte — no un pinchazo. Señal de demanda real detrás del cruce.<br>'+WB_EMA200_OLA
-  };
+  // WB_EMA200_OLA/WB_EMA200_DESC sacadas (2026-09-10, pedido del
+  // usuario): ese texto (Clímax + 🌊) ya no vive fijo al pie del cuadro,
+  // pasó al sub de ema200P/ema200SemP (popup "⋮", ver esos mkPanel).
   window.wbEMA200SetTab = function(tipo){
     wbEma200Tab = tipo;
     var rb=$('ema200-tab-rebote'), cr=$('ema200-tab-cruce');
@@ -5035,8 +5049,8 @@ if ('serviceWorker' in navigator) {
   };
   window.wbRenderEMA200Reversal = function(){
     var body=$('wb-ema200-body'); if(!body || !datosOK()) return;
-    var descEl=$('wb-ema200-desc');
-    if(descEl) descEl.innerHTML = WB_EMA200_DESC[wbEma200Tab] || '';
+    // #wb-ema200-desc sacado del cuadro (2026-09-10) -- su contenido
+    // vive ahora en el sub de ema200P (popup "⋮"), ver más arriba.
     var rsMinEl=$('ema200-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
     var rows = filtrados().map(function(d){
@@ -5062,7 +5076,7 @@ if ('serviceWorker' in navigator) {
         var band = r.score>=70 ? 'wb-band-green' : r.score>=40 ? 'wb-band-amber' : 'wb-band-muted';
         return '<tr class="'+band+'">'+
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
-            '<td>'+r.contactoRuedas+(r.contactoRuedas===1?' rueda':' ruedas')+'</td>'+
+            '<td>'+r.contactoRuedas+'d</td>'+
             '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
             '<td style="color:'+rsCol+'">'+fmt(r.rsContacto,0)+' → '+fmt(num(d['RS Score']),0)+'</td>'+
             '<td style="font-weight:600;color:var(--text)">'+_ema200RachaHumano(num(d['EMA200 Racha Previa']))+'</td>'+
@@ -5139,15 +5153,17 @@ if ('serviceWorker' in navigator) {
 
   // Humaniza la racha semanal (ya viene en semanas, a diferencia de
   // _ema200RachaHumano que espera ruedas diarias -- no reusar esa acá).
+  // Abreviado s/m/a (2026-09-10, pedido del usuario -- aclarado en el
+  // popup "⋮" del cuadro).
   function _ema200SemRachaHumano(racha){
     if(racha==null) return '—';
     var anios = racha/52;
     if(anios < 1){
       var meses = Math.max(1, Math.round(racha/4.33));
-      return meses+(meses===1?' mes':' meses');
+      return meses+'m';
     }
     var a = Math.round(anios*10)/10;
-    return a+(a===1?' año':' años');
+    return a+'a';
   }
 
   var wbEma200SemTab = 'rebote';
@@ -5160,8 +5176,8 @@ if ('serviceWorker' in navigator) {
   };
   window.wbRenderEMA200ReversalSemanal = function(){
     var body=$('wb-ema200sem-body'); if(!body || !datosOK()) return;
-    var descEl=$('wb-ema200sem-desc');
-    if(descEl) descEl.innerHTML = WB_EMA200_DESC[wbEma200SemTab] || '';
+    // #wb-ema200sem-desc sacado del cuadro (2026-09-10) -- su contenido
+    // vive ahora en el sub de ema200SemP (popup "⋮"), ver más arriba.
     var rsMinEl=$('ema200sem-rs-min');
     var rsMin = rsMinEl ? parseFloat(rsMinEl.value) : 0;
     var rows = filtrados().map(function(d){
@@ -5187,7 +5203,7 @@ if ('serviceWorker' in navigator) {
         var band = r.score>=70 ? 'wb-band-green' : r.score>=40 ? 'wb-band-amber' : 'wb-band-muted';
         return '<tr class="'+band+'">'+
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
-            '<td>'+r.contactoSemanas+(r.contactoSemanas===1?' semana':' semanas')+'</td>'+
+            '<td>'+r.contactoSemanas+'s</td>'+
             '<td style="font-family:\'DM Mono\',monospace">'+climaxTxt+'</td>'+
             '<td style="color:'+rsCol+'">'+fmt(r.rsContacto,0)+' → '+fmt(num(d['RS Score']),0)+'</td>'+
             '<td style="font-weight:600;color:var(--text)">'+_ema200SemRachaHumano(num(d['EMA200 Semanal Racha Previa']))+'</td>'+
@@ -5250,11 +5266,13 @@ if ('serviceWorker' in navigator) {
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span>'+marca+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:'+rsiCol+'">'+fmt(num(d['RSI Semanal']),1)+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['RSI Semanal SMA14']),1)+'</td>'+
-            '<td>'+(r.haceSemanas===0?'esta semana':r.haceSemanas+(r.haceSemanas===1?' semana':' semanas'))+'</td>'+
+            '<td>'+r.haceSemanas+'s</td>'+
             '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
           '</tr>';
-      }).join('')+'</tbody></table>'+
-      '<div style="font-size:9.5px;color:var(--muted);margin-top:8px">🟢/🔴 = cruzó todavía débil (RSI&lt;40 al cruzar al alza) o todavía fuerte (RSI&gt;60 al cruzar a la baja) — señal más marcada.</div>';
+      }).join('')+'</tbody></table>';
+      // Nota de 🟢/🔴 y de qué significa "s" -- sacada del pie del cuadro
+      // (2026-09-10, pedido del usuario), pasó al popup "⋮" (ver sub de
+      // rsiSemP más abajo).
   }
 
   /* ═══ 6. Calculadora de riesgo ═══ */
@@ -11038,19 +11056,22 @@ function wbShowWarrenInfo(){
     var bodyEl  = document.getElementById('wb-info-body');
     if(!overlay || !titleEl || !bodyEl) return;
     titleEl.textContent = 'Warren Score';
+    // Resumido + con emojis (2026-09-10, pedido del usuario) -- versión
+    // anterior sin emojis y más extensa, ver historial si hace falta
+    // volver atrás.
     bodyEl.innerHTML =
-      '<p style="margin:0">Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.</p>' +
+      '<p style="margin:0">🎯 Ranking pre-breakout 0–100: 4 pilares (Tendencia, Fuerza RS, Contracción, Setup) + gates Stage 2 + penalizaciones. Sin gates, capeado en 40.</p>' +
       '<div class="wb-info-section">Columnas</div>' +
       '<div style="line-height:1.7">' +
-        '<b>#</b> — Posición global en el Warren Score (todos los tickers con score &gt; 0)<br>' +
-        '<b>Ticker</b> — Símbolo del activo<br>' +
-        '<b>Score</b> — Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior.<br>' +
-        '<b>Evolución</b> — Evolución del RS Score en las últimas semanas. Verde si mejoró desde el inicio de la serie, rojo si empeoró.<br>' +
-        '<b>Tendencia</b> (Pilar A, máx 20) — posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200.<br>' +
-        '<b>Fuerza RS</b> (Pilar B, máx 25) — el mayor entre nivel de RS Score y aceleración del RS del último mes (con piso), más 5 pts si está sobre su propia SMA50.<br>' +
-        '<b>Contracción</b> (Pilar C, máx 35) — compresión de volatilidad reciente, RSI en zona sana y bono por base VCP.<br>' +
-        '<b>Setup</b> (Pilar D, máx 20) — extensión desde el mínimo de 52 semanas, madurez de la base y posición dentro de ella.<br>' +
-        '<b>Penalizaciones</b> — puntaje restado por las banderas de abajo. Desmarcá el check de esa columna para sacarlas de la consideración.' +
+        '🔢 <b>#</b> — Posición en el ranking (score &gt; 0)<br>' +
+        '🏷️ <b>Ticker</b> — Símbolo del activo<br>' +
+        '🎯 <b>Score</b> — 0–100, capeado en 40 sin gates. ▲▼ = puestos que subió/bajó vs. ayer.<br>' +
+        '📈 <b>Evolución</b> — RS Score últimas semanas: verde mejora, rojo empeora.<br>' +
+        '🧭 <b>Tendencia</b> (A, máx 20) — posición vs SMA50/EMA200 + pendiente.<br>' +
+        '💪 <b>Fuerza RS</b> (B, máx 25) — nivel o aceleración del RS, +5 si está sobre su SMA50.<br>' +
+        '🌀 <b>Contracción</b> (C, máx 35) — volatilidad comprimida + RSI sano + bono VCP.<br>' +
+        '🧱 <b>Setup</b> (D, máx 20) — extensión, madurez y posición de la base.<br>' +
+        '⚠️ <b>Penalizaciones</b> — resta por las banderas de abajo (desmarcá el check para sacarlas).' +
       '</div>' +
       '<div class="wb-info-section">Advertencias</div>' +
       '<div style="line-height:1.9">' +
