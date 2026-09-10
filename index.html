@@ -601,13 +601,16 @@
     <button class="back-btn" onclick="showView('home')" style="margin-right:6px">← Menú</button>
     <a href="https://x.com/Warren_Bife" target="_blank" style="display:flex;align-items:center;gap:5px;text-decoration:none;color:#9ca3af;font-size:12px;transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      @Warren_Bife
+      <span class="wb-xlink-txt">@Warren_Bife</span>
     </a>
     <button class="btn wb-topbar-refresh-m" onclick="cargarDatos()" title="Actualizar" aria-label="Actualizar">↺</button>
   </div>
   <div class="topbar-center">
     <img src="https://i.imgur.com/GuVsAWY.jpeg" style="height:36px;border-radius:50%;margin-right:10px;" onerror="this.style.display='none'">
-    <div class="logo">Warren Bife Dashboard</div>
+    <!-- wb-logo-break: en mobile pasa a display:block y fuerza el corte
+         "Warren Bife" / "Dashboard" exacto (pedido del usuario) -- en
+         desktop queda inline, se ve igual que siempre en una línea. -->
+    <div class="logo">Warren Bife <span class="wb-logo-break">Dashboard</span></div>
     <div class="tagline">Monitor de mercado</div>
   </div>
   <div class="topbar-right">
@@ -3509,18 +3512,27 @@ if ('serviceWorker' in navigator) {
     .wb-topbar-refresh-m{display:inline-flex;align-items:center;justify-content:center;
       width:30px;height:30px;padding:0;border-radius:999px;font-size:15px;line-height:1;flex-shrink:0;}
 
-    /* Fix (mismo día): el truco de centrado de escritorio (topbar-left/
-       right a flex:1 1 0, forzados a encogerse por igual) no funciona en
-       mobile -- "@Warren_Bife" es una sola palabra sin espacios, no
-       puede wrappear, así que por más flex-wrap que tenga topbar-left
-       igual se desbordaba encima de topbar-center apenas el ancho
-       asignado bajaba de su mínimo real. En mobile, topbar-left/right
-       vuelven a su ancho natural (el que necesite su contenido) y
-       topbar-center pasa a ocupar el resto y centrarse ADENTRO de ese
-       resto -- no es centrado perfecto contra los bordes de la pantalla,
-       pero no se superpone con nada. */
-    .topbar-left,.topbar-right{flex:0 0 auto;}
-    .topbar-center{flex:1 1 auto;justify-content:center;}
+    /* Fix (mismo día) + pedido del usuario de dejar el título ARRIBA, en
+       la misma fila que Menú/X/Actualizar (no en una fila propia abajo):
+       el truco de centrado de escritorio (topbar-left/right a flex:1 1 0,
+       forzados a encogerse por igual) no funciona en mobile --
+       "@Warren_Bife" es una sola palabra sin espacios, no puede
+       wrappear, así que se desbordaba encima de topbar-center apenas el
+       ancho asignado bajaba de su mínimo real. En mobile, las 3 zonas
+       vuelven a su ancho NATURAL (el que necesite su contenido, sin
+       forzar crecimiento ni achique) y se quedan en la misma fila.
+       Para que eso entre en ~390px de ancho real, dos recortes más:
+       el texto del link de X se oculta (.wb-xlink-txt, queda el ícono
+       solo, mismo criterio que ya usa el botón de actualizar resumido)
+       y el título fuerza el corte exacto "Warren Bife" / "Dashboard"
+       (.wb-logo-break a display:block) en vez de dejar que el navegador
+       decida dónde wrappear. Ya no queda centrado contra los bordes de
+       la pantalla (no entra si además tiene que estar arriba y no
+       superponerse) -- pedido explícito del usuario por sobre el
+       centrado. */
+    .topbar-left,.topbar-center,.topbar-right{flex:0 0 auto;}
+    .wb-xlink-txt{display:none;}
+    .wb-logo-break{display:block;}
 
     /* Stat cards: carrusel horizontal con snap */
     .stats-row{display:flex;overflow-x:auto;gap:10px;scroll-snap-type:x mandatory;
