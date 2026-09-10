@@ -833,7 +833,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div></div><button class="panel-info-btn" data-info-title="Tendencia RS Score" data-info-text="Evolución últimas 4 semanas" onclick="wbShowInfo(this)">⋮</button></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div></div><button class="panel-info-btn" data-info-title="Tendencia RS Score" data-info-text="Rankea acciones cuyo RS Score de HOY es más alto que hace un mes — no una sola foto, un sparkline de 4 puntos (RS Mes ant. → RS Semana ant. → RS Score) que muestra si la mejora es sostenida o un salto de un solo día.&lt;br&gt;&lt;br&gt;&lt;b&gt;Δ mes&lt;/b&gt; / &lt;b&gt;Δ sem&lt;/b&gt; — diferencia del RS Score actual contra hace un mes y contra la semana pasada.&lt;br&gt;&lt;br&gt;Filtro &quot;RS mín&quot;: exigí además un piso de fuerza relativa, no solo que esté mejorando." onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters">
         <span class="pf-label">Tickers:</span>
         <select id="trend-n" onchange="renderTrend()"><option value="20">20</option><option value="30">30</option><option value="50">50</option></select>
@@ -850,7 +850,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking por días alcistas ponderados por volumen en las últimas 10 ruedas. Mayor score = más días positivos con mayor volumen relativo (convicción compradora)">Sesiones & Volumen</div></div><button class="panel-info-btn" data-info-title="Sesiones &amp; Volumen" data-info-text="Ranking por días ▲ × ratio de volumen — últimas 10 ruedas" onclick="wbShowInfo(this)">⋮</button></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking por días alcistas ponderados por volumen en las últimas 10 ruedas. Mayor score = más días positivos con mayor volumen relativo (convicción compradora)">Sesiones & Volumen</div></div><button class="panel-info-btn" data-info-title="Sesiones &amp; Volumen" data-info-text="Combina 2 cosas de las últimas 10 ruedas: cuántos días cerró en verde (Días ▲) y cuánto volumen se operó en esos días verdes contra los rojos (ratio Vol ▲/▼, tope 7x). El orden final es días ▲ × ese ratio — no alcanza con muchos días verdes si fueron con poco volumen, ni con un solo día de mucho volumen si el resto fue rojo.&lt;br&gt;&lt;br&gt;Color de la barra = cantidad de días ▲ (verde 8-10, azul 6-7, ámbar 4-5, rojo 0-3). El texto dentro de la barra muestra días ▲/▼ exactos." onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
         <span class="pf-label">Top:</span>
         <select id="sv-n" onchange="renderSesionesVol()"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option></select>
@@ -876,7 +876,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Activos con volumen operado hoy muy superior al promedio de las últimas 20 ruedas. Puede indicar entrada de dinero institucional o noticias relevantes">Volumen inusual hoy</div></div><button class="panel-info-btn" data-info-title="Volumen inusual hoy" data-info-text="Desvío vs promedio 5 ruedas" onclick="wbShowInfo(this)">⋮</button></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Activos con volumen operado hoy muy superior al promedio de las últimas 20 ruedas. Puede indicar entrada de dinero institucional o noticias relevantes">Volumen inusual hoy</div></div><button class="panel-info-btn" data-info-title="Volumen inusual hoy" data-info-text="Ranking de acciones con el volumen operado HOY más alto respecto a su propio promedio de las últimas 20 ruedas — no importa si subieron o bajaron, solo que se operó muchísimo más que lo habitual (a veces entrada institucional, otras salida/pánico).&lt;br&gt;&lt;br&gt;Color de la barra: &lt;b&gt;verde&lt;/b&gt; = cerró positiva hoy, &lt;b&gt;rojo&lt;/b&gt; = cerró negativa.&lt;br&gt;&lt;br&gt;Filtro &quot;Umbral&quot;: +30%/+50%/+100% mínimo sobre ese promedio." onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters">
         <span class="pf-label">Umbral:</span>
         <select id="vinu-umbral" onchange="renderVolInusual()"><option value="30">+30%</option><option value="50" selected>+50%</option><option value="100">+100%</option></select>
@@ -887,7 +887,7 @@
       </div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div></div><button class="panel-info-btn" data-info-title="Cartelera del día" data-info-text="Principales movimientos y extremos RSI" onclick="wbShowInfo(this)">⋮</button></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div></div><button class="panel-info-btn" data-info-title="Cartelera del día" data-info-text="Foto rápida del día en 4 columnas: &lt;b&gt;🟢 Top Ganadores&lt;/b&gt; y &lt;b&gt;🔴 Top Perdedores&lt;/b&gt; (mayor variación % de hoy), &lt;b&gt;🟠 Sobrecomprados&lt;/b&gt; y &lt;b&gt;🔵 Sobrevendidos&lt;/b&gt; (RSI 14 más alto/más bajo de todo el universo).&lt;br&gt;&lt;br&gt;No implica comprar ni vender — solo ubica los extremos del día para tenerlos en el radar." onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-body" style="padding:0;">
         <div id="cartelera-body" style="display:grid;grid-template-columns:1fr 1fr;max-height:320px;overflow-y:auto;"></div>
       </div>
@@ -895,7 +895,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div></div><button class="panel-info-btn" data-info-title="Semáforo por sector — Top 3" data-info-text="Top 3 por RS Score en cada sector · Borde naranja = volumen inusual" onclick="wbShowInfo(this)">⋮</button></div>
+    <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div></div><button class="panel-info-btn" data-info-title="Semáforo por sector — Top 3" data-info-text="Agrupa todo el universo por sector económico y muestra las 3 acciones con mayor RS Score dentro de cada uno — sirve para ver qué SECTORES están liderando, no solo qué tickers.&lt;br&gt;&lt;br&gt;Cada card marca con un punto verde/rojo si está sobre EMA200 y SMA50, si el RSI está en zona sana y si el RS Score supera 60. &lt;b&gt;Borde naranja&lt;/b&gt; = esa acción tiene volumen inusual hoy.&lt;br&gt;&lt;br&gt;Ordená los sectores por mejor RS individual, RS promedio del sector, o alfabético." onclick="wbShowInfo(this)">⋮</button></div>
     <div class="panel-filters">
       <span class="pf-label">Ordenar sectores:</span>
       <select id="sema-sort" onchange="renderSemaforo()">
@@ -3865,9 +3865,16 @@ if ('serviceWorker' in navigator) {
      usando el mismo dato que esa fila ya mostraba antes de este
      cambio (ver cada wbRender* para qué campo decide la banda). */
   .wb-mini-table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:11.5px;}
-  .wb-mini-table th{text-align:left;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;
+  /* Todas centradas (2026-09-10, pedido del usuario): antes el "alineador
+     inteligente" de más abajo (WB UPGRADE V4, wbAlinearTodas) le pisaba
+     esta alineación con left/right según el tipo de dato en cada columna
+     -- quedaba inconsistente entre las 5 tablas de Señales y hacía inútil
+     el text-align:center que #wb-vcpq-panel ya forzaba a mano (ver ese
+     bloque, ahora sacado por redundante). wbAlinearTodas() excluye ahora
+     a .wb-mini-table para no volver a pisar esto. */
+  .wb-mini-table th{text-align:center;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;
     padding:6px 8px 8px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0;background:var(--bg2);}
-  .wb-mini-table td{padding:7px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  .wb-mini-table td{text-align:center;padding:7px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
     background:var(--bg3);font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
   .wb-mini-table tr:hover td{background:rgba(255,255,255,0.05);}
   .wb-mini-table tr td:first-child{border-left:3px solid var(--border2);border-radius:8px 0 0 8px;}
@@ -4150,7 +4157,11 @@ if ('serviceWorker' in navigator) {
 
   /* — Episodic Pivots — */
   var epP = mkPanel('wb-ep-panel','⚡ Episodic Pivots',
-    'Movimientos ≥ +4% con volumen inusual ≥ +100% — posible catalizador institucional.',
+    // Sub enriquecido 2026-09-10 (pedido del usuario, junto con el resto
+    // de los cuadros): suma el detalle que antes solo vivía en el
+    // tooltip por hover.
+    'Suba de hoy ≥ +4% acompañada de volumen ≥ +100% sobre el promedio — la combinación típica de un gap con catalizador real detrás (earnings, noticias), no un movimiento de ruido.<br><br>'+
+    'Este tipo de setup suele tener continuación estadística en los días siguientes, a diferencia de una suba fuerte sin volumen.',
     // Sin max-height/scroll (2026-09-06, pedido del usuario, reorganización
     // de escritorio): el panel ahora ocupa el ancho completo de su fila, así
     // que el largo se regula solo según la cantidad de EPs de hoy (0 a 12,
@@ -5880,7 +5891,7 @@ if ('serviceWorker' in navigator) {
     '<div class="panel-head"><div>'+
     '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 80 pts -- tendencia, días de distribución, follow-through day, ADX/DMI y extensión ATR), amplitud del universo (30 pts) y sentimiento VIX/P-C ratio (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
     '⚡ Régimen de mercado</div>'+
-    '</div><button class="panel-info-btn" data-info-title="⚡ Régimen de mercado" data-info-text="Score de condiciones 0–100 · guía de exposición progresiva" onclick="wbShowInfo(this)">⋮</button></div>'+
+    '</div><button class="panel-info-btn" data-info-title="⚡ Régimen de mercado" data-info-text="Termómetro 0-100 del mercado en general (no de un ticker puntual), pensado para decidir CUÁNTO exponerte, no QUÉ comprar. Se arma con 3 capas:&lt;br&gt;&lt;br&gt;&lt;b&gt;Índices SPY/QQQ&lt;/b&gt; (80 pts) — tendencia, días de distribución, follow-through day, ADX/DMI y extensión sobre ATR.&lt;br&gt;&lt;b&gt;Amplitud del universo&lt;/b&gt; (30 pts) — cuántas acciones acompañan el movimiento, no solo el índice.&lt;br&gt;&lt;b&gt;Sentimiento&lt;/b&gt; (15 pts) — VIX y ratio Put/Call.&lt;br&gt;&lt;br&gt;Si falta alguna capa, el score se reponderá automáticamente sobre las que sí están disponibles." onclick="wbShowInfo(this)">⋮</button></div>'+
     '<div class="panel-body" id="wb-rgm-body">'+
     '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Calculando…</div>'+
     '</div>';
@@ -6100,7 +6111,11 @@ if ('serviceWorker' in navigator) {
   }
   function wbAlinearTodas(){
     try{
-      document.querySelectorAll('#view-dashboard table:not(#warren-table), #view-planilla table').forEach(alinearTabla);
+      // .wb-mini-table excluida (2026-09-10, pedido del usuario): esas 5
+      // tablas de la pestaña Señales (EMA200, VCP, EP, RSI Semanal) ya
+      // vienen centradas por su propio CSS -- este alineador las pisaba
+      // con left/right según el tipo de dato de cada columna.
+      document.querySelectorAll('#view-dashboard table:not(#warren-table):not(.wb-mini-table), #view-planilla table').forEach(alinearTabla);
     }catch(e){}
   }
   window.wbAlinearTodas = wbAlinearTodas;
@@ -8232,7 +8247,7 @@ wrap.innerHTML =
   '<div class="panel" id="wb-vcpq-panel">'+
     '<div class="panel-head">'+
       '<div><div class="panel-title" data-tooltip="Filtra directo por VCP2 Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Detector VCP2: ZigZag adaptativo + ciclo de vida (Formándose/Armado/Rompió/Falló).">🧬 Bases VCP de Alta Calidad</div></div>'+
-      '<button class="panel-info-btn" data-info-title="🧬 Bases VCP de Alta Calidad" data-info-text="Bases con VCP2 Score ≥60 · independiente del Warren Score" onclick="wbShowInfo(this)">⋮</button>'+
+      '<button class="panel-info-btn" data-info-title="🧬 Bases VCP de Alta Calidad" data-info-text="Filtra directo por la calidad de la base (VCP2 Score ≥60), sin pasar por el Warren Score ni sus gates — así no se pierden bases bien formadas que un gate binario (ej. muy lejos del mínimo de 52 semanas) o un RS Score corto (spin-offs, IPOs recientes) esconderían del ranking principal.&lt;br&gt;&lt;br&gt;Detector VCP2: ZigZag adaptativo que sigue el ciclo de vida completo de la base (Formándose → Armado → Rompió/Falló).&lt;br&gt;&lt;br&gt;&lt;b&gt;VCP&lt;/b&gt; = puntaje del detector (≥55 se considera detectado) · &lt;b&gt;Contr.&lt;/b&gt; = cantidad de contracciones · &lt;b&gt;Dist. Pivote&lt;/b&gt; = distancia % al techo · &lt;b&gt;Vol↓&lt;/b&gt; = si la última contracción tuvo menos volumen que la anterior (sequía)." onclick="wbShowInfo(this)">⋮</button>'+
     '</div>'+
     // Alto fijo a 10 filas + scroll interno para el resto (2026-09-06,
     // pedido del usuario). 385px = header (24.5px) + 10 filas (36px c/u
