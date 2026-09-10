@@ -172,9 +172,9 @@
   .wb-info-overlay.active{display:flex;}
   .wb-info-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 55%),var(--bg2);
     border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow-panel);
-    max-width:420px;width:100%;}
+    max-width:480px;width:100%;max-height:min(640px,80vh);display:flex;flex-direction:column;}
   .wb-info-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
-    padding:16px 18px 12px;border-bottom:1px solid var(--border);}
+    padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
   .wb-info-card-title{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.04em;
     background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;
     -webkit-text-fill-color:transparent;color:var(--accent);}
@@ -183,7 +183,13 @@
     font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;
     transition:color .2s var(--ease),border-color .2s var(--ease);}
   .wb-info-close:hover{color:var(--text);border-color:rgba(240,96,90,0.5);}
-  .wb-info-card-body{padding:14px 18px 18px;font-size:12.5px;color:var(--muted);line-height:1.55;}
+  /* max-height + overflow (2026-09-09): antes solo tenía texto corto,
+     pero el popup de Warren Score ahora suma columnas + advertencias --
+     necesita poder scrollear en vez de desbordar la pantalla. */
+  .wb-info-card-body{padding:14px 18px 18px;font-size:12.5px;color:var(--muted);line-height:1.55;overflow-y:auto;}
+  .wb-info-card-body b{color:var(--text);}
+  .wb-info-section{font-size:9.5px;color:var(--text);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;}
+  .wb-info-section:first-child{margin-top:0;}
   .panel-body{padding:14px 18px;}
   .panel-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.015);}
   .pf-label{color:var(--muted);font-size:10px;white-space:nowrap;letter-spacing:0.04em;}
@@ -769,50 +775,24 @@
         </div>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.">Warren Score</div></div><button class="panel-info-btn" data-info-title="Warren Score" data-info-text="Score compuesto 0–100 · 4 pilares + gates Stage 2" onclick="wbShowInfo(this)">⋮</button></div>
-      <div class="panel-filters" id="ws-filters-row">
-        <span class="pf-label">Sector:</span>
-        <select id="ws-sector" onchange="renderWarrenScore()"><option value="all">Todos</option></select>
-      </div>
+    <div class="panel" id="wb-warrenscore-panel">
+      <div class="panel-head"><div><div class="panel-title">Warren Score</div></div><button class="panel-info-btn" onclick="wbShowWarrenInfo()">⋮</button></div>
       <div class="panel-body" style="padding:0;">
         <div style="max-height:945px;overflow-y:auto;" id="ws-table-wrap">
           <table class="scanner-table" id="warren-table">
             <thead><tr>
-              <th data-tooltip="Posición global en el Warren Score (todos los tickers con score > 0)" style="width:28px;text-align:center">#</th>
-              <th data-tooltip="Símbolo del activo" style="text-align:center">Ticker</th>
-              <th data-tooltip="Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior." style="text-align:center">Score</th>
-              <th data-tooltip="Evolución del RS Score en las últimas semanas (rotacion_historia.json) — mismo gráfico de línea que Aceleración Inusual / Recién a Líderes. Verde si mejoró desde el inicio de la serie, rojo si empeoró." style="text-align:center">Evolución</th>
-              <th data-tooltip="Pilar A — Tendencia (máx 20 pts): posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
-              <th data-tooltip="Pilar B — Fuerza relativa (máx 25 pts): el mayor entre nivel de RS Score (45–75) y aceleración del RS del último mes (con piso en 40), más 5 pts si la Fuerza Relativa está sobre su SMA50. Una caída fuerte de RS en la última semana anula la vía de aceleración mensual."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
-              <th data-tooltip="Pilar C — Contracción y acumulación (máx 35 pts): compresión de volatilidad reciente (mínimo de las últimas 7 ruedas), RSI en zona sana 40–70 (en 0 si viene de sobrecompra sin confirmar con 2 velas verdes) y bono por base VCP (contracciones + volumen decreciente antes de la ruptura)."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
-              <th data-tooltip="Pilar D — Setup estructural (máx 20 pts): extensión desde el mínimo de 52 semanas normalizada por volatilidad anual, madurez de la base en semanas y posición dentro de la base. Si no llega a 10 pts, no suma nada."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
-              <th data-tooltip="Penalizaciones activas, con el puntaje restado y las banderas de qué las dispara (ver referencias debajo de la tabla). Desmarcá el check para sacarlas de la consideración."><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Penalizaciones</label></th>
+              <th style="width:28px;text-align:center">#</th>
+              <th style="text-align:center">Ticker</th>
+              <th style="text-align:center">Score</th>
+              <th style="text-align:center">Evolución</th>
+              <th><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pa" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Tendencia</label></th>
+              <th><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pb" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Fuerza RS</label></th>
+              <th><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pc" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Contracción</label></th>
+              <th><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pd" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Setup</label></th>
+              <th><label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:inherit"><input type="checkbox" id="ws-pen" checked onchange="renderWarrenScore()" style="accent-color:var(--green);cursor:pointer;margin:0">Penalizaciones</label></th>
             </tr></thead>
             <tbody id="warren-body"></tbody>
           </table>
-        </div>
-        <div style="padding:8px 14px 10px;border-top:1px solid var(--border2);" id="ws-legend-wrap">
-          <button onclick="var b=document.getElementById('ws-leg');b.style.display=b.style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;padding:0;font-family:inherit;letter-spacing:0.05em;text-transform:uppercase">¿Qué significan las advertencias? ▾</button>
-          <div id="ws-leg" style="display:none;margin-top:6px;color:var(--muted);font-size:10px;line-height:2;">
-            📉 <b>Divergencia RSI</b> — El precio hace máximos pero el impulso no los confirma<br>
-            🪫 <b>Divergencia OBV</b> — La suba viene con cada vez menos volumen — sin nafta<br>
-            🐘 <b>Churning en máximos</b> — Volumen alto sin avance: posible distribución institucional<br>
-            🧨 <b>Agotamiento OBV + Div. RSI</b> — Los dos agotamientos juntos — castigo más severo que cualquiera solo<br>
-            🕯️ <b>No demand en ruptura</b> — Rompió el máximo de 40 ruedas y siguió subiendo, pero con velas sin cuerpo y volumen seco: avanza por falta de oferta, no por demanda real<br>
-            🎈 <b>Sobreextensión</b> — Muy lejos de su media para su volatilidad — riesgo de reversión<br>
-            🩸 <b>Distribución activa</b> — Mayoría de días negativos con volumen en las caídas<br>
-            💥 <b>Reversión con volumen</b> — Caída fuerte de hoy con volumen inusual<br>
-            ⛔ <b>Breakout fallido</b> — Rompió y volvió por debajo del pivot<br>
-            🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>
-            🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>
-            🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>
-            ⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente). Si el día siguiente confirma cerrando en rojo, tapa el Score en 70 hasta que sostenga 2 días verdes seguidos o haga un nuevo máximo<br>
-            <span style="display:block;margin-top:4px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</span>
-            🫨 <b>Sacudón previo</b> — Liquidez tomada tras una compresión — anula la volatilidad sin dirección de arriba<br>
-            👀 <b>Rebote en observación</b> — Rebotó en la SMA10 recién hoy, todavía sin confirmar<br>
-            💣 <b>Bomba</b> — Rompió un máximo previo con eficiencia confirmada
-          </div>
         </div>
       </div>
     </div>
@@ -919,11 +899,12 @@
     </div>
   </div>
 
-  <!-- cmp-tickers-list: datalist compartido para autocompletar tickers --
-       lo usa el buscador mobile (#wbm-search). Antes también alimentaba
-       el panel "Comparador de activos" (sacado 2026-09-08, reemplazado
-       por "Análisis Semanal"), pero el datalist en sí sigue haciendo
-       falta -- se sigue poblando en poblarTickersDatalist(). -->
+  <!-- cmp-tickers-list: datalist compartido para autocompletar tickers.
+       Sin consumidor propio desde que se sacaron el buscador mobile de
+       Warren Score (#wbm-search, 2026-09-09) y antes el panel
+       "Comparador de activos" (2026-09-08) -- se deja igual, no molesta
+       y poblarTickersDatalist() puede volver a servir a un futuro
+       buscador sin tener que rearmar esto. -->
   <datalist id="cmp-tickers-list"></datalist>
 
 </div>
@@ -2133,9 +2114,10 @@ function renderSemaforo() {
 // 2026-09-08 (pedido del usuario): antes era poblarComparador(), que
 // además de esto armaba los valores por defecto de los inputs cmp-a/
 // cmp-b del panel "Comparador de activos" (sacado, reemplazado por
-// "Análisis Semanal"). El datalist en sí sigue haciendo falta -- lo
-// usa el buscador mobile (#wbm-search) -- así que se deja solo esa
-// parte, renombrada para que quede claro que ya no es del comparador.
+// "Análisis Semanal"). El datalist en sí no tiene consumidor propio
+// desde que también se sacó el buscador mobile de Warren Score
+// (#wbm-search, 2026-09-09) -- se deja igual, ver comentario de
+// cmp-tickers-list en el HTML.
 function poblarTickersDatalist() {
   const tickers = [...new Set(DATOS.map(d => d['Ticker']))].sort();
   const dl = document.getElementById('cmp-tickers-list');
@@ -3785,6 +3767,28 @@ if ('serviceWorker' in navigator) {
     background:linear-gradient(120deg,rgba(34,201,138,0.55),rgba(79,142,247,0.25) 40%,transparent 60%,rgba(34,201,138,0.4));
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
     opacity:.7;}
+
+  /* ── Panel de la tabla Warren Score (2026-09-09, pedido del usuario:
+     "más protagonismo, más color, a los bordes") -- mismo tratamiento
+     que ya usa #wb-spotlight (Podio del día): fondo con tinte verde +
+     borde con degradé animado vía ::after enmascarado. Ambos son
+     "familia Warren Score", tiene sentido que compartan el mismo
+     lenguaje visual de panel importante. ── */
+  #wb-warrenscore-panel{border:1px solid rgba(34,201,138,0.28);position:relative;
+    background:linear-gradient(180deg,rgba(34,201,138,0.06),transparent 35%),var(--bg2);
+    box-shadow:var(--shadow-panel),0 0 40px -20px rgba(34,201,138,0.35);}
+  #wb-warrenscore-panel::after{content:'';position:absolute;inset:-1px;border-radius:var(--r-lg);padding:1px;pointer-events:none;
+    background:linear-gradient(120deg,rgba(34,201,138,0.6),rgba(79,142,247,0.28) 40%,transparent 60%,rgba(34,201,138,0.45));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.75;}
+  #wb-warrenscore-panel .panel-head{border-bottom-color:rgba(34,201,138,0.22);}
+
+  /* Warren Score es el único cuadro de su pestaña -- que aproveche el
+     ancho real de la pantalla en vez de quedar acotado a los 1800px de
+     .main (pensados para cuando hay varios paneles uno al lado del
+     otro). Clase toggleada por JS al cambiar de pestaña, desktop
+     (WB UPGRADE V36) y mobile (WB UPGRADE V37). */
+  .main.wb-full-width{max-width:none;}
   .wb-spot-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:16px 20px 10px;}
   .wb-spot-title{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.04em;
     background:linear-gradient(92deg,#eef1f7,#22c98a 80%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
@@ -10209,10 +10213,9 @@ window.ocultarGrafico = function(){};
   if (tableWrap && !_wbmEl('wbm-mobile-wrap')) {
     tableWrap.insertAdjacentHTML('beforebegin',
       '<div class="wbm-mobile-wrap" id="wbm-mobile-wrap">' +
-        '<div class="wbm-search-row"><div class="wbm-search-wrap">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>' +
-          '<input class="wbm-search-input" id="wbm-search" list="cmp-tickers-list" autocomplete="off" placeholder="Buscar ticker..." oninput="wbmRenderList()">' +
-        '</div></div>' +
+        // Buscador (.wbm-search-row) sacado 2026-09-09, pedido del
+        // usuario -- wbmRenderList() ya tenía el guard `searchEl ? ... : ''`
+        // así que sigue andando igual, solo que ahora sin filtro de texto.
         '<div class="wbm-col-header"><div class="wbm-row-grid">' +
           '<span></span><span class="wbm-ch-label">Ticker</span><span class="wbm-ch-label wbm-ch-wrap">Warren<br>Score</span>' +
           '<span class="wbm-ch-label">Tend.</span><span class="wbm-ch-label">Fuerza</span><span class="wbm-ch-label">Contr.</span><span class="wbm-ch-label">Setup</span>' +
@@ -10684,6 +10687,10 @@ cmdPanel.querySelectorAll('.wb-tab-btn').forEach(function(btn){
     // Resumen (2026-09-09, pedido del usuario) -- pestañas y régimen
     // arriba quedan igual en todas.
     wbCmdKpis.classList.toggle('mostrar', tabId === 'resumen');
+    // Warren Score es el único cuadro de su pestaña -- usa el ancho
+    // real de la pantalla en vez de quedar acotado a los 1800px de
+    // .main (pedido del usuario, mismo día).
+    main.classList.toggle('wb-full-width', tabId === 'warren');
     // setTimeout en vez de rAF: esperar a que el navegador aplique
     // display:block antes de medir el contenedor para el resize (si se
     // mide en el mismo tick todavía puede leer el tamaño viejo, oculto).
@@ -10945,6 +10952,9 @@ mtabsBar.querySelectorAll('.wb-mtab-btn').forEach(function(btn){
     // pisar o no pisar el inline no importa.
     if(pTicker) pTicker.classList.toggle('wb-mtab-hide', tabId !== 'resumen');
     if(pEarnings) pEarnings.classList.toggle('wb-mtab-hide', tabId !== 'resumen');
+    // Warren Score es el único cuadro de su pestaña -- mismo criterio
+    // que desktop (WB UPGRADE V36), pedido del usuario mismo día.
+    main.classList.toggle('wb-full-width', tabId === 'warren');
     window.scrollTo(0,0);
     setTimeout(function(){ refrescarChartsDeLaPestaña(tabId); }, 50);
   });
@@ -10983,7 +10993,13 @@ try{
      ahora tiene cada panel-head. Un solo overlay para todos los cuadros
      -- wbShowInfo(this) lee data-info-title/data-info-text del botón
      que lo llamó y llena el popup. No toca el sistema de tooltip por
-     hover (data-tooltip), que es otra cosa y sigue igual. -->
+     hover (data-tooltip), que es otra cosa y sigue igual.
+     Warren Score es un caso aparte (mismo día, pedido del usuario):
+     su popup también suma el detalle de las columnas de la tabla (antes
+     data-tooltip en cada <th>, sacado) y la leyenda de advertencias
+     (antes #ws-leg al fondo del cuadro, sacada) -- demasiado contenido
+     para un data-info-text, así que su botón llama a wbShowWarrenInfo()
+     en vez del wbShowInfo(this) genérico. -->
 <div id="wb-info-overlay" class="wb-info-overlay" onclick="if(event.target===this) wbCloseInfo()">
   <div class="wb-info-card">
     <div class="wb-info-card-head">
@@ -11003,7 +11019,61 @@ function wbShowInfo(btn){
     var bodyEl  = document.getElementById('wb-info-body');
     if(!overlay || !titleEl || !bodyEl) return;
     titleEl.textContent = btn.dataset.infoTitle || '';
-    bodyEl.textContent  = btn.dataset.infoText || '';
+    // innerHTML, no textContent (2026-09-09): el popup de Warren Score
+    // (wbShowWarrenInfo, acá abajo) necesita <b>/<br> para las columnas
+    // y advertencias -- ningún data-info-text de los otros cuadros trae
+    // '<'/'>' así que no cambia nada para ellos.
+    bodyEl.innerHTML = btn.dataset.infoText || '';
+    overlay.classList.add('active');
+  }catch(e){}
+}
+// Warren Score tiene su propio popup, más largo (columnas de la tabla +
+// advertencias que antes vivían al fondo del cuadro, ver #ws-leg viejo)
+// -- no entra cómodo en un solo data-info-text, así que arma su HTML acá
+// en vez de leerlo de atributos.
+function wbShowWarrenInfo(){
+  try{
+    var overlay = document.getElementById('wb-info-overlay');
+    var titleEl = document.getElementById('wb-info-title');
+    var bodyEl  = document.getElementById('wb-info-body');
+    if(!overlay || !titleEl || !bodyEl) return;
+    titleEl.textContent = 'Warren Score';
+    bodyEl.innerHTML =
+      '<p style="margin:0">Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.</p>' +
+      '<div class="wb-info-section">Columnas</div>' +
+      '<div style="line-height:1.7">' +
+        '<b>#</b> — Posición global en el Warren Score (todos los tickers con score &gt; 0)<br>' +
+        '<b>Ticker</b> — Símbolo del activo<br>' +
+        '<b>Score</b> — Score total 0–100. Capeado en 40 si no pasa gates Stage 2. El indicador ▲▼ muestra cuántos puestos subió o bajó respecto al día anterior.<br>' +
+        '<b>Evolución</b> — Evolución del RS Score en las últimas semanas. Verde si mejoró desde el inicio de la serie, rojo si empeoró.<br>' +
+        '<b>Tendencia</b> (Pilar A, máx 20) — posición vs SMA50, EMA200 normalizada por ATR y pendiente de la EMA200.<br>' +
+        '<b>Fuerza RS</b> (Pilar B, máx 25) — el mayor entre nivel de RS Score y aceleración del RS del último mes (con piso), más 5 pts si está sobre su propia SMA50.<br>' +
+        '<b>Contracción</b> (Pilar C, máx 35) — compresión de volatilidad reciente, RSI en zona sana y bono por base VCP.<br>' +
+        '<b>Setup</b> (Pilar D, máx 20) — extensión desde el mínimo de 52 semanas, madurez de la base y posición dentro de ella.<br>' +
+        '<b>Penalizaciones</b> — puntaje restado por las banderas de abajo. Desmarcá el check de esa columna para sacarlas de la consideración.' +
+      '</div>' +
+      '<div class="wb-info-section">Advertencias</div>' +
+      '<div style="line-height:1.9">' +
+        '📉 <b>Divergencia RSI</b> — El precio hace máximos pero el impulso no los confirma<br>' +
+        '🪫 <b>Divergencia OBV</b> — La suba viene con cada vez menos volumen — sin nafta<br>' +
+        '🐘 <b>Churning en máximos</b> — Volumen alto sin avance: posible distribución institucional<br>' +
+        '🧨 <b>Agotamiento OBV + Div. RSI</b> — Los dos agotamientos juntos — castigo más severo que cualquiera solo<br>' +
+        '🕯️ <b>No demand en ruptura</b> — Rompió el máximo de 40 ruedas y siguió subiendo, pero con velas sin cuerpo y volumen seco: avanza por falta de oferta, no por demanda real<br>' +
+        '🎈 <b>Sobreextensión</b> — Muy lejos de su media para su volatilidad — riesgo de reversión<br>' +
+        '🩸 <b>Distribución activa</b> — Mayoría de días negativos con volumen en las caídas<br>' +
+        '💥 <b>Reversión con volumen</b> — Caída fuerte de hoy con volumen inusual<br>' +
+        '⛔ <b>Breakout fallido</b> — Rompió y volvió por debajo del pivot<br>' +
+        '🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>' +
+        '🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>' +
+        '🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>' +
+        '⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente). Si el día siguiente confirma cerrando en rojo, tapa el Score en 70 hasta que sostenga 2 días verdes seguidos o haga un nuevo máximo' +
+      '</div>' +
+      '<div style="margin-top:10px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</div>' +
+      '<div style="line-height:1.9;margin-top:4px">' +
+        '🫨 <b>Sacudón previo</b> — Liquidez tomada tras una compresión — anula la volatilidad sin dirección de arriba<br>' +
+        '👀 <b>Rebote en observación</b> — Rebotó en la SMA10 recién hoy, todavía sin confirmar<br>' +
+        '💣 <b>Bomba</b> — Rompió un máximo previo con eficiencia confirmada' +
+      '</div>';
     overlay.classList.add('active');
   }catch(e){}
 }
@@ -11011,8 +11081,9 @@ function wbCloseInfo(){
   var overlay = document.getElementById('wb-info-overlay');
   if(overlay) overlay.classList.remove('active');
 }
-window.wbShowInfo  = wbShowInfo;
-window.wbCloseInfo = wbCloseInfo;
+window.wbShowInfo       = wbShowInfo;
+window.wbShowWarrenInfo = wbShowWarrenInfo;
+window.wbCloseInfo      = wbCloseInfo;
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') wbCloseInfo(); });
 })();
 </script>
