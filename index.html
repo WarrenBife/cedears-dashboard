@@ -1762,7 +1762,7 @@ const wbSVBarLabelPlugin = {
         if (rw <= 0) return;
         const text = `${d.diasPos}▲ ${d.diasNeg}▼`;
         ctx.save();
-        ctx.font = "600 9px 'DM Mono', monospace";
+        ctx.font = "600 10.5px 'DM Mono', monospace";
         ctx.textBaseline = 'middle';
         const tw = ctx.measureText(text).width;
         if (tw + 10 <= rw) {
@@ -4044,8 +4044,7 @@ if ('serviceWorker' in navigator) {
   spot.className='panel'; spot.id='wb-spotlight';
   spot.innerHTML =
     '<div class="wb-spot-head"><div><div class="wb-spot-title">🏆 WARREN SCORE — Podio del día</div>'+
-    '<div class="wb-spot-sub">Los papeles más cargados según el score compuesto 0–100 · 4 pilares + gates Stage 2</div></div>'+
-    '<button class="wb-spot-cta" onclick="document.getElementById(\'warren-table\').closest(\'.panel\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">Ver ranking completo ↓</button></div>'+
+    '<div class="wb-spot-sub">Los papeles más cargados según el score compuesto 0–100 · 4 pilares + gates Stage 2</div></div></div>'+
     '<div class="wb-spot-grid" id="wb-spot-grid"><div class="wb-empty">Cargando datos…</div></div>'+
     '<span class="wb-spot-mark">warrenbife.com</span>';
 
@@ -5838,8 +5837,18 @@ if ('serviceWorker' in navigator) {
   function wbRenderAmplitudChart(){
     var canvas = $('wb-rgm-amplitud-chart');
     if(!canvas || typeof Chart === 'undefined') return;
-    var serie = window.AMPLITUD_HISTORIA;
-    if(!serie || serie.length < 2) return;
+    var serieRaw = window.AMPLITUD_HISTORIA;
+    if(!serieRaw || serieRaw.length < 2) return;
+    // Descarta días con universo incompleto -- el primer backfill real
+    // (2026-07-07) quedó con total:1 (pipeline recién arrancando), un
+    // 100% espurio (1 de 1) que hacía arrancar el gráfico ahí y rompía
+    // la escala del eje Y (2026-09-10, pedido del usuario). Umbral: la
+    // mitad del total más alto de la serie, así conviven ajustes
+    // normales del universo (altas/bajas de tickers) sin filtrar de más.
+    var maxTotal = Math.max.apply(null, serieRaw.map(function(p){ return p.total||0; }));
+    var serie = serieRaw.filter(function(p){ return (p.total||0) >= maxTotal*0.5; });
+    if(serie.length < 2) serie = serieRaw;
+    if(serie.length < 2) return;
     if(_wbRgmAmplitudChart){ _wbRgmAmplitudChart.destroy(); _wbRgmAmplitudChart = null; }
     // Eje Y ajustado al tramo -- 2026-09-06 (pedido del usuario): antes
     // era fijo 0-100 y la variación real (ej. 55-65%) casi no se notaba.
