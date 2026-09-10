@@ -48,12 +48,19 @@
   .topbar::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(34,201,138,0.45) 18%,rgba(79,142,247,0.3) 60%,transparent);pointer-events:none;}
   /* topbar-left/right a flex:1 con basis 0 (2026-09-09, pedido del
      usuario) -- truco clásico de centrado: como los dos crecen igual
-     desde 0, topbar-center (flex:0 0 auto, sin crecer) queda exactamente
-     en el medio de la barra sin importar cuánto contenido tenga cada
-     lado. min-width:0 para que puedan encogerse (si no, un flex-basis:0
-     con contenido ancho puede desbordar en vez de wrappear). */
+     desde 0, topbar-center queda exactamente en el medio de la barra
+     sin importar cuánto contenido tenga cada lado. min-width:0 para
+     que puedan encogerse (si no, un flex-basis:0 con contenido ancho
+     puede desbordar en vez de wrappear).
+     topbar-center a flex:0 1 auto, NO 0 0 auto (fix, mismo día): con
+     shrink:0 nunca podía encogerse por más que el título pudiera
+     wrappear (ver .logo sin white-space:nowrap más abajo) -- pedía
+     siempre su ancho de una sola línea sin wrappear nunca, aunque
+     "cupiera" en 2 líneas, y en mobile eso hacía que se superpusiera
+     con topbar-left/right en vez de wrappear. Con shrink:1 puede
+     encogerse hasta que el texto de adentro wrappee solo. */
   .topbar-left{display:flex;align-items:center;gap:14px;flex:1 1 0;min-width:0;}
-  .topbar-center{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+  .topbar-center{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0;}
   .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.05em;background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent);}
   .tagline{color:var(--muted);font-size:12px;letter-spacing:0.02em;}
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 0;min-width:0;justify-content:flex-end;}
