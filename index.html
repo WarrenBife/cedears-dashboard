@@ -10487,32 +10487,31 @@ window.wbFeedbackEnviar = async function(){
       backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
       border:1px solid var(--border);border-radius:var(--r-lg);
       box-shadow:var(--shadow-panel);overflow:hidden;margin-bottom:18px;}
-    #wb-cmd-top{display:flex;align-items:center;justify-content:space-between;
+    #wb-cmd-top{display:flex;align-items:center;
       gap:18px;padding:11px 20px;flex-wrap:wrap;}
-    #wb-cmd-right{display:flex;align-items:center;gap:18px;flex-shrink:0;}
 
-    #wb-cmd-top .pill-group{display:inline-flex;gap:3px;background:rgba(255,255,255,0.03);
+    /* Pestañas a ancho completo, todas del mismo tamaño (2026-09-10,
+       pedido del usuario, junto con sacar la franja mini de Régimen/
+       Exposición de #wb-cmd-right que vivía al lado -- ver más abajo,
+       sincronizarMiniRegimen() y el panel completo #wb-rgm-panel en la
+       pestaña Resumen no se tocan, solo esta franja chica). pill-group
+       pasa a ocupar el 100% del panel y cada botón reparte el espacio
+       por igual (flex:1) -- mismo font-size/padding de siempre, no se
+       agranda ni deforma ninguna letra, solo cambia el ancho de cada
+       pestaña. */
+    #wb-cmd-top .pill-group{display:flex;width:100%;gap:3px;background:rgba(255,255,255,0.03);
       border:1px solid var(--border);border-radius:11px;padding:3px;}
     #wb-cmd-top .wb-tab-btn{appearance:none;border:none;background:none;cursor:pointer;
       font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:600;color:var(--muted);
       padding:9px 16px;border-radius:8px;letter-spacing:.01em;
       transition:color .18s,background-color .18s,box-shadow .18s,text-shadow .18s;
-      display:flex;align-items:center;gap:7px;white-space:nowrap;}
+      display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+      flex:1;}
     #wb-cmd-top .wb-tab-btn:hover{color:var(--text);}
     #wb-cmd-top .wb-tab-btn.active{
       color:#5ffbb3;background:rgba(34,201,138,0.12);
       box-shadow:inset 0 0 0 1px rgba(94,251,179,0.55),0 0 14px rgba(34,201,138,0.25);
       text-shadow:0 0 10px rgba(94,251,179,0.85);}
-
-    #wb-cmd-top .mini-gauge{display:flex;align-items:center;gap:7px;flex-shrink:0;}
-    #wb-cmd-top .mini-gauge-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;
-      line-height:1;color:var(--text);}
-    #wb-cmd-top .mini-gauge-lbl{color:var(--muted);font-size:9px;text-transform:uppercase;
-      letter-spacing:.06em;line-height:1.3;}
-    #wb-cmd-top .mini-expo{display:flex;align-items:center;gap:5px;padding:4px 12px;
-      border-radius:8px;font-weight:600;font-size:11.5px;white-space:nowrap;}
-    #wb-cmd-top .mini-expo-lbl{font-weight:400;font-size:9px;text-transform:uppercase;
-      letter-spacing:.06em;color:var(--muted);}
 
     #wb-cmd-kpis{display:none;border-top:1px solid var(--border);}
     #wb-cmd-kpis.mostrar{display:block;}
@@ -10587,14 +10586,12 @@ cmdPanel.innerHTML =
       '<button class="wb-tab-btn" data-wbtab="rotacion">📡 Rotación</button>'+
       '<button class="wb-tab-btn" data-wbtab="analisis">🔬 Análisis</button>'+
     '</div>'+
-    '<div id="wb-cmd-right">'+
-      '<div class="mini-gauge"><span class="mini-gauge-num" id="wb-mini-gauge-num">—</span>'+
-        '<span class="mini-gauge-lbl">Régimen<br>de 100</span></div>'+
-      '<div class="mini-expo" id="wb-mini-expo"><span class="mini-expo-lbl">Exposición:&nbsp;</span>'+
-        '<span id="wb-mini-expo-txt">—</span></div>'+
-    '</div>'+
   '</div>'+
   '<div id="wb-cmd-kpis" class="mostrar"></div>';
+// Franja mini de Régimen/Exposición (#wb-cmd-right, mini-gauge/mini-expo)
+// SACADA de acá (2026-09-10, pedido del usuario, junto con estirar las
+// pestañas a ancho completo) -- el panel completo "⚡ Régimen de mercado"
+// (#wb-rgm-panel) sigue igual en la pestaña Resumen, no se tocó.
 
 main.parentNode.insertBefore(cmdPanel, main);
 
@@ -10749,43 +10746,11 @@ cmdPanel.querySelectorAll('.wb-tab-btn').forEach(function(btn){
   });
 });
 
-// ── Sincronizar la franja mini de Régimen con el panel completo ──
-// (no duplica el cálculo: lee el resultado YA renderizado adentro de
-// #wb-rgm-panel por wbRenderRegimenPanel, que sigue corriendo exacto
-// igual que siempre -- esta franja solo espeja ese resultado).
-function sincronizarMiniRegimen(){
-  try{
-    var scoreEl = document.querySelector('#wb-rgm-panel svg text');
-    var fraseEl = document.querySelector('#wb-rgm-panel .wb-rgm-expo-frase');
-    var numEl = document.getElementById('wb-mini-gauge-num');
-    var expoTxtEl = document.getElementById('wb-mini-expo-txt');
-    var expoBoxEl = document.getElementById('wb-mini-expo');
-    if(scoreEl && numEl){
-      numEl.textContent = scoreEl.textContent;
-      numEl.style.color = scoreEl.getAttribute('fill') || 'inherit';
-    }
-    if(fraseEl && expoTxtEl && expoBoxEl){
-      expoTxtEl.textContent = fraseEl.textContent;
-      var color = fraseEl.style.color || '';
-      expoTxtEl.style.color = color || 'inherit';
-      if(color){
-        expoBoxEl.style.background = color.replace('rgb(', 'rgba(').replace(')', ',0.1)');
-        expoBoxEl.style.border = '1px solid ' + color.replace('rgb(', 'rgba(').replace(')', ',0.4)');
-      }
-    }
-  }catch(e){}
-}
-try{
-  if(typeof window.renderTodo === 'function'){
-    var _rt36 = window.renderTodo;
-    window.renderTodo = function(){
-      var r = _rt36.apply(this, arguments);
-      setTimeout(sincronizarMiniRegimen, 50);
-      return r;
-    };
-  }
-}catch(e){}
-setTimeout(sincronizarMiniRegimen, 800);
+// sincronizarMiniRegimen() SACADA (2026-09-10, pedido del usuario): solo
+// espejaba el resultado de #wb-rgm-panel hacia la franja mini de acá
+// arriba, que ya no existe. #wb-rgm-panel (panel completo, en la
+// pestaña Resumen) sigue calculándose y renderizándose exactamente
+// igual que siempre -- wbRenderRegimenPanel no se tocó.
 
 }catch(e){ console.error('WB V36 tabs error', e); }
 })();
