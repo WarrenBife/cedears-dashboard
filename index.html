@@ -166,6 +166,16 @@
     font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;
     transition:color .2s var(--ease),border-color .2s var(--ease),background .2s var(--ease);}
   .panel-info-btn:hover{color:var(--green);border-color:rgba(34,201,138,0.45);background:rgba(34,201,138,0.08);}
+  /* Cuadrantes de rotación (2026-09-10, pedido del usuario): su
+     panel-head suma un 3er elemento (el toggle Acciones/ETFs, insertado
+     después por WB UPGRADE V7, buildV7()) -- con 3 hijos y
+     justify-content:space-between el "⋮" quedaba centrado en vez de en
+     la esquina (title-izq / ⋮-medio / toggle-der). Se saca del flujo
+     flex (position:absolute, ancla a la esquina real del panel, igual
+     que en cualquier otro cuadro) y el toggle le deja el margen
+     necesario para no superponerse. */
+  #wb-rrg-panel .panel-info-btn{position:absolute;top:14px;right:18px;}
+  #wb-rrg-panel .panel-head .rrg-toggle-wrap{margin-right:34px;}
   .wb-info-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.55);
     -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
     display:none;align-items:center;justify-content:center;padding:20px;}
@@ -4041,7 +4051,18 @@ if ('serviceWorker' in navigator) {
      escucha cualquier [data-tooltip], no solo esa clase). Los ids
      internos (wb-rot-trans-acc, wb-rot-accel-etf, etc.) no cambiaron. — */
   var rrgP = mkPanel('wb-rrg-panel','Cuadrantes de rotación',
-    'Eje X: RS Score · Eje Y: variación RS semanal · Tamaño de burbuja: Market Cap',
+    // Sub enriquecido 2026-09-10 (pedido del usuario): la leyenda de
+    // colores/anillos que antes vivía fija arriba del gráfico
+    // (.wb-rrg-legend) pasa acá -- esa fila queda solo con los
+    // controles (buscador, filtro de mes, reset zoom).
+    'Eje X: RS Score · Eje Y: variación RS semanal · Tamaño de burbuja: Market Cap<br><br>'+
+    '<b style="color:var(--green)">🟢 Liderando</b> — RS alto y acelerando: los líderes actuales<br>'+
+    '<b style="color:var(--blue)">🔵 Mejorando</b> — RS bajo pero acelerando: candidatos a futuros líderes<br>'+
+    '<b style="color:var(--amber)">🟠 Debilitando</b> — RS alto pero perdiendo impulso<br>'+
+    '<b style="color:var(--red)">🔴 Rezagado</b> — RS bajo y sin impulso<br>'+
+    '<b>🚀 Despegue fresco</b> (anillo violeta) — además cumple los 3 filtros de breakout (pivot + volumen institucional + no extendido)<br>'+
+    '<b>⚡ Vol inusual</b> (anillo celeste) — volumen de hoy ≥100% sobre el promedio<br>'+
+    '<span style="color:var(--muted)">○ tamaño de la burbuja = Market Cap</span>',
     '<style>'+
       '.wb-rot-section{margin:16px -18px 0;padding-top:14px;border-top:1px solid var(--border);}'+
       '.wb-rot-section-head{padding:0 18px 8px;}'+
@@ -4064,14 +4085,11 @@ if ('serviceWorker' in navigator) {
         '.wb-rot-accel-grid{grid-template-columns:1.1fr 0.75fr 0.85fr 0.75fr 0.75fr !important;gap:3px !important}'+
       '}'+
     '</style>'+
+    // Los <span> descriptivos (Liderando/Mejorando/Debilitando/Rezagado/
+    // Despegue fresco/Vol inusual/tamaño=Market Cap) se sacaron de acá
+    // (2026-09-10, pedido del usuario) -- pasaron al sub de este mkPanel
+    // (popup "⋮"). Esta fila queda solo con los controles.
     '<div class="wb-rrg-legend">'+
-      '<span><i style="background:var(--green)"></i>Liderando</span>'+
-      '<span><i style="background:var(--blue)"></i>Mejorando</span>'+
-      '<span><i style="background:var(--amber)"></i>Debilitando</span>'+
-      '<span><i style="background:var(--red)"></i>Rezagado</span>'+
-      '<span style="margin-left:6px;border-left:1px solid rgba(255,255,255,0.1);padding-left:8px"><i style="background:transparent;border:2px solid #a78bfa;box-shadow:0 0 5px #a78bfa"></i>🚀 Despegue fresco</span>'+
-      '<span><i style="background:transparent;border:2px solid #22eee8;box-shadow:0 0 5px #22eee8"></i>⚡ Vol inusual</span>'+
-      '<span style="margin-left:4px;font-size:9px;color:var(--muted)">○ tamaño = Market Cap</span>'+
       '<input id="wbRrgBuscar" list="cmp-tickers-list" autocomplete="off" placeholder="🔍 Buscar acción..." '+
         'oninput="try{wbRrgBuscarTicker(this.value)}catch(e){}" '+
         'style="margin-left:auto;background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-size:9.5px;padding:3px 8px;border-radius:6px;width:126px;">'+
@@ -4175,11 +4193,11 @@ if ('serviceWorker' in navigator) {
       '<button class="rrg-pill active" id="ema200-tab-rebote" onclick="wbEMA200SetTab(\'rebote\')">🔄 Rebote</button>'+
       '<button class="rrg-pill" id="ema200-tab-cruce" onclick="wbEMA200SetTab(\'cruce\')">🚀 Cruce al alza</button>'+
     '</div>'+
-    '<div class="panel-filters" style="margin:0 -18px 12px;">'+
-      '<span class="pf-label">RS mín hoy:</span>'+
-      '<input type="range" id="ema200-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200-rs-min-val\').textContent=this.value;wbRenderEMA200Reversal()">'+
-      '<span id="ema200-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
-    '</div>'+
+    // Filtro "RS mín hoy" sacado (2026-09-10, pedido del usuario).
+    // wbRenderEMA200Reversal() ya tenía guard `rsMinEl ? ... : 0` --
+    // sin el input, rsMin queda siempre en 0 (sin filtrar), no rompe
+    // nada.
+
     // Alto fijo a 10 filas + scroll interno para el resto (2026-09-06,
     // pedido del usuario). 315px = header (24.5px) + 10 filas (29px c/u
     // en esta tabla) medido en vivo -- mismo criterio en wb-vcpq-body,
@@ -4213,11 +4231,9 @@ if ('serviceWorker' in navigator) {
       '<button class="rrg-pill active" id="ema200sem-tab-rebote" onclick="wbEMA200SemSetTab(\'rebote\')">🔄 Rebote</button>'+
       '<button class="rrg-pill" id="ema200sem-tab-cruce" onclick="wbEMA200SemSetTab(\'cruce\')">🚀 Cruce al alza</button>'+
     '</div>'+
-    '<div class="panel-filters" style="margin:0 -18px 12px;">'+
-      '<span class="pf-label">RS mín hoy:</span>'+
-      '<input type="range" id="ema200sem-rs-min" min="0" max="100" value="0" style="width:70px" oninput="document.getElementById(\'ema200sem-rs-min-val\').textContent=this.value;wbRenderEMA200ReversalSemanal()">'+
-      '<span id="ema200sem-rs-min-val" style="font-family:\'DM Mono\',monospace;font-size:10px;min-width:18px">0</span>'+
-    '</div>'+
+    // Filtro "RS mín hoy" sacado (2026-09-10, pedido del usuario) --
+    // mismo criterio que ema200P, wbRenderEMA200ReversalSemanal() ya
+    // tenía el guard `rsMinEl ? ... : 0`.
     '<div id="wb-ema200sem-body" style="max-height:315px;overflow-y:auto"></div>',
     'Igual que "EMA200: Rebote / Cruce" de arriba, pero calculado sobre velas SEMANALES en vez de diarias. La EMA200 semanal representa ~4 años de historia -- un nivel de mucho más largo plazo, que casi no se toca salvo en correcciones grandes. Vas a ver este cuadro vacío la mayoría de las veces, y es lo esperable.');
 
