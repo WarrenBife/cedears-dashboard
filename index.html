@@ -11106,5 +11106,32 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') wbClose
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V38 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V39 — Semáforo por sector, mobile angosto ═══════════════
+     (2026-09-10, pedido del usuario): en la pestaña Rotación de la vista
+     mobile angosta (≤600px, WB UPGRADE V37) el "Semáforo por sector" traía
+     su CSS de escritorio sin cambios -- las 3 cards de cada sector no
+     entraban a lo ancho de la pantalla (quedaban 1-2 por fila, con scroll
+     lateral dentro de .sema-grid) y el cuadro tenía un scroll interno
+     propio (max-height:460px inline en el div que envuelve #sema-grid).
+     Acá achicamos las cards para que las 3 entren siempre a lo ancho, y
+     sacamos el scroll interno para que el cuadro se extienda entero
+     (scrollea la página, no el cuadro) -- mismo corte que V37, solo CSS
+     nuevo sobre clases ya existentes, no toca el HTML/JS original. -->
+<style id="wb-v39-css">
+  @media(max-width:600px){
+    .sema-grid{grid-template-columns:repeat(3,1fr);gap:5px;}
+    .sema-card{padding:7px 6px;}
+    .sema-ticker{font-size:9.5px;margin-bottom:5px;flex-wrap:wrap;gap:2px;}
+    .sema-row{font-size:8px;margin-bottom:3px;}
+    .sema-key{font-size:7.5px;}
+    .dot{width:5px;height:5px;margin-right:2px;}
+    /* :has() en vez de tocar el HTML original -- el div que envuelve
+       #sema-grid trae max-height:460px;overflow-y:auto inline (original
+       code, no se toca) para el scroll propio de escritorio/tablet. */
+    div:has(> #sema-grid){max-height:none !important;overflow-y:visible !important;}
+  }
+</style>
+<!-- ═══════════════ FIN WB UPGRADE V39 ═══════════════ -->
+
 </body>
 </html>
