@@ -147,10 +147,43 @@
   .panel:hover::before{opacity:1;}
   .panel-head,.panel-body,.panel-filters,.chart-wrap,.warren-table-wrap,.sema-grid{position:relative;z-index:1;}
   .panel-head{padding:14px 18px 11px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px;}
-  .panel-title{font-size:13px;font-weight:600;color:var(--green);letter-spacing:0.03em;display:flex;align-items:center;gap:8px;}
+  /* Título de cada panel (2026-09-09, pedido del usuario): mismo formato
+     que ya tenía SOLO el cuadro "Warren Score -- Podio del día"
+     (.wb-spot-title) -- DM Mono, más grande, degradé de texto -- ahora
+     para todos los cuadros. El texto explicativo de abajo (.panel-sub)
+     se saca de la vista y pasa a un popup -- ver .panel-info-btn y
+     #wb-info-overlay más abajo. */
+  .panel-title{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.04em;
+    background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:var(--accent);display:flex;align-items:center;gap:8px;}
   .panel-title::before{content:'';width:3px;height:13px;border-radius:2px;background:linear-gradient(180deg,var(--green),rgba(34,201,138,0.25));box-shadow:0 0 8px rgba(34,201,138,0.5);flex-shrink:0;}
   .panel:hover .panel-title::before{box-shadow:0 0 12px rgba(34,201,138,0.8);}
   .panel-sub{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45;}
+
+  /* Botón "⋮" de info (reemplaza a .panel-sub) + popup compartido */
+  .panel-info-btn{background:none;border:1px solid var(--border2);color:var(--muted);
+    width:24px;height:24px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;
+    font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;
+    transition:color .2s var(--ease),border-color .2s var(--ease),background .2s var(--ease);}
+  .panel-info-btn:hover{color:var(--green);border-color:rgba(34,201,138,0.45);background:rgba(34,201,138,0.08);}
+  .wb-info-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.55);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:20px;}
+  .wb-info-overlay.active{display:flex;}
+  .wb-info-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent 55%),var(--bg2);
+    border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow-panel);
+    max-width:420px;width:100%;}
+  .wb-info-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:16px 18px 12px;border-bottom:1px solid var(--border);}
+  .wb-info-card-title{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.04em;
+    background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:var(--accent);}
+  .wb-info-close{background:none;border:1px solid var(--border2);color:var(--muted);
+    width:26px;height:26px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;
+    font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;
+    transition:color .2s var(--ease),border-color .2s var(--ease);}
+  .wb-info-close:hover{color:var(--text);border-color:rgba(240,96,90,0.5);}
+  .wb-info-card-body{padding:14px 18px 18px;font-size:12.5px;color:var(--muted);line-height:1.55;}
   .panel-body{padding:14px 18px;}
   .panel-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.015);}
   .pf-label{color:var(--muted);font-size:10px;white-space:nowrap;letter-spacing:0.04em;}
@@ -737,7 +770,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.">Warren Score</div><div class="panel-sub">Score compuesto 0–100 · 4 pilares + gates Stage 2</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking pre-breakout 0–100: Gates Stage 2 + Tendencia (A/20) + Fuerza Relativa (B/25) + Contracción (C/35, incluye bono de eficiencia) + Setup (D/20) + Penalizaciones. Si no pasa gates, score capeado en 40.">Warren Score</div></div><button class="panel-info-btn" data-info-title="Warren Score" data-info-text="Score compuesto 0–100 · 4 pilares + gates Stage 2" onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters" id="ws-filters-row">
         <span class="pf-label">Sector:</span>
         <select id="ws-sector" onchange="renderWarrenScore()"><option value="all">Todos</option></select>
@@ -810,7 +843,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div><div class="panel-sub">Evolución últimas 4 semanas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Evolución del RS Score semana a semana durante las últimas 4 semanas. Muestra activos que están mejorando sistemáticamente su fuerza relativa">Tendencia RS Score</div></div><button class="panel-info-btn" data-info-title="Tendencia RS Score" data-info-text="Evolución últimas 4 semanas" onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters">
         <span class="pf-label">Tickers:</span>
         <select id="trend-n" onchange="renderTrend()"><option value="20">20</option><option value="30">30</option><option value="50">50</option></select>
@@ -827,7 +860,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking por días alcistas ponderados por volumen en las últimas 10 ruedas. Mayor score = más días positivos con mayor volumen relativo (convicción compradora)">Sesiones & Volumen</div><div class="panel-sub">Ranking por días ▲ × ratio de volumen — últimas 10 ruedas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Ranking por días alcistas ponderados por volumen en las últimas 10 ruedas. Mayor score = más días positivos con mayor volumen relativo (convicción compradora)">Sesiones & Volumen</div></div><button class="panel-info-btn" data-info-title="Sesiones &amp; Volumen" data-info-text="Ranking por días ▲ × ratio de volumen — últimas 10 ruedas" onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters" style="flex-wrap:wrap;gap:6px;">
         <span class="pf-label">Top:</span>
         <select id="sv-n" onchange="renderSesionesVol()"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option></select>
@@ -853,7 +886,7 @@
 
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Activos con volumen operado hoy muy superior al promedio de las últimas 20 ruedas. Puede indicar entrada de dinero institucional o noticias relevantes">Volumen inusual hoy</div><div class="panel-sub">Desvío vs promedio 5 ruedas</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Activos con volumen operado hoy muy superior al promedio de las últimas 20 ruedas. Puede indicar entrada de dinero institucional o noticias relevantes">Volumen inusual hoy</div></div><button class="panel-info-btn" data-info-title="Volumen inusual hoy" data-info-text="Desvío vs promedio 5 ruedas" onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-filters">
         <span class="pf-label">Umbral:</span>
         <select id="vinu-umbral" onchange="renderVolInusual()"><option value="30">+30%</option><option value="50" selected>+50%</option><option value="100">+100%</option></select>
@@ -864,7 +897,7 @@
       </div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div><div class="panel-sub">Principales movimientos y extremos RSI</div></div></div>
+      <div class="panel-head"><div><div class="panel-title" data-tooltip="Resumen de los principales movimientos del día: mayores subas, mayores bajas, y activos en zona de sobrecompra o sobreventa según RSI">Cartelera del día</div></div><button class="panel-info-btn" data-info-title="Cartelera del día" data-info-text="Principales movimientos y extremos RSI" onclick="wbShowInfo(this)">⋮</button></div>
       <div class="panel-body" style="padding:0;">
         <div id="cartelera-body" style="display:grid;grid-template-columns:1fr 1fr;max-height:320px;overflow-y:auto;"></div>
       </div>
@@ -872,7 +905,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div><div class="panel-sub">Top 3 por RS Score en cada sector · Borde naranja = volumen inusual</div></div></div>
+    <div class="panel-head"><div><div class="panel-title" data-tooltip="Top 3 activos por RS Score dentro de cada sector económico. Permite identificar qué sectores están liderando y qué acciones los encabezan. Borde naranja = volumen inusual">Semáforo por sector — Top 3</div></div><button class="panel-info-btn" data-info-title="Semáforo por sector — Top 3" data-info-text="Top 3 por RS Score en cada sector · Borde naranja = volumen inusual" onclick="wbShowInfo(this)">⋮</button></div>
     <div class="panel-filters">
       <span class="pf-label">Ordenar sectores:</span>
       <select id="sema-sort" onchange="renderSemaforo()">
@@ -3501,7 +3534,6 @@ if ('serviceWorker' in navigator) {
   @media(max-width:600px){
     body{font-size:14px;}
     .stat-value{font-size:26px;}
-    .panel-title{font-size:14px;}
     .tagline{display:none;}
 
     /* Topbar mobile (2026-09-09, pedido del usuario): se sacan "EN VIVO"
@@ -3968,9 +4000,13 @@ if ('serviceWorker' in navigator) {
   function mkZone(txt){ var z=document.createElement('div'); z.className='wb-zone'; z.innerHTML='<span class="wb-zone-title">'+txt+'</span>'; return z; }
   function mkGrid(){ var g=document.createElement('div'); g.className='grid-2'; for(var i=0;i<arguments.length;i++){ if(arguments[i]) g.appendChild(arguments[i]); } return g; }
   function mkPanel(id, title, sub, bodyHTML, tooltip){
+    // .panel-sub ya no se muestra fija -- pasa al popup del botón "⋮"
+    // (2026-09-09, pedido del usuario, ver WB UPGRADE V38 al final del
+    // documento). El tooltip por hover (data-tooltip) sigue igual, es
+    // otra cosa.
     var p=document.createElement('div'); p.className='panel'; p.id=id;
     p.innerHTML='<div class="panel-head"><div><div class="panel-title"'+(tooltip?' data-tooltip="'+esc(tooltip)+'"':'')+'>'+title+
-      '</div><div class="panel-sub">'+sub+'</div></div></div><div class="panel-body">'+bodyHTML+'</div>';
+      '</div></div><button class="panel-info-btn" data-info-title="'+esc(title)+'" data-info-text="'+esc(sub)+'" onclick="wbShowInfo(this)">⋮</button></div><div class="panel-body">'+bodyHTML+'</div>';
     return p;
   }
 
@@ -5806,8 +5842,7 @@ if ('serviceWorker' in navigator) {
     '<div class="panel-head"><div>'+
     '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 80 pts -- tendencia, días de distribución, follow-through day, ADX/DMI y extensión ATR), amplitud del universo (30 pts) y sentimiento VIX/P-C ratio (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
     '⚡ Régimen de mercado</div>'+
-    '<div class="panel-sub">Score de condiciones 0–100 · guía de exposición progresiva</div>'+
-    '</div></div>'+
+    '</div><button class="panel-info-btn" data-info-title="⚡ Régimen de mercado" data-info-text="Score de condiciones 0–100 · guía de exposición progresiva" onclick="wbShowInfo(this)">⋮</button></div>'+
     '<div class="panel-body" id="wb-rgm-body">'+
     '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Calculando…</div>'+
     '</div>';
@@ -8158,8 +8193,8 @@ var wrap = document.createElement('div');
 wrap.innerHTML =
   '<div class="panel" id="wb-vcpq-panel">'+
     '<div class="panel-head">'+
-      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP2 Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Detector VCP2: ZigZag adaptativo + ciclo de vida (Formándose/Armado/Rompió/Falló).">🧬 Bases VCP de Alta Calidad</div>'+
-      '<div class="panel-sub"><span id="wb-vcpq-count">0</span> bases con VCP2 Score ≥60 · independiente del Warren Score</div></div>'+
+      '<div><div class="panel-title" data-tooltip="Filtra directo por VCP2 Score (≥60), sin pasar por el Warren Score compuesto ni sus gates. Corrige que un gate binario (ej. <20% del mínimo 52W) o un RS Score sin historial suficiente (spin-offs/IPOs recientes) puedan ocultar una base bien formada durante meses. Detector VCP2: ZigZag adaptativo + ciclo de vida (Formándose/Armado/Rompió/Falló).">🧬 Bases VCP de Alta Calidad</div></div>'+
+      '<button class="panel-info-btn" data-info-title="🧬 Bases VCP de Alta Calidad" data-info-text="Bases con VCP2 Score ≥60 · independiente del Warren Score" onclick="wbShowInfo(this)">⋮</button>'+
     '</div>'+
     // Alto fijo a 10 filas + scroll interno para el resto (2026-09-06,
     // pedido del usuario). 385px = header (24.5px) + 10 filas (36px c/u
@@ -8242,9 +8277,8 @@ function wbRenderVcpQuality(){
 
   rows.sort(function(a,b){ return b.m.score - a.m.score; });
   rows = rows.slice(0, 15);
-
-  var countEl = document.getElementById('wb-vcpq-count');
-  if(countEl) countEl.textContent = rows.length;
+  // wb-vcpq-count vivía en .panel-sub -- sacada 2026-09-09 (ver popup
+  // "⋮" del panel-head), ya no hay elemento que actualizar acá.
 
   if(!rows.length){
     body.innerHTML = '<tr><td colspan="7" class="wb-empty">Sin bases VCP de calidad con los filtros actuales.</td></tr>';
@@ -10941,6 +10975,48 @@ try{
 })();
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V37 ═══════════════ -->
+
+<!-- ═══════════════ WB UPGRADE V38 — Popup de info de cuadro ═══════════════
+     (2026-09-09, pedido del usuario): reemplaza el texto explicativo que
+     antes iba fijo debajo de cada título (.panel-sub) por este popup
+     compartido, disparado desde el botón "⋮" (.panel-info-btn) que
+     ahora tiene cada panel-head. Un solo overlay para todos los cuadros
+     -- wbShowInfo(this) lee data-info-title/data-info-text del botón
+     que lo llamó y llena el popup. No toca el sistema de tooltip por
+     hover (data-tooltip), que es otra cosa y sigue igual. -->
+<div id="wb-info-overlay" class="wb-info-overlay" onclick="if(event.target===this) wbCloseInfo()">
+  <div class="wb-info-card">
+    <div class="wb-info-card-head">
+      <div class="wb-info-card-title" id="wb-info-title"></div>
+      <button class="wb-info-close" onclick="wbCloseInfo()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="wb-info-card-body" id="wb-info-body"></div>
+  </div>
+</div>
+<script id="wb-v38-js">
+(function(){
+'use strict';
+function wbShowInfo(btn){
+  try{
+    var overlay = document.getElementById('wb-info-overlay');
+    var titleEl = document.getElementById('wb-info-title');
+    var bodyEl  = document.getElementById('wb-info-body');
+    if(!overlay || !titleEl || !bodyEl) return;
+    titleEl.textContent = btn.dataset.infoTitle || '';
+    bodyEl.textContent  = btn.dataset.infoText || '';
+    overlay.classList.add('active');
+  }catch(e){}
+}
+function wbCloseInfo(){
+  var overlay = document.getElementById('wb-info-overlay');
+  if(overlay) overlay.classList.remove('active');
+}
+window.wbShowInfo  = wbShowInfo;
+window.wbCloseInfo = wbCloseInfo;
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') wbCloseInfo(); });
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V38 ═══════════════ -->
 
 </body>
 </html>
