@@ -59,7 +59,13 @@
      "cupiera" en 2 líneas, y en mobile eso hacía que se superpusiera
      con topbar-left/right en vez de wrappear. Con shrink:1 puede
      encogerse hasta que el texto de adentro wrappee solo. */
-  .topbar-left{display:flex;align-items:center;gap:14px;flex:1 1 0;min-width:0;}
+  /* flex-wrap:wrap (fix, mismo día): topbar-left ahora se puede achicar
+     (flex:1 1 0) pero sus propios hijos (Menú, link a X, botón resumido
+     de actualizar en mobile) no tenían permiso de pasar a una 2da línea
+     -- se desbordaban horizontalmente por ENCIMA de topbar-center en vez
+     de wrappear adentro de su propia fila. topbar-right ya tenía
+     flex-wrap:wrap (por eso no se notaba de ese lado). */
+  .topbar-left{display:flex;align-items:center;gap:14px;flex:1 1 0;min-width:0;flex-wrap:wrap;}
   .topbar-center{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0;}
   .logo{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.05em;background:linear-gradient(92deg,#eef1f7 0%,#22c98a 75%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent);}
   .tagline{color:var(--muted);font-size:12px;letter-spacing:0.02em;}
@@ -3502,6 +3508,19 @@ if ('serviceWorker' in navigator) {
     .live-badge,.time-info,.wb-topbar-refresh-d{display:none;}
     .wb-topbar-refresh-m{display:inline-flex;align-items:center;justify-content:center;
       width:30px;height:30px;padding:0;border-radius:999px;font-size:15px;line-height:1;flex-shrink:0;}
+
+    /* Fix (mismo día): el truco de centrado de escritorio (topbar-left/
+       right a flex:1 1 0, forzados a encogerse por igual) no funciona en
+       mobile -- "@Warren_Bife" es una sola palabra sin espacios, no
+       puede wrappear, así que por más flex-wrap que tenga topbar-left
+       igual se desbordaba encima de topbar-center apenas el ancho
+       asignado bajaba de su mínimo real. En mobile, topbar-left/right
+       vuelven a su ancho natural (el que necesite su contenido) y
+       topbar-center pasa a ocupar el resto y centrarse ADENTRO de ese
+       resto -- no es centrado perfecto contra los bordes de la pantalla,
+       pero no se superpone con nada. */
+    .topbar-left,.topbar-right{flex:0 0 auto;}
+    .topbar-center{flex:1 1 auto;justify-content:center;}
 
     /* Stat cards: carrusel horizontal con snap */
     .stats-row{display:flex;overflow-x:auto;gap:10px;scroll-snap-type:x mandatory;
