@@ -11405,5 +11405,28 @@ try{
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V42 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V43 — Fix: sticky del header se rompió
+     de nuevo en .wb-mini-table (caso Bases VCP) ═══════════════
+     (2026-09-11, pedido del usuario): el fix original (commit 4cdab2c,
+     8/9) pasó .wb-mini-table de border-collapse:collapse a separate
+     PORQUE collapse rompe el position:sticky del <th> en varios
+     motores -- en ese momento border-spacing quedaba en 0 (sin
+     separación), así que no había hueco entre filas. Un cambio
+     posterior y aparte (look "tarjetita" por fila) le agregó
+     separación vertical (border-spacing:0 6px) -- con eso, entre el
+     header sticky y la fila siguiente queda un hueco de ~6px que el
+     header NO cubre con su propio fondo, y al scrollear se asoma ahí
+     la fila de arriba (se veía como una franja de color por encima del
+     título de columna). Fix: el header extiende su propio fondo hacia
+     arriba con box-shadow (mismo color que su background), tapando ese
+     hueco sin tocar border-spacing ni el look de tarjetita de las
+     filas. Afecta a los mismos 4 paneles que comparten .wb-mini-table
+     (VCP, EMA200 diario/semanal, RSI semanal) -- el usuario lo notó en
+     VCP, pero la causa es de la clase compartida. -->
+<style id="wb-v43-css">
+  .wb-mini-table th{box-shadow:0 -16px 0 var(--bg2);}
+</style>
+<!-- ═══════════════ FIN WB UPGRADE V43 ═══════════════ -->
+
 </body>
 </html>
