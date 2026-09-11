@@ -2611,13 +2611,25 @@ def _vcp2_evaluate_lifecycle(df_o, df_h, df_l, df_c, df_v, last, pivot, stop,
                               success_horizon=20, success_gain=0.08,
                               min_hold_days=10, max_bars_to_breakout=18,
                               fail_before_drift=0.08, distribution_vol_mult=1.50,
-                              stop_buffer=0.005):
+                              stop_buffer=0.005, t1_depth=None):
     """Camina dia a dia desde que se completa la ultima contraccion y
     clasifica el patron en un ciclo de vida real (no un score estatico
     unico): forming -> armed -> executed -> success, o fail_before /
     fail_after. Excepcion de sacudon (2026-08-29): con RS Score>85, ni
     perforar el stop ni un dia de distribucion cancelan el patron --
-    mismo caso ya validado en el Warren Score (Caso B, origen MRVL)."""
+    mismo caso ya validado en el Warren Score (Caso B, origen MRVL).
+
+    Excepcion de "primera contraccion grande" (2026-09-10, caso YPF):
+    'se_ensancho' comparaba la correccion posterior SOLO contra la
+    profundidad de la ULTIMA contraccion (last['depth']) -- una base con
+    un T1 grande (ej. 23%) y un T2 chico (ej. 8%) cancelaba el patron
+    apenas aparecia una corretida intermedia de, por decir, 10% (mas
+    ancha que T2 pero bien adentro del rango que ya habia marcado T1).
+    Ese mínimo sigue siendo parte de la MISMA base, no una estructura
+    nueva. Ahora el umbral de ensanche usa el máximo entre last['depth']
+    y t1_depth: una base con primera pata profunda se da el lujo de
+    absorber una corrida intermedia más ancha que la última contracción,
+    mientras no supere lo que ya toleró en su propio arranque."""
     n = len(df_c)
     start = last['low_i'] + 1
     flags = []
@@ -2654,7 +2666,10 @@ def _vcp2_evaluate_lifecycle(df_o, df_h, df_l, df_c, df_v, last, pivot, stop,
         post_high = float(np.max(df_h[start:i + 1]))
         if post_high > 0:
             post_depth = (post_high - float(low_i_)) / post_high
-            if post_depth > last['depth'] * 1.05 and post_depth > 0.10:
+            umbral_ensanche = last['depth'] * 1.05
+            if t1_depth is not None:
+                umbral_ensanche = max(umbral_ensanche, t1_depth)
+            if post_depth > umbral_ensanche and post_depth > 0.10:
                 flags.append('se_ensancho')
                 return {'lifecycle': 'fail_before', 'reason': 'nueva correccion mas profunda: el VCP dejo de contraer',
                         'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
@@ -2711,12 +2726,19 @@ def _vcp2_evaluate_lifecycle(df_o, df_h, df_l, df_c, df_v, last, pivot, stop,
                     'cancelled': True, 'breakout_i': breakout_i, 'outcome_i': idx,
                     'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
                     'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
-        if j > 0 and j <= confirmation_days and float(df_c[idx]) < pivot:
-            flags.append('perdio_pivot_confirmacion')
-            return {'lifecycle': 'fail_after', 'reason': 'rompio y volvio dentro de la base en la confirmacion',
-                    'cancelled': True, 'breakout_i': breakout_i, 'outcome_i': idx,
-                    'mfe_pct': round(mfe, 2), 'mae_pct': round(mae, 2),
-                    'breakout_vol_ratio': breakout_vol_ratio, 'flags': flags}
+        # 'perdio_pivot_confirmacion' SACADA (2026-09-10, caso YPF): fallaba
+        # el patron apenas cerraba un dia bajo el pivot dentro de los
+        # primeros confirmation_days, aunque el precio nunca se acercara al
+        # stop -- un breakout flojo (bajo volumen) que reingresa 1 dia y
+        # despues retoma con volumen real quedaba cancelado antes de tiempo
+        # (YPF: breakout sin volumen 2-sep, cerro adentro 3-sep, breakout
+        # real con volumen recien 9/10-sep -- la simulacion nunca llegaba a
+        # verlo). Ahora, dentro de la confirmacion, el UNICO gatillo
+        # temprano es perder el stop real (stop_hit_post, arriba, que ya
+        # corre para cualquier j) -- cerrar bajo el pivot sin perder el
+        # stop ya no cancela nada por si solo. Pasados los confirmation_days
+        # sin sostenerse, sigue rigiendo 'reentry_a_la_base' de abajo, sin
+        # cambios.
         if j > confirmation_days and j <= fail_after_days and float(df_c[idx]) < pivot:
             so_far = (float(np.max(df_h[breakout_i:idx + 1])) / pivot - 1)
             if so_far < success_gain:
@@ -2781,7 +2803,7 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
         toques = _vcp2_techo_toques(h, pivot, order=pivot_order)
 
         formation, sflags, vol_dec = _vcp2_formation_score(contractions, v, techo_toques=toques)
-        life = _vcp2_evaluate_lifecycle(o, h, l, c, v, last, pivot, stop, rs_score=rs_score)
+        life = _vcp2_evaluate_lifecycle(o, h, l, c, v, last, pivot, stop, rs_score=rs_score, t1_depth=t1['depth'])
 
         price = float(c[-1])
         dist_pivot = (price - pivot) / pivot * 100 if pivot else None
