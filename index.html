@@ -4263,6 +4263,37 @@ if ('serviceWorker' in navigator) {
     '<div id="wb-rsisem-body" style="max-height:315px;overflow-y:auto"></div>',
     'Cruce del RSI(14) semanal con su SMA14: cuando el RSI viene subiendo/bajando más rápido que su propio promedio de las últimas 14 semanas, la señal cambia de signo. Complementario al Warren Score diario, no forma parte de él.');
 
+  /* — MACD: Cruces, diario y semanal (2026-09-10, pedido del usuario) —
+     Cruce de la línea MACD (12/26/9 estándar) con su propia línea de
+     señal, ya calculado en el pipeline (calcular_macd_series +
+     cruce_linea_senal_features, WB pipeline 2026-09-09) -- acá se
+     filtra por dirección + que el cruce haya sido reciente (hoy/ayer en
+     diario, últimas 2 semanas en semanal) + que el nivel de la línea en
+     el momento del cruce respete el signo pedido (alcista con la línea
+     todavía negativa, bajista con la línea todavía positiva). Mismo
+     patrón visual que rsiSemP (toggle alcista/bajista) de arriba. */
+  var macdP = mkPanel('wb-macd-panel','📊 MACD: Cruces',
+    'Cruce de la línea MACD con su línea de señal (12/26/9 estándar), solo si pasó hoy o ayer<br><br>'+
+    '<b>Alcista bajo cero</b> — la línea cruza hacia arriba a su señal, todavía por debajo de 0: impulso recién mejorando desde terreno flojo.<br><br>'+
+    '<b>Bajista sobre cero</b> — la línea cruza hacia abajo a su señal, todavía por encima de 0: impulso recién empeorando desde terreno fuerte.',
+    '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
+      '<button class="rrg-pill active" id="macd-tab-alcista" onclick="wbMACDSetTab(\'alcista\')">🔼 Alcista bajo cero</button>'+
+      '<button class="rrg-pill" id="macd-tab-bajista" onclick="wbMACDSetTab(\'bajista\')">🔽 Bajista sobre cero</button>'+
+    '</div>'+
+    '<div id="wb-macd-body" style="max-height:315px;overflow-y:auto"></div>',
+    'MACD estándar (12/26/9): línea = EMA12 − EMA26, señal = EMA9 de la línea. Solo cruces de hoy o de ayer, y solo si la línea todavía está del lado "flojo" (bajo cero para un cruce alcista, sobre cero para uno bajista) -- son los cruces que anticipan un cambio de impulso, no los que confirman uno que ya viene fuerte hace rato.');
+
+  var macdSemP = mkPanel('wb-macd-sem-panel','📊 MACD Semanal: Cruces',
+    'Mismo mecanismo que el diario, sobre velas semanales — solo si el cruce pasó en las últimas 2 semanas<br><br>'+
+    '<b>Alcista bajo cero</b> — la línea cruza hacia arriba a su señal, todavía por debajo de 0.<br><br>'+
+    '<b>Bajista sobre cero</b> — la línea cruza hacia abajo a su señal, todavía por encima de 0.',
+    '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
+      '<button class="rrg-pill active" id="macdsem-tab-alcista" onclick="wbMACDSemSetTab(\'alcista\')">🔼 Alcista bajo cero</button>'+
+      '<button class="rrg-pill" id="macdsem-tab-bajista" onclick="wbMACDSemSetTab(\'bajista\')">🔽 Bajista sobre cero</button>'+
+    '</div>'+
+    '<div id="wb-macd-sem-body" style="max-height:315px;overflow-y:auto"></div>',
+    'Igual que "MACD: Cruces" de arriba, pero calculado sobre velas SEMANALES en vez de diarias -- solo cruces dentro de las últimas 2 semanas, con la línea todavía del lado flojo al momento de cruzar.');
+
   /* — Reordenar todo — */
   // 2026-09-06 (pedido del usuario, reorganización de escritorio): debajo
   // del Warren Score, EMA200 Rebote/Cruce pasa a compartir ancho con
@@ -4276,7 +4307,7 @@ if ('serviceWorker' in navigator) {
     mkZone('📡 &nbsp;Rotación — ¿dónde está la plata?'),
     rrgP, P.sema,
     mkZone('🎯 &nbsp;Señales — qué comprar y cuándo'),
-    P.warren, ema200P, epP,
+    P.warren, ema200P, epP, macdP,
     /* snapP (Retorno Top 10 de la semana) oculto a pedido del usuario
        2026-08-27 -- de momento, no permanente. Para reactivarlo, volver
        a poner "snapP," acá. El panel se sigue construyendo (mkPanel de
@@ -4286,7 +4317,7 @@ if ('serviceWorker' in navigator) {
     mkZone('🔬 &nbsp;Análisis — profundizá'),
     mkGrid(P.trend, P.sv), P.vinu,
     mkZone('📅 &nbsp;Análisis Semanal — la misma foto, más zoom out'),
-    mkGrid(ema200SemP, rsiSemP)
+    mkGrid(ema200SemP, rsiSemP), macdSemP
   ];
   orden.forEach(function(el){ if(el) main.appendChild(el); });
   /* eliminar explícitamente los paneles que ya no van en el layout
@@ -5301,6 +5332,104 @@ if ('serviceWorker' in navigator) {
       // rsiSemP más abajo).
   }
 
+  /* ═══ 5e. MACD: Cruces, diario y semanal (2026-09-10, pedido del
+     usuario) ═══
+     Cruce de la línea MACD con su propia señal, ya calculado en el
+     pipeline (calcular_macd_series + cruce_linea_senal_features, WB
+     pipeline 2026-09-09) -- acá solo se filtra por dirección + que el
+     cruce haya sido reciente (hoy/ayer en diario, últimas 2 semanas en
+     semanal) + que el nivel de la línea en el momento del cruce respete
+     el signo pedido (alcista con la línea todavía negativa -- impulso
+     recién mejorando desde terreno flojo -- o bajista con la línea
+     todavía positiva -- impulso recién empeorando desde terreno
+     fuerte). Mismo patrón que RSI Semanal (5d) de arriba: toggle
+     alcista/bajista, una tabla a la vez. */
+  var wbMacdTab = 'alcista';
+  window.wbMACDSetTab = function(tipo){
+    wbMacdTab = tipo;
+    var al=$('macd-tab-alcista'), ba=$('macd-tab-bajista');
+    if(al) al.classList.toggle('active', tipo==='alcista');
+    if(ba) ba.classList.toggle('active', tipo==='bajista');
+    wbRenderMACDCruce();
+  };
+  window.wbRenderMACDCruce = function(){
+    var body=$('wb-macd-body'); if(!body || !datosOK()) return;
+    var rows = filtrados().map(function(d){
+      var tipo = d['MACD Cruce Tipo'];
+      if(tipo!==wbMacdTab) return null;
+      var haceRuedas = num(d['MACD Cruce Hace Ruedas']);
+      if(haceRuedas==null || haceRuedas>1) return null;
+      var nivel = num(d['MACD Cruce Nivel']);
+      if(nivel==null) return null;
+      if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
+      return {d:d, haceRuedas:haceRuedas};
+    }).filter(Boolean).sort(function(a,b){ return (num(b.d['RS Score'])||0) - (num(a.d['RS Score'])||0); });
+
+    if(!rows.length){
+      var vacio = wbMacdTab==='alcista'
+        ? 'Ningún cruce alcista del MACD bajo cero hoy o ayer.'
+        : 'Ningún cruce bajista del MACD sobre cero hoy o ayer.';
+      body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
+      return;
+    }
+    var col  = wbMacdTab==='alcista' ? 'var(--green)' : 'var(--red)';
+    var band = wbMacdTab==='alcista' ? 'wb-band-green' : 'wb-band-red';
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>MACD</th><th>Señal</th><th>Cruzó hace</th><th>RS</th></tr></thead><tbody>'+
+      rows.map(function(r){
+        var d=r.d;
+        return '<tr class="'+band+'">'+
+            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:'+col+'">'+fmt(num(d['MACD']),2)+'</td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['MACD Señal']),2)+'</td>'+
+            '<td>'+(r.haceRuedas===0?'hoy':'ayer')+'</td>'+
+            '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
+          '</tr>';
+      }).join('')+'</tbody></table>';
+  };
+
+  var wbMacdSemTab = 'alcista';
+  window.wbMACDSemSetTab = function(tipo){
+    wbMacdSemTab = tipo;
+    var al=$('macdsem-tab-alcista'), ba=$('macdsem-tab-bajista');
+    if(al) al.classList.toggle('active', tipo==='alcista');
+    if(ba) ba.classList.toggle('active', tipo==='bajista');
+    wbRenderMACDCruceSemanal();
+  };
+  window.wbRenderMACDCruceSemanal = function(){
+    var body=$('wb-macd-sem-body'); if(!body || !datosOK()) return;
+    var rows = filtrados().map(function(d){
+      var tipo = d['MACD Semanal Cruce Tipo'];
+      if(tipo!==wbMacdSemTab) return null;
+      var haceSemanas = num(d['MACD Semanal Cruce Hace Semanas']);
+      if(haceSemanas==null || haceSemanas>1) return null;
+      var nivel = num(d['MACD Semanal Cruce Nivel']);
+      if(nivel==null) return null;
+      if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
+      return {d:d, haceSemanas:haceSemanas};
+    }).filter(Boolean).sort(function(a,b){ return (num(b.d['RS Score'])||0) - (num(a.d['RS Score'])||0); });
+
+    if(!rows.length){
+      var vacio = wbMacdSemTab==='alcista'
+        ? 'Ningún cruce alcista del MACD semanal bajo cero en las últimas 2 semanas.'
+        : 'Ningún cruce bajista del MACD semanal sobre cero en las últimas 2 semanas.';
+      body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
+      return;
+    }
+    var col  = wbMacdSemTab==='alcista' ? 'var(--green)' : 'var(--red)';
+    var band = wbMacdSemTab==='alcista' ? 'wb-band-green' : 'wb-band-red';
+    body.innerHTML='<table class="wb-mini-table"><thead><tr><th>Ticker</th><th>MACD</th><th>Señal</th><th>Cruzó hace</th><th>RS</th></tr></thead><tbody>'+
+      rows.map(function(r){
+        var d=r.d;
+        return '<tr class="'+band+'">'+
+            '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:'+col+'">'+fmt(num(d['MACD Semanal']),2)+'</td>'+
+            '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['MACD Semanal Señal']),2)+'</td>'+
+            '<td>'+(r.haceSemanas===0?'esta sem.':'semana pasada')+'</td>'+
+            '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
+          '</tr>';
+      }).join('')+'</tbody></table>';
+  };
+
   /* ═══ 6. Calculadora de riesgo ═══ */
   function wbPoblarRiskSelect(){
     var sel=$('wb-risk-ticker'); if(!sel || !datosOK()) return;
@@ -5512,6 +5641,8 @@ if ('serviceWorker' in navigator) {
     try{ wbRenderEMA200Reversal(); }catch(e){ console.error('wbEMA200',e); }
     try{ wbRenderEMA200ReversalSemanal(); }catch(e){ console.error('wbEMA200Sem',e); }
     try{ wbRenderRSISemCruce(); }catch(e){ console.error('wbRSISem',e); }
+    try{ wbRenderMACDCruce(); }catch(e){ console.error('wbMACD',e); }
+    try{ wbRenderMACDCruceSemanal(); }catch(e){ console.error('wbMACDSem',e); }
     try{ wbRenderSnap(); }catch(e){ console.error('wbSnap',e); }
     try{ wbCarteleraEnhance(); }catch(e){ console.error('wbCartelera',e); }
     try{ /* re-marcar scroll horizontal en tablas nuevas */
@@ -8323,9 +8454,19 @@ var VCPQ_LIFECYCLE_LBL = {
   success:'Rompió y confirmó', fail_before:'Falló antes de romper',
   fail_after:'Rompió y falló', no_pattern:'—'
 };
+// 'forming' pasa de gris a ámbar (2026-09-10, pedido del usuario --
+// restyle visual, mismo criterio que su mockup): solo cambia el color
+// de la etiqueta, no toca el campo ni la lógica de qué estado es cada uno.
 var VCPQ_LIFECYCLE_COL = {
-  forming:'var(--muted)', armed:'var(--blue)', executed:'var(--blue)',
+  forming:'var(--amber)', armed:'var(--blue)', executed:'var(--blue)',
   success:'var(--green)', fail_before:'var(--red)', fail_after:'var(--red)'
+};
+// Badge de Estado (2026-09-10, pedido del usuario -- restyle visual):
+// reusa las mismas clases pill-* ya definidas para VCP Score/Dist Pivote
+// más arriba, en vez de texto suelto.
+var VCPQ_LIFECYCLE_PILLCLS = {
+  forming:'pill-amber', armed:'pill-blue', executed:'pill-blue',
+  success:'pill-green', fail_before:'pill-red', fail_after:'pill-red'
 };
 
 function wbRenderVcpQuality(){
@@ -8360,6 +8501,7 @@ function wbRenderVcpQuality(){
     var volDec = _bool_v9(m.volDec) ? '✅' : '—';
     var lcLbl = VCPQ_LIFECYCLE_LBL[m.lifecycle] || '—';
     var lcCol = VCPQ_LIFECYCLE_COL[m.lifecycle] || 'var(--muted)';
+    var lcPillCls = VCPQ_LIFECYCLE_PILLCLS[m.lifecycle] || '';
     // Misma banda que ya usa vsCls arriba (verde ≥80 / azul 70-79 / ámbar
     // 60-69, este panel ya filtra a VCP Score ≥60) -- no un umbral nuevo.
     var band = vsCls==='pill-green' ? 'wb-band-green' : vsCls==='pill-blue' ? 'wb-band-blue' : 'wb-band-amber';
@@ -8371,7 +8513,7 @@ function wbRenderVcpQuality(){
       '<td><span class="score-pill '+dpCls+'">'+dpTxt+'</span></td>'+
       '<td>'+(techo!=null ? Number(techo).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—')+'</td>'+
       '<td class="wb-vcpq-col-vol">'+volDec+'</td>'+
-      '<td style="color:'+lcCol+';font-weight:600">'+lcLbl+'</td>'+
+      '<td><span class="score-pill '+lcPillCls+'" style="min-width:auto;white-space:nowrap">'+lcLbl+'</span></td>'+
     '</tr>';
   }).join('');
 }
@@ -10566,8 +10708,10 @@ var pWarren       = byInner('warren-table');
 var pEma200       = document.getElementById('wb-ema200-panel');
 var gridEma200Vcp = pEma200 ? pEma200.closest('.grid-2') : null;
 var pEpisodic     = document.getElementById('wb-ep-panel');
+var pMacd         = document.getElementById('wb-macd-panel');
 var pEma200Sem    = document.getElementById('wb-ema200-sem-panel');
 var gridSemanal   = pEma200Sem ? pEma200Sem.closest('.grid-2') : null;
+var pMacdSem      = document.getElementById('wb-macd-sem-panel');
 var pRRG          = document.getElementById('wb-rrg-panel');
 var pSema         = byInner('sema-grid');
 var pTrend        = byInner('trendRankTable');
@@ -10666,7 +10810,9 @@ var senalDiario = document.createElement('div'); senalDiario.id = 'wb-senalview-
 var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-senalview-semanal'; senalSemanal.style.display = 'none';
 if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
 if(pEpisodic) senalDiario.appendChild(pEpisodic);
+if(pMacd) senalDiario.appendChild(pMacd);
 if(gridSemanal) senalSemanal.appendChild(gridSemanal);
+if(pMacdSem) senalSemanal.appendChild(pMacdSem);
 tabContents.senales.appendChild(senalesToggle);
 tabContents.senales.appendChild(senalDiario);
 tabContents.senales.appendChild(senalSemanal);
@@ -10845,8 +10991,10 @@ var pWarren       = byInner('warren-table');
 var pEma200       = document.getElementById('wb-ema200-panel');
 var gridEma200Vcp = pEma200 ? pEma200.closest('.grid-2') : null;
 var pEpisodic     = document.getElementById('wb-ep-panel');
+var pMacd         = document.getElementById('wb-macd-panel');
 var pEma200Sem    = document.getElementById('wb-ema200-sem-panel');
 var gridSemanal   = pEma200Sem ? pEma200Sem.closest('.grid-2') : null;
+var pMacdSem      = document.getElementById('wb-macd-sem-panel');
 var pRRG          = document.getElementById('wb-rrg-panel');
 var pSema         = byInner('sema-grid');
 var pTrend        = byInner('trendRankTable');
@@ -10906,7 +11054,9 @@ var senalDiario = document.createElement('div'); senalDiario.id = 'wb-msenalview
 var senalSemanal = document.createElement('div'); senalSemanal.id = 'wb-msenalview-semanal'; senalSemanal.style.display = 'none';
 if(gridEma200Vcp) senalDiario.appendChild(gridEma200Vcp); else if(pEma200) senalDiario.appendChild(pEma200);
 if(pEpisodic) senalDiario.appendChild(pEpisodic);
+if(pMacd) senalDiario.appendChild(pMacd);
 if(gridSemanal) senalSemanal.appendChild(gridSemanal);
+if(pMacdSem) senalSemanal.appendChild(pMacdSem);
 tabContents.senales.appendChild(senalesToggle);
 tabContents.senales.appendChild(senalDiario);
 tabContents.senales.appendChild(senalSemanal);
@@ -11161,6 +11311,52 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') wbClose
   }
 </style>
 <!-- ═══════════════ FIN WB UPGRADE V40 ═══════════════ -->
+
+<!-- ═══════════════ WB UPGRADE V41 — Restyle visual (pestañas, tira de
+     tickers, bordes de tablas) ═══════════════
+     (2026-09-10, pedido del usuario, mockup propio): SOLO estético --
+     ningún dato, filtro ni lógica cambia. 3 ajustes puntuales sobre CSS
+     ya existente, mismas clases/variables de color de siempre:
+     1) Pestañas de escritorio (#wb-cmd-top, WB UPGRADE V36): pasan de
+        "pill" rellena+glow al estado activo a subrayado verde + texto
+        en negrita, como en el mockup.
+     2) Tira de tickers (.ticker-strip-outer/.ticker-item): de chips
+        sueltos con tinte verde/rojo de fondo a UNA barra continua con
+        separadores finos entre ítems (sin relleno de color por signo,
+        el % sigue coloreado) -- probado como "Opción A + colores de la
+        Opción C" contra un artifact con 5 variantes, elegido por el
+        usuario. El fondo/borde de cada item vienen por INLINE STYLE
+        desde el JS (ver `style="background:...;border:..."` en la
+        función que arma cada .ticker-item) -- hace falta !important
+        para poder pisarlos desde acá sin tocar ese JS.
+     3) Tablas mini (.wb-mini-table): la barra de color a la izquierda
+        de cada fila se afina (3px -> 2px) para un borde más prolijo.
+        (El badge de Estado en Bases VCP -- antes texto suelto, ahora
+        pill como el resto de las columnas -- se hizo directo en el JS
+        de WB UPGRADE V9, no acá.) -->
+<style id="wb-v41-css">
+  /* 1) Pestañas: subrayado en vez de pill rellena */
+  #wb-cmd-top .pill-group{background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:0;gap:4px;}
+  #wb-cmd-top .wb-tab-btn{border-radius:0;padding:13px 16px;position:relative;}
+  #wb-cmd-top .wb-tab-btn.active{color:var(--text);background:none;box-shadow:none;text-shadow:none;font-weight:700;}
+  #wb-cmd-top .wb-tab-btn.active::after{content:'';position:absolute;left:16px;right:16px;bottom:-1px;height:2px;
+    background:var(--green);border-radius:2px;box-shadow:0 0 8px rgba(34,201,138,0.6);}
+
+  /* 2) Tira de tickers: barra continua con separadores, sin chips de color */
+  .ticker-strip-outer{--ticker-bg:#14121e;background:var(--ticker-bg);}
+  /* El degradé de los bordes (V1 original) se desvanecía hacia var(--bg)
+     -- con el fondo de la tira ahora distinto, hay que desvanecerlo
+     hacia --ticker-bg en vez de --bg, si no queda un parche visible en
+     las puntas. */
+  .ticker-strip-outer::before{background:linear-gradient(90deg,var(--ticker-bg),transparent);}
+  .ticker-strip-outer::after{background:linear-gradient(270deg,var(--ticker-bg),transparent);}
+  .ticker-item{background:transparent!important;border:none!important;border-radius:0!important;
+    box-shadow:inset -1px 0 0 var(--border);min-width:auto!important;margin:0!important;padding:8px 16px!important;}
+
+  /* 3) Tablas mini: barra de acento más fina */
+  .wb-mini-table tr td:first-child{border-left-width:2px;}
+</style>
+<!-- ═══════════════ FIN WB UPGRADE V41 ═══════════════ -->
 
 </body>
 </html>
