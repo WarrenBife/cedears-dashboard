@@ -11522,5 +11522,75 @@ try{
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V44 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V45 — Saca el botón "Actualizar" +
+     precios en vivo acotados a horario de mercado ═══════════════
+     (2026-09-11, pedido del usuario -- 2da vuelta: la 1ra gateaba
+     cargarDatos() por error, ver historial de commits si hace falta
+     ese intento. El usuario aclaró: cargarDatos() -- la recarga
+     COMPLETA del análisis, RS Score/VCP/MACD/etc -- tiene que seguir
+     como estaba, sin ningún gateo mío. Lo que tiene que acotarse a
+     horario de mercado es SOLO actualizarPrecios(), el ticker liviano
+     de precio + variación % que pega a /api/precios-live):
+     1) Oculta los 2 botones "Actualizar" del topbar (desktop y mobile,
+        .wb-topbar-refresh-d/.wb-topbar-refresh-m, original) vía CSS --
+        no se tocan las líneas originales, solo se ocultan.
+     2) actualizarPrecios() ya se auto-llama cada 5 min (original,
+        preciosTimer armado adentro de cargarDatos()). Wrapper de
+        window.actualizarPrecios (mismo mecanismo de scope-lookup en
+        vivo que ya se usa en este archivo para showView/renderTodo/etc
+        -- necesita estar instalado ANTES de la primera invocación real,
+        que siempre pasa después de parsear todo el body): deja pasar
+        como mucho 1 de cada 2 ticks dentro de horario de mercado (L-V,
+        10:30-17:10 hora Argentina) -- ~10 min real en vez de 5 --, y
+        directamente no hace nada fuera de esa ventana. cargarDatos()
+        NO se toca -- sigue con su REFRESH_MS original (5 min, 24/7).
+     Caso de origen (mismo día): precios de ayer visibles hasta las 14h,
+     recién se destrabó con un click manual en "Actualizar". La causa
+     real no era la cadencia -- era que /api/precios-live disparaba los
+     383 tickers en paralelo sin límite, probablemente gatillando algún
+     bloqueo temporal de Yahoo; si TODOS fallaban, actualizarPrecios()
+     no actualizaba nada Y NO avisaba (ver `if (actualizados > 0)` en el
+     original) -- fix real en api/precios-live.js (pool de concurrencia
+     + log si la tasa de éxito es baja), este acotado de horario es
+     un ajuste aparte, ya no depende de esa causa. -->
+<style id="wb-v45-css">
+  .wb-topbar-refresh-d,.wb-topbar-refresh-m{display:none!important;}
+</style>
+<script id="wb-v45-js">
+(function(){
+'use strict';
+try{
+  if(typeof window.actualizarPrecios !== 'function') return;
+
+  function wbEnHorarioMercado(){
+    try{
+      var fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone:'America/Argentina/Buenos_Aires', weekday:'short',
+        hour:'2-digit', minute:'2-digit', hour12:false
+      });
+      var obj = {};
+      fmt.formatToParts(new Date()).forEach(function(p){ obj[p.type] = p.value; });
+      if(obj.weekday === 'Sat' || obj.weekday === 'Sun') return false;
+      var minutos = parseInt(obj.hour, 10) * 60 + parseInt(obj.minute, 10);
+      return minutos >= (10 * 60 + 30) && minutos <= (17 * 60 + 10);
+    }catch(e){ return true; } // si Intl falla por lo que sea, no bloquear
+  }
+
+  var _actualizarPreciosOrig = window.actualizarPrecios;
+  var _wbUltimoPreciosAuto = 0;
+  window.actualizarPrecios = function(){
+    if(!wbEnHorarioMercado()) return Promise.resolve();
+    if(Date.now() - _wbUltimoPreciosAuto < 9.5 * 60 * 1000) return Promise.resolve();
+    var p = _actualizarPreciosOrig.apply(this, arguments);
+    if(p && typeof p.then === 'function'){
+      p.then(function(){ _wbUltimoPreciosAuto = Date.now(); });
+    }
+    return p;
+  };
+}catch(e){ console.error('WB V45 precios en vivo error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V45 ═══════════════ -->
+
 </body>
 </html>
