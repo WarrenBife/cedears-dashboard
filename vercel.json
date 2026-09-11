@@ -1,6 +1,9 @@
 {
   "outputDirectory": ".",
   "framework": null,
+  "functions": {
+    "api/precios-live.js": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/",
