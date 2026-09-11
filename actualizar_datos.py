@@ -880,8 +880,13 @@ def ema200_reversal_features(hist, ema200_series, rs_series, ventana=EMA200R_VEN
         # dist_hace20 mira 20 semanas atrás desde HOY -- antes de ese cruce
         # -- y concluye "viene de abajo" aunque el precio ya esté
         # establecido arriba desde hace rato y esto sea un retest/rebote,
-        # no un cruce fresco. Usado solo por el llamado semanal, no toca
-        # el diario -- ver "EMA200 Semanal Dist Max Previo %").
+        # no un cruce fresco. En su momento solo se expuso para el llamado
+        # semanal ("EMA200 Semanal Dist Max Previo %") -- 2026-09-11,
+        # caso SPOT diario (mismo bug: penetró la media 1 rueda y
+        # recuperó, pero la foto de hace exactamente 20 ruedas cayó en un
+        # tramo viejo por debajo, lo mostraba como "cruce" en vez de
+        # "rebote"): se expone también para el diario, ver "EMA200 Dist
+        # Max Previo %".
         lo_prev = max(0, contacto_idx - 20)
         dist_max_previo = None
         if lo_prev < contacto_idx:
@@ -4452,6 +4457,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
             "EMA200 Dist ATRs":        visita['dist_atrs'] if visita else None,
             "EMA200 Contacto Ruedas":  reversal['contacto_ruedas']     if reversal else None,
             "EMA200 Dist Hace20 %":    reversal['dist_hace20']         if reversal else None,
+            "EMA200 Dist Max Previo %": reversal['dist_max_previo']    if reversal else None,
             "Climax Vol Ratio":        reversal['climax_vol_ratio']    if reversal else None,
             "Climax Pos Cierre":       reversal['climax_pos_cierre']   if reversal else None,
             "RS En Contacto":          reversal['rs_en_contacto']      if reversal else None,
