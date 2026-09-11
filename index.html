@@ -11358,5 +11358,52 @@ document.addEventListener('keydown', function(e){ if(e.key === 'Escape') wbClose
 </style>
 <!-- ═══════════════ FIN WB UPGRADE V41 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V42 — Escritorio: filtros/buscador arriba
+     + menos espacio entre tarjetas y tira ═══════════════
+     (2026-09-11, pedido del usuario): 3 ajustes, SOLO escritorio (>900px,
+     mismo corte que WB UPGRADE V36 -- en mobile no se toca nada de esto).
+     1) La fila .gf-bar (antes ocupaba una fila entera solo para el botón
+        "Filtros" + la lupa de búsqueda) se oculta, y esos controles
+        (botón, chips de #active-filters, buscador) se mueven a
+        .topbar-right, arriba de todo -- en el lugar que dejan
+        "Actualizado: HH:MM" y "Monitor de mercado", que se ocultan.
+        El panel de filtros en sí (#gf-panel, con los selects de Tipo/
+        Market Cap/Sector/etc.) NO se mueve -- sigue desplegando en el
+        mismo lugar de siempre, solo el botón que lo abre cambia de
+        posición.
+     2) .wb-tab-content (WB UPGRADE V36) baja su padding-top de 18px a
+        8px -- menos distancia entre las tarjetas (#wb-cmd-kpis) y la
+        tira de tickers, que es el primer elemento de la pestaña
+        Resumen. -->
+<style id="wb-v42-css">
+  @media(min-width:901px){
+    .gf-bar{display:none;}
+    .topbar-center .tagline{display:none;}
+    .topbar-right .time-info{display:none;}
+    .wb-tab-content{padding-top:8px;}
+  }
+</style>
+<script id="wb-v42-js">
+(function(){
+'use strict';
+try{
+  if(window.innerWidth <= 900) return;
+  var topRight = document.querySelector('.topbar-right');
+  var gfToggle = document.getElementById('gf-toggle');
+  var activeFilters = document.getElementById('active-filters');
+  var searchWrap = document.getElementById('wb-search-wrap');
+  if(!topRight || !gfToggle) return;
+  // Orden final: [Filtros][chips activos][buscador][...resto de siempre]
+  // -- 3 insertBefore contra el mismo anchor (primer hijo original) van
+  // quedando en ese orden porque cada uno se inserta justo antes de él.
+  var anchor = topRight.firstElementChild;
+  topRight.insertBefore(gfToggle, anchor);
+  if(activeFilters) topRight.insertBefore(activeFilters, anchor);
+  if(searchWrap){ topRight.insertBefore(searchWrap, anchor); searchWrap.style.display = 'flex'; }
+}catch(e){ console.error('WB V42 topbar filtros error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V42 ═══════════════ -->
+
 </body>
 </html>
