@@ -11428,5 +11428,82 @@ try{
 </style>
 <!-- ═══════════════ FIN WB UPGRADE V43 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V44 — Menú "Herramientas de Warren"
+     ═══════════════
+     (2026-09-11, pedido del usuario): nueva vista intermedia con 4
+     accesos -- Heatmap (ya existía, se muda acá adentro como un ítem
+     más), Scripts de TradingView, Guía del Dashboard, Grupo de
+     Telegram. El botón "Heatmap" del menú principal (home) y el "Mapa"
+     del bottom-nav mobile (los dos creados por WB UPGRADE V5) pasan a
+     abrir este menú nuevo en vez de ir directo al heatmap -- se
+     modifican DESPUÉS de que V5 ya los creó (no se toca ese bloque),
+     ubicándolos por referencia (último hijo de .home-btns / #wb-nav-hm,
+     no hay otro botón que se agregue después de esos dos). -->
+<div id="view-tools" style="display:none;flex-direction:column;min-height:100vh;background:var(--bg);align-items:center;justify-content:center;position:relative;">
+  <button class="back-btn" onclick="showView('home')" style="position:absolute;top:24px;left:24px;">← Menú</button>
+  <div class="home-content">
+    <h1 class="home-title">🛠️ Herramientas de Warren</h1>
+    <div class="home-sub">Recursos extra para sacarle más jugo al dashboard</div>
+    <div class="home-btns">
+      <button class="home-btn" onclick="showView('heatmap')">
+        <span class="home-btn-icon">🗺️</span>
+        <div class="home-btn-label"><b>Heatmap <span style="background:var(--green-bg);color:var(--green);border:1px solid rgba(34,201,138,0.35);border-radius:999px;font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 6px;vertical-align:middle;margin-left:4px;">LIBRE</span></b><small>El mapa del mercado de hoy</small></div>
+      </button>
+      <a class="home-btn" href="https://es.tradingview.com/script/FQZziv4m/" target="_blank" rel="noopener" style="text-decoration:none;">
+        <span class="home-btn-icon">📜</span>
+        <div class="home-btn-label"><b>Scripts de TradingView</b><small>Indicadores para usar en tus gráficos</small></div>
+      </a>
+      <a class="home-btn" href="/guia.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        <span class="home-btn-icon">📖</span>
+        <div class="home-btn-label"><b>Guía del Dashboard</b><small>Qué significa cada gráfico</small></div>
+      </a>
+      <a class="home-btn" href="https://t.me/+ASD1MjCqpJEzZDBh" target="_blank" rel="noopener" style="text-decoration:none;">
+        <span class="home-btn-icon">💬</span>
+        <div class="home-btn-label"><b>Grupo de Telegram</b><small>Sumate a la comunidad</small></div>
+      </a>
+    </div>
+  </div>
+</div>
+<script id="wb-v44-js">
+(function(){
+'use strict';
+try{
+  // 1) showView: agrega el caso 'tools' (mismo patrón que 'heatmap' en V5)
+  var _sv44 = window.showView;
+  window.showView = function(name){
+    var vt = document.getElementById('view-tools');
+    if(name === 'tools'){
+      _sv44.call(this, 'home');
+      var he = document.getElementById('view-home'); if(he) he.style.display = 'none';
+      if(vt) vt.style.display = 'flex';
+      document.querySelectorAll('.wb-nav-btn').forEach(function(b){ b.classList.remove('active'); });
+      var nb = document.getElementById('wb-nav-hm'); if(nb) nb.classList.add('active');
+    } else {
+      if(vt) vt.style.display = 'none';
+      _sv44.apply(this, arguments);
+    }
+  };
+
+  // 2) Botón "Heatmap" del menú principal -> "Herramientas de Warren"
+  // (último botón de .home-btns, agregado por V5 -- Dashboard/Planilla
+  // son los 2 primeros, estáticos desde siempre).
+  var hb = document.querySelector('.home-btns');
+  if(hb && hb.lastElementChild){
+    var btn = hb.lastElementChild;
+    btn.onclick = function(){ showView('tools'); };
+    btn.innerHTML = '<span class="home-btn-icon">🛠️</span><div class="home-btn-label"><b>Herramientas de Warren</b><small>Heatmap, guía, scripts y comunidad</small></div>';
+  }
+
+  // 3) Botón "Mapa" del bottom-nav mobile -> mismo menú nuevo
+  var nb2 = document.getElementById('wb-nav-hm');
+  if(nb2){
+    nb2.onclick = function(){ showView('tools'); };
+    nb2.innerHTML = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Herramientas';
+  }
+}catch(e){ console.error('WB V44 tools menu error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V44 ═══════════════ -->
+
 </body>
 </html>
