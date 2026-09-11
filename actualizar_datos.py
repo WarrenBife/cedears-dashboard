@@ -2431,6 +2431,42 @@ def _vcp2_zigzag_swings(high, low, close, zigzag_pct=0.04, atr_mult=1.5, atr_per
     return swings
 
 
+def _vcp2_clean_swings(swings, close, min_gap=2):
+    """Post-proceso sobre la lista de swings YA confirmados (2026-09-10,
+    caso CVS): fusiona en cascada los pares consecutivos que no
+    representan un giro real -- o quedaron a menos de min_gap ruedas de
+    distancia, o el cierre del nuevo swing no confirma la direccion (un
+    maximo nuevo deberia cerrar >= el cierre del minimo anterior, y
+    viceversa para un minimo nuevo vs el maximo anterior). Cuando un par
+    no pasa, se descartan LOS DOS y la secuencia sigue directo desde el
+    swing previo al que le seguia -- todo el vaiven intermedio (ej. CVS
+    5/8-6/8-7/8, un gap down violento con recuperacion intradia y
+    reversion inmediata al dia siguiente) queda absorbido como ruido de
+    la misma pierna, en vez de cortar la contraccion en pedazos.
+
+    Se hace COMO POST-PROCESO, no adentro del zigzag online: meter la
+    misma validacion ahi (probado primero) hace que la referencia contra
+    la que se compara quede "congelada" para siempre en cuanto una
+    comparacion falla, y si el precio despues nunca vuelve a perforar
+    ese nivel, ya no confirma NINGUN swing mas -- probado en vivo con
+    CVS, dejaba el detector sin swings desde enero 2025 en adelante. Acá,
+    al operar sobre una lista ya cerrada y de tamaño finito, no hay
+    riesgo de quedar esperando para siempre."""
+    cleaned = list(swings)
+    i = 1
+    while i < len(cleaned):
+        prev_i, prev_px, prev_t = cleaned[i - 1]
+        cur_i, cur_px, cur_t = cleaned[i]
+        gap_ok = (cur_i - prev_i) >= min_gap
+        close_ok = close[cur_i] >= close[prev_i] if cur_t == 'H' else close[cur_i] <= close[prev_i]
+        if gap_ok and close_ok:
+            i += 1
+        else:
+            del cleaned[i - 1:i + 1]
+            i = max(1, i - 1)
+    return cleaned
+
+
 def _vcp2_mean_down_volume(close, open_, volume, start, end):
     c_s = close[start:end + 1]; o_s = open_[start:end + 1]; v_s = volume[start:end + 1]
     if len(c_s) == 0:
@@ -2783,6 +2819,7 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
             return dict(NULL, **{'VCP2 Score': None})
 
         swings = _vcp2_zigzag_swings(h, l, c)
+        swings = _vcp2_clean_swings(swings, c)
         if len(swings) < 3:
             return dict(NULL, **{'VCP2 Score': 0})
 
