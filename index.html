@@ -5054,8 +5054,19 @@ if ('serviceWorker' in navigator) {
     var deltaRs = rsHoy - rsContacto;
     if(rsContacto<25 && deltaRs<=0) return null;
 
+    // dist_max_previo (2026-09-11, pedido del usuario -- caso SPOT,
+    // mismo bug que ya se había arreglado para el semanal, caso ETSY):
+    // distHace20 es una FOTO PUNTUAL de hace exactamente 20 ruedas -- si
+    // esa foto cae en un tramo viejo por debajo de la media (aunque el
+    // precio ya esté establecido arriba desde hace rato), un simple
+    // pullback de 1 rueda se leía como "cruce" en vez de "rebote".
+    // distMaxPrevio mira el MÁXIMO de las 20 ruedas previas al contacto,
+    // no un punto fijo. Fallback a distHace20 por si el pipeline
+    // todavía no corrió con el campo nuevo.
     var distHace20 = num(d['EMA200 Dist Hace20 %']);
-    var vinoArriba = distHace20>=8 ? 12 : _lin(distHace20,3,8,0,12);
+    var distMaxPrevio = num(d['EMA200 Dist Max Previo %']);
+    var distReferencia = distMaxPrevio!=null ? distMaxPrevio : distHace20;
+    var vinoArriba = distReferencia>=8 ? 12 : _lin(distReferencia,3,8,0,12);
     var contacto = _tri(num(d['EMA200 Dist ATRs']), -2, -0.5, 0.5, 2) * 13;
     var rara = _lin(num(d['EMA200 Racha Previa']), 40, 120, 0, 10);
     var p1 = vinoArriba + contacto + rara;
@@ -5075,15 +5086,16 @@ if ('serviceWorker' in navigator) {
     // desde ARRIBA (un pullback real) o desde ABAJO (recien cruzo la media
     // de abajo hacia arriba). Antes el panel mostraba los dos casos como si
     // fueran lo mismo ("rebote"), aunque 'vinoArriba' ya castigaba a 0 el
-    // segundo caso dentro del score. SPOT: veinte ruedas atras estaba 3,31%
-    // POR DEBAJO de la EMA200 -- no vino de arriba, cruzo. distHace20>3 es
-    // el mismo umbral donde 'vinoArriba' empieza a sumar algo (ver arriba),
-    // asi que separar por ahi no inventa un corte nuevo. Si no vino de
-    // arriba, solo cuenta como "cruce" si HOY ya esta por encima de la
-    // media (si sigue por debajo, el cruce todavia no paso -- no entra en
-    // ninguna de las dos pestañas).
+    // segundo caso dentro del score. distReferencia>3 es el mismo umbral
+    // donde 'vinoArriba' empieza a sumar algo (ver arriba), asi que
+    // separar por ahi no inventa un corte nuevo. Si no vino de arriba,
+    // solo cuenta como "cruce" si HOY ya esta por encima de la media (si
+    // sigue por debajo, el cruce todavia no paso -- no entra en ninguna
+    // de las dos pestañas). 2026-09-11 (caso SPOT, segunda vuelta): usa
+    // distReferencia (dist_max_previo con fallback a distHace20) en vez
+    // de distHace20 solo -- ver el comentario de distMaxPrevio más arriba.
     var distHoy = num(d['Dist EMA200 %']);
-    var tipo = (distHace20!=null && distHace20>3) ? 'rebote'
+    var tipo = (distReferencia!=null && distReferencia>3) ? 'rebote'
              : (distHoy!=null && distHoy>0) ? 'cruce' : null;
     if(tipo==null) return null;
 
