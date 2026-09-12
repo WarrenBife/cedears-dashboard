@@ -9271,6 +9271,15 @@ function _penalizacionesV50(d){
     flags.push('👀');
   } else if (rebEstado === 'confirmado') {
     /* rebote confirmado: churning anulado, sin flag */
+  } else if (_churningResistenciaV50(d) && _bool(d['VCP2 Detected'])) {
+    // Se anula con VCP2 Detected (2026-09-11, caso ANET): "churning
+    // contra resistencia" asume que el volumen alto sin avance cerca de
+    // un máximo previo es indecisión/toma de ganancias -- pero si VCP2
+    // ya reconoce ahí una base de contracciones genuina, ese mismo
+    // volumen/rango lateral ES el patrón, no una señal de alarma. No es
+    // una anulación permanente: si VCP2 deja de detectar (ej. se
+    // ensancha o pierde el pivote), la penalización vuelve a aplicar
+    // normalmente la próxima corrida.
   } else if (_churningResistenciaV50(d)) {
     pen -= 6; flags.push('🧊');
   }
