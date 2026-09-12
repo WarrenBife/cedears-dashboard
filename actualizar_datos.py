@@ -2484,7 +2484,8 @@ def _vcp2_mean_down_volume(close, open_, volume, start, end):
 def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=120,
                                 min_contractions=2, max_contractions=5,
                                 min_t1_depth=0.08, max_t1_depth=0.35,
-                                contraction_ratio=0.70, min_contraction_bars=3,
+                                contraction_ratio=0.70, min_contraction_bars=2,
+                                min_contraction_bars_final=3,
                                 min_recover_frac=0.35):
     """Arma pares High->Low y busca la ventana CONTIGUA que mejor puntua
     (profundidades decrecientes + T1 en rango + lado derecho apretado +
@@ -2492,7 +2493,17 @@ def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=12
     contraccion): probado anclarla para el caso ACN, pero pisaba la
     ventana correcta de MRVL, que queda en el medio de la lista de
     candidatos. 'Ya rota' en el orquestador de abajo resuelve el caso
-    ACN sin ese costo."""
+    ACN sin ese costo.
+
+    min_contraction_bars (2026-09-11, pedido del usuario, caso ANET):
+    baja de 3 a 2 -- alcanza con 1 vela de por medio entre el maximo y
+    el minimo de una contraccion (antes exigia 2). Pero esa relajacion
+    SOLO queda firme si la ventana final termina siendo de 2
+    contracciones en total -- min_contraction_bars_final (3, sin
+    cambios) se re-exige a TODAS las contracciones en cuanto la ventana
+    crece a 3 o mas, ver sequence_quality() mas abajo. Sin este segundo
+    filtro, una contraccion de 2 ruedas colada en el medio/final de una
+    base mas larga podria ser solo ruido de una vela suelta."""
     if len(swings) < 3:
         return []
     n = len(df_c)
@@ -2529,9 +2540,18 @@ def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=12
         duration = low_i - high_i
         if duration < 1 or depth <= 0:
             continue
+        # body_low (2026-09-11, pedido del usuario, caso ANET): minimo de
+        # CUERPO de la vela del low_i (min entre apertura y cierre), no la
+        # mecha -- un pinchazo intradia (ej. ANET 3/9: abrio 185.25, mecha
+        # hasta 181.27, pero cerro 191.44 -- vela VERDE) no deberia contar
+        # como una perforacion real del minimo anterior. Se usa solo para
+        # el chequeo de "sigue contrayendo" en sequence_quality(), no
+        # reemplaza 'low' (que sigue siendo la mecha, para pivote/stop/
+        # Tightness/etc, sin cambios ahi).
+        body_low = float(min(df_o[low_i], df_c[low_i]))
         down_vol, all_vol = _vcp2_mean_down_volume(df_c, df_o, df_v, high_i, low_i)
         raw.append({
-            't_index': 0, 'high': float(high), 'low': float(low),
+            't_index': 0, 'high': float(high), 'low': float(low), 'body_low': body_low,
             'high_i': int(high_i), 'low_i': int(low_i),
             'depth': float(depth), 'duration': int(duration),
             'down_volume': down_vol, 'all_volume': all_vol,
@@ -2540,11 +2560,54 @@ def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=12
     if len(raw) < 2:
         return raw
 
+    # Cimas consistentes entre contracciones sucesivas (2026-09-11, caso
+    # PM). Portado del detector viejo -- el ajuste #4 de arriba (agosto)
+    # habia decidido NO portarlo por ACN/TSLA, pero PM (T4 8.6% por
+    # encima del techo de T1) muestra un caso que "ya rota" no cubre: eso
+    # solo mira si el precio ACTUAL supero el pivote, no si un techo
+    # NUEVO y mucho mas alto aparecio en el medio del patron. Un VCP de
+    # verdad se contrae bajo (mas o menos) el MISMO techo -- cada cima
+    # puede quedar igual (+-1%) o por debajo de la anterior; si sube mas
+    # de 1% ya no es la misma base, son dos tramos de tendencia distintos
+    # empalmados. Se compara CUERPO de vela (max open/close), no mecha,
+    # para no dejar que un gap de un solo dia distorsione la comparacion.
+    # Se camina de la mas vieja a la mas nueva y se trunca en cuanto
+    # aparece una cima que sube demasiado -- se conserva el tramo
+    # consistente mas reciente, se descarta lo anterior (otra tendencia).
+    TOL_CIMA_SUBE = 0.01
+    cuerpos = np.maximum(df_o, df_c)
+    consistentes = [raw[0]]
+    for ct in raw[1:]:
+        cima_prev = cuerpos[consistentes[-1]['high_i']]
+        cima_act = cuerpos[ct['high_i']]
+        if cima_act > cima_prev * (1 + TOL_CIMA_SUBE):
+            consistentes = [ct]  # arranca una base nueva desde aca
+        else:
+            consistentes.append(ct)
+    raw = consistentes
+    if len(raw) < 2:
+        return raw
+
     def sequence_quality(ts):
         if len(ts) < 2:
             return (0, 0, 0, 0, 0)
+        # Ventanas de 3+ contracciones vuelven a exigir el minimo de
+        # ruedas original (2026-09-11, caso ANET): la relajacion a 2
+        # ruedas (min_contraction_bars, arriba) solo queda firme para una
+        # ventana de 2 -- con 3 o mas, CUALQUIER contraccion corta vuelve
+        # a descartar toda la ventana (no solo esa contraccion).
+        if len(ts) >= 3 and any(t['duration'] < min_contraction_bars_final for t in ts):
+            return (0, 0, 0, 0, 0)
         depths = [t['depth'] for t in ts]
-        contracts = all(depths[i + 1] <= contraction_ratio * depths[i] for i in range(len(depths) - 1))
+        # Contrae O el cuerpo del nuevo minimo no perfora el cuerpo del
+        # minimo anterior (2026-09-11, caso ANET) -- ver body_low mas
+        # arriba: un pinchazo de mecha que la vela termina recuperando no
+        # deberia romper una secuencia que en cuerpo sigue sosteniendo el
+        # piso previo.
+        contracts = all(
+            (depths[i + 1] <= contraction_ratio * depths[i]) or (ts[i + 1]['body_low'] >= ts[i]['body_low'])
+            for i in range(len(depths) - 1)
+        )
         t1_ok = min_t1_depth <= depths[0] <= max_t1_depth
         tight_ok = depths[-1] <= 0.10
         return (int(contracts and t1_ok), int(tight_ok), len(ts), ts[-1]['low_i'], -depths[-1])
@@ -2835,8 +2898,13 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
         t1 = contractions[0]
         if not (0.08 <= t1['depth'] <= 0.35):
             return dict(NULL, **{'VCP2 Score': 0, 'VCP2 Contractions': len(contractions)})
+        # Mismo perdon de cuerpo de vela que sequence_quality() en
+        # _vcp2_extract_contractions (2026-09-11, caso ANET) -- esta
+        # revalidacion es una copia de la misma regla de "sigue
+        # contrayendo", tiene que perdonar lo mismo o si no el buscador
+        # de ventana puede elegir un par que ACA se rechaza igual.
         for a, b in zip(contractions, contractions[1:]):
-            if b['depth'] > 0.70 * a['depth']:
+            if b['depth'] > 0.70 * a['depth'] and b.get('body_low', b['low']) < a.get('body_low', a['low']):
                 return dict(NULL, **{'VCP2 Score': 0, 'VCP2 Contractions': len(contractions)})
 
         last = contractions[-1]

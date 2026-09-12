@@ -9961,7 +9961,12 @@ function wbmCrossPanelItems(d){
     var r = calcEMA200Reversal(d);
     if (r) items.push({emoji:'🎯', label:(r.tipo==='cruce' ? 'Cruce al alza de la EMA200' : 'Rebote en la EMA200') + ' — score ' + r.score, panelId:'wb-ema200-panel', panelTipo:r.tipo});
   }
-  var vcpScore = Number(d['VCP Score']);
+  // Fix 2026-09-11 (caso ANET): usaba d['VCP Score'] (detector VIEJO,
+  // pivote fijo) en vez de d['VCP2 Score'] -- el panel "Bases VCP de
+  // Alta Calidad" filtra por VCP2 desde que se sacó el detector viejo
+  // (commit e81d037), así que esto podía marcar "destaca en" un panel
+  // donde el ticker en realidad no aparecía (o al revés).
+  var vcpScore = Number(d['VCP2 Score']);
   if (!isNaN(vcpScore) && vcpScore >= 60) {
     items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore), panelId:'wb-vcpq-panel'});
   }
@@ -10060,14 +10065,21 @@ function wbmBuildMetricsSections(d){
   var sContraccion = wbmMetricSection('Contracción', WBM_COLORS.pc, boxes);
 
   // Setup (Pilar D)
+  // Fix 2026-09-11 (caso ANET): leía d['VCP Detected']/'VCP Contractions'/
+  // 'VCP Dist Pivot %' -- el detector VIEJO (pivote fijo), no VCP2 -- podía
+  // mostrar "VCP detectado: Sí" con datos de una base que el sistema real
+  // (VCP2) ni siquiera reconoce. _pilarDv7V50 (el Pilar D que de verdad
+  // corre) no usa ningún campo de VCP, ni viejo ni VCP2 -- este cuadrito es
+  // solo informativo, pasa a mostrar VCP2 para que coincida con lo que
+  // dice el resto del dashboard (panel Bases VCP, cross-panel, etc.).
   boxes = '';
-  var vcpDet = d['VCP Detected'];
+  var vcpDet = d['VCP2 Detected'];
   boxes += wbmMetricBox('VCP detectado', _bool(vcpDet)?'Sí':'No', _bool(vcpDet)?'var(--green)':'var(--text)');
   var baseSemanas = d['Base Semanas'];
   if (baseSemanas != null) boxes += wbmMetricBox('Semanas de base', _wbmFmt(baseSemanas,1));
-  var vcpContr = d['VCP Contractions'];
+  var vcpContr = d['VCP2 Contractions'];
   if (vcpContr != null) boxes += wbmMetricBox('Contracciones', _wbmFmt(vcpContr,0));
-  var vcpPivot = d['VCP Dist Pivot %'];
+  var vcpPivot = d['VCP2 Dist Pivot %'];
   if (vcpPivot != null) boxes += wbmMetricBox('Dist. al pivot', _wbmPct(vcpPivot,2), vcpPivot>=0?'var(--green)':'var(--red)');
   var sSetup = wbmMetricSection('Setup', WBM_COLORS.pd, boxes);
 
