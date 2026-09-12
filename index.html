@@ -11672,6 +11672,25 @@ try{
   #wb-cmd-top .wb-tab-btn,
   #wb-cmd-top .wb-tab-btn:hover,
   #wb-cmd-top .wb-tab-btn.active{ color:#fff; }
+
+  /* PREVIEW -- fondo de TODA la página en negro (2026-09-12, a pedido
+     del usuario, todavía sin confirmar) -- reemplaza var(--bg) por el
+     mismo negro de la topbar. Las cards/paneles (.stat-card, .panel)
+     siguen con su propio color de fondo (mas claro), asi que se siguen
+     viendo como cajas separadas sobre el negro. */
+  body{ background:#050505; }
+
+  /* Saca el espacio entre la tira de tickers y las cards de arriba
+     (2026-09-12, pedido del usuario) -- medido en vivo: eran 3 fuentes
+     de espacio sumadas (margin-bottom de #wb-cmd-panel + padding-top de
+     .main + padding-top de .wb-tab-content = 46px en total). Solo
+     desktop (min-width:901px, donde vive #wb-cmd-panel) para no tocar
+     el espaciado de mobile, que no tiene este panel. */
+  @media(min-width:901px){
+    #wb-cmd-panel{ margin-bottom:0; }
+    .main{ padding-top:0; }
+    .wb-tab-content{ padding-top:0; }
+  }
 </style>
 <!-- ═══════════════ FIN WB UPGRADE V46 ═══════════════ -->
 
