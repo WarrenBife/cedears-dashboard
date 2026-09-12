@@ -2390,11 +2390,28 @@ def _vcp2_atr(high, low, close, n=14):
     return atr
 
 
-def _vcp2_zigzag_swings(high, low, close, zigzag_pct=0.04, atr_mult=1.5, atr_period=14):
+def _vcp2_zigzag_swings(high, low, close, zigzag_pct=0.04, atr_mult=1.2, atr_period=14):
     """Swings con umbral adaptativo max(zigzag_pct, atr_mult*ATR/precio) --
     a diferencia del pivote fijo de 3 velas de arriba, un swing recien se
     confirma cuando el precio se aleja un umbral que escala con la
-    volatilidad del papel."""
+    volatilidad del papel.
+
+    Extremos por CIERRE de vela, no por mecha (2026-09-12, caso C, pedido
+    del usuario) -- una mecha de un solo dia (ej. C 17/8: mecha 140.88
+    pero cuerpo 139.25) no deberia marcar el techo/piso del swing ni
+    "resetear" la cadena de cimas consistentes por una diferencia de
+    centavos. El ATR de umbral sigue viniendo de high/low reales (asi
+    escala con la volatilidad real del papel, no con el cierre solo).
+    atr_mult baja de 1.5 a 1.2 en el mismo cambio: validado contra los
+    casos ancla (YPF/CVS/PM/ANET/TSLA) -- con cierre+1.5x, ANET quedaba
+    confirmado un dia mas tarde de lo que deberia (el 8/9 llegaba a
+    4.76% de distancia, el umbral pedia 5.73%); con 1.2x ese mismo dia
+    ya alcanza. Efecto neto medido: arregla C (antes no detectaba nada,
+    ahora Score 82/armado), ANET sigue detectando (Score baja de 82 a 75
+    pero `Detected` se mantiene en True el mismo dia que antes), PM deja
+    de detectar (antes Score 82, ahora 0 -- aceptado, caso puntual sin
+    reemplazo encontrado), YPF/TSLA no cambian su Score en vivo (0 en
+    ambas versiones), solo la lectura del ciclo de vida ya jugado."""
     atr_s = _vcp2_atr(high, low, close, atr_period)
     n = len(close)
     if n < 20:
@@ -2407,32 +2424,30 @@ def _vcp2_zigzag_swings(high, low, close, zigzag_pct=0.04, atr_mult=1.5, atr_per
 
     swings = []
     mode = None
-    ext_i, ext_px = 0, high[0]
-    if high[0] - low[0] == 0:
-        ext_px = close[0]
+    ext_i, ext_px = 0, close[0]
 
     for i in range(1, n):
         t = thresh_at(i, ext_px if ext_px else close[i])
         if mode is None:
-            if high[i] > ext_px:
-                ext_i, ext_px, mode = i, high[i], 'up'
-            elif low[i] < (low[0] if i == 1 else ext_px):
-                ext_i, ext_px, mode = i, low[i], 'down'
+            if close[i] > ext_px:
+                ext_i, ext_px, mode = i, close[i], 'up'
+            elif close[i] < (close[0] if i == 1 else ext_px):
+                ext_i, ext_px, mode = i, close[i], 'down'
             continue
         if mode == 'up':
-            if high[i] >= ext_px:
-                ext_i, ext_px = i, high[i]
-            elif ext_px > 0 and (ext_px - low[i]) / ext_px >= t:
+            if close[i] >= ext_px:
+                ext_i, ext_px = i, close[i]
+            elif ext_px > 0 and (ext_px - close[i]) / ext_px >= t:
                 swings.append((ext_i, ext_px, 'H'))
                 mode = 'down'
-                ext_i, ext_px = i, low[i]
+                ext_i, ext_px = i, close[i]
         else:
-            if low[i] <= ext_px:
-                ext_i, ext_px = i, low[i]
-            elif ext_px > 0 and (high[i] - ext_px) / ext_px >= t:
+            if close[i] <= ext_px:
+                ext_i, ext_px = i, close[i]
+            elif ext_px > 0 and (close[i] - ext_px) / ext_px >= t:
                 swings.append((ext_i, ext_px, 'L'))
                 mode = 'up'
-                ext_i, ext_px = i, high[i]
+                ext_i, ext_px = i, close[i]
     return swings
 
 
@@ -2520,14 +2535,19 @@ def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=12
     raw = []
     hl_pairs = [(a, b) for a, b in zip(seq, seq[1:]) if a[2] == 'H' and b[2] == 'L']
     for idx, (a, b) in enumerate(hl_pairs):
-        high_i, high = a[0], a[1]
-        low_i, low = b[0], b[1]
+        # indices de los turning points por CIERRE (swings), pero el
+        # precio reportado (high/low, usado para depth/techo/pivot/stop)
+        # sigue siendo la mecha REAL de esos dias -- 2026-09-12, caso C,
+        # pedido del usuario: el cierre decide QUE DIA es el extremo, no
+        # reemplaza el valor de mecha que ya usaba el resto del sistema.
+        high_i, low_i = a[0], b[0]
+        high, low = float(df_h[high_i]), float(df_l[low_i])
         next_h = next((s for s in seq if s[0] > low_i and s[2] == 'H'), None)
         if next_h is None:
             recover_i = low_i + int(np.argmax(df_h[low_i:]))
             recover_high = float(df_h[recover_i])
         else:
-            recover_i, recover_high = next_h[0], next_h[1]
+            recover_i, recover_high = next_h[0], float(df_h[next_h[0]])
         recovered = (recover_high - low) / (high - low) if high > low else 0.0
         is_last_pair = idx >= len(hl_pairs) - 1
         if recovered < min_recover_frac and not is_last_pair:
