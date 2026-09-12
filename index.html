@@ -11613,5 +11613,67 @@ try{
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V45 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V46 — Fondo negro bien oscuro arriba del
+     dashboard (2026-09-12, pedido del usuario). Se probaron 3 imágenes
+     de fondo tenue (montaña, terminal neón) y ninguna convenció -- a
+     pedido del usuario se sacó la imagen por completo y se dejó un
+     negro sólido en la topbar, la barra de filtros y el panel
+     unificado de pestañas/stat-cards en desktop. bg-hero.jpg queda sin
+     usar (no se borra el archivo del repo por las dudas, pero no lo
+     referencia nada).
+
+     El cartel de advertencia (⚠️ "El material presentado...") también
+     pasa a fondo negro, con las letras en ámbar/amarillo (antes tenía
+     fondo ámbar tenue). Es un <div style="background:var(--amber-bg)
+     ...color:var(--amber)..."> inline de código ORIGINAL (no se toca)
+     -- se apunta por selector de atributo (contiene el string exacto
+     del inline style) con !important, la única forma de ganarle a un
+     estilo inline sin editar el HTML original. El color del texto
+     (var(--amber)) sigue igual, solo cambia el fondo.
+
+     Sin líneas arriba/abajo del cartel de advertencia (2026-09-12,
+     2do pedido): se sacan el border-bottom de la topbar y el del
+     propio cartel (inline, mismo truco de !important) para que las 3
+     franjas negras se vean como una sola sin costuras.
+
+     "click para filtrar" oculto en las stat-cards y letras en blanco
+     (2026-09-12, 3er pedido): .stat-label/.stat-sub/.stat-ring-pct
+     usaban var(--muted) (gris) -- pasan a blanco. .stat-value (los
+     NÚMEROS grandes) NO se toca, sigue tomando su color de las clases
+     .c-blue/.c-green/.c-amber como siempre -- es lo único que el
+     usuario pidió mantener con color. Mismo criterio para las letras
+     de las pestañas (#wb-cmd-top .wb-tab-btn), incluida la pestaña
+     activa (antes var(--text), ya casi blanco, ahora blanco puro).
+
+     Solo toca "background"/"border"/"color"/"display" de selectores ya
+     existentes (no agrega markup nuevo); en mobile #wb-cmd-panel no
+     existe (ya en display:none desde V36). ═══════════════ -->
+<style id="wb-v46-css">
+  .topbar,
+  .gf-bar{
+    background: #050505;
+    border-bottom: none;
+  }
+  div[style*="background:var(--amber-bg)"]{
+    background: #050505 !important;
+    border-bottom: none !important;
+  }
+  @media(min-width:901px){
+    #wb-cmd-panel{
+      background: #050505;
+    }
+  }
+
+  .stat-hint{ display:none; }
+  .stat-label,
+  .stat-sub,
+  .stat-ring-pct{ color:#fff; }
+
+  #wb-cmd-top .wb-tab-btn,
+  #wb-cmd-top .wb-tab-btn:hover,
+  #wb-cmd-top .wb-tab-btn.active{ color:#fff; }
+</style>
+<!-- ═══════════════ FIN WB UPGRADE V46 ═══════════════ -->
+
 </body>
 </html>
