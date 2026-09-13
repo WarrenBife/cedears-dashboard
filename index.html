@@ -10714,8 +10714,13 @@ window.wbFeedbackEnviar = async function(){
      sola plantilla de columnas compartida por el header y cada fila,
      todas las celdas centradas de verdad (con flex + min-width no
      quedaban centradas, solo alineadas a un lado). */
+  /* Barra = 50% del ancho, el resto de las columnas (ahora 6, con
+     Evolución sumada) se reparten la otra mitad EN PARTES IGUALES entre
+     sí (2026-09-12, pedido del usuario) -- 6 columnas a 1fr suman 6fr,
+     la barra en otros 6fr -> 50/50 exacto sea cual sea el ancho real
+     del panel, y las 6 quedan equidistantes entre sí. */
   #wb-t10-panel .wb-t10-thead,
-  #wb-t10-panel .wb-t10-row{display:grid;grid-template-columns:32px 128px 52px 62px 1fr 74px;
+  #wb-t10-panel .wb-t10-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 6fr 1fr;
     align-items:center;gap:6px;padding:0 18px;}
   #wb-t10-panel .wb-t10-thead{padding:7px 18px;font-size:9.5px;color:#fff;
     text-shadow:0 0 8px rgba(255,255,255,0.75);font-weight:600;
@@ -10794,7 +10799,7 @@ try{
       return x.toFixed(1)+','+y.toFixed(1);
     }).join(' ');
     var col = vals[vals.length-1]>=vals[0] ? 'var(--green)' : 'var(--red)';
-    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="display:block">'+
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="display:block;margin:0 auto">'+
       '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   }
 
@@ -10808,17 +10813,31 @@ try{
   // Top20, no apariciones de un solo dia.
   var DIAS_TOTAL = 10;
   var DIAS_MINIMO = 2;
+  // "entro": fecha real en la que cada ticker apareció por primera vez
+  // en el Top 20 dentro de la ventana de 10 días (2026-09-12, pedido
+  // del usuario -- reemplaza la columna "X/10 días" por la fecha
+  // concreta, formato "9-Sep").
   var FILAS = [
-    {t:'USO',  score:75, dias:2,  ret:19.43},
-    {t:'PBR',  score:82, dias:2,  ret:14.41},
-    {t:'DE',   score:83, dias:2,  ret:7.20},
-    {t:'KB',   score:80, dias:2,  ret:6.32},
-    {t:'YPF',  score:81, dias:6,  ret:5.89},
-    {t:'OXY',  score:87, dias:10, ret:4.47},
-    {t:'AAPL', score:85, dias:8,  ret:3.93},
-    {t:'TSM',  score:89, dias:6,  ret:3.77},
-    {t:'BP',   score:79, dias:4,  ret:3.67},
-    {t:'TRV',  score:87, dias:6,  ret:2.88}
+    {t:'USO',  score:75, entro:'28-Ago', ret:19.43,
+      evol:[86.5,84.1,80.2,72.2,70.2,67.9,69.0,72.2,90.9,74.2,66.3,67.1,77.8,68.7,84.5,96.4]},
+    {t:'PBR',  score:82, entro:'28-Ago', ret:14.41,
+      evol:[78.2,75.4,74.2,68.2,65.9,58.7,65.5,67.9,78.2,78.2,66.7,59.1,73.8,68.7,81.0,86.1]},
+    {t:'DE',   score:83, entro:'28-Ago', ret:7.20,
+      evol:[23.8,47.6,54.0,54.8,72.6,80.6,58.3,65.1,75.8,71.4,67.1,59.5,72.6,69.8,94.8,90.1]},
+    {t:'KB',   score:80, entro:'28-Ago', ret:6.32,
+      evol:[70.6,66.3,66.7,83.3,56.8,59.1,84.1,92.9,95.6,95.2,87.3,74.2,61.1,84.9,99.2,100.0]},
+    {t:'YPF',  score:81, entro:'1-Sep',  ret:5.89,
+      evol:[95.6,99.6,98.4,92.9,82.5,76.2,81.8,85.7,94.8,94.4,81.0,76.2,85.3,79.8,86.5,96.0]},
+    {t:'OXY',  score:87, entro:'28-Ago', ret:4.47,
+      evol:[78.2,80.2,76.6,61.5,53.6,30.2,53.6,63.1,80.2,70.6,63.1,64.3,86.9,73.4,77.8,86.5]},
+    {t:'AAPL', score:85, entro:'28-Ago', ret:3.93,
+      evol:[96.8,98.8,70.6,77.0,75.8,67.1,99.6,100.0,98.0,98.4,77.4,51.2,80.6,79.0,94.4,95.6]},
+    {t:'TSM',  score:89, entro:'28-Ago', ret:3.77,
+      evol:[94.8,100.0,99.2,96.0,99.2,98.0,93.7,78.6,85.7,75.4,75.4,81.3,74.2,81.3,63.9,88.1]},
+    {t:'BP',   score:79, entro:'1-Sep',  ret:3.67,
+      evol:[77.4,77.8,76.6,66.3,44.4,5.6,37.7,64.7,80.6,81.0,60.3,60.3,81.8,61.9,67.5,83.3]},
+    {t:'TRV',  score:87, entro:'31-Ago', ret:2.88,
+      evol:[14.3,0.4,19.4,30.2,84.5,92.9,92.1,92.5,100.0,98.0,97.6,92.5,92.1,90.9,92.1,94.0]}
   ];
   var PROMEDIO_TOP10 = 7.20;
   var RET_SPY = -0.66;
@@ -10831,8 +10850,9 @@ try{
     return '<div class="wb-t10-row'+(i===0?' wb-t10-rank1':'')+'">'+
       '<span class="wb-t10-rank">'+(i+1)+'</span>'+
       badge(r.t)+
+      '<span>'+evolChart(r.evol)+'</span>'+
       '<span class="wb-t10-score">'+scorePill(r.score)+'</span>'+
-      '<span class="wb-t10-dias">'+r.dias+'/'+DIAS_TOTAL+' días</span>'+
+      '<span class="wb-t10-dias">'+r.entro+'</span>'+
       '<span class="wb-t10-bar-track"><span class="wb-t10-bar-fill" style="width:'+pct+'%;background:'+c+';color:'+c+'"></span></span>'+
       '<span class="wb-t10-ret" style="color:'+c+'">'+s+r.ret.toFixed(2)+'%</span>'+
     '</div>';
@@ -10842,7 +10862,7 @@ try{
   pTop10.className = 'panel'; pTop10.id = 'wb-t10-panel';
   pTop10.innerHTML =
     '<div class="panel-head"><div>'+
-      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9), con al menos '+DIAS_MINIMO+' ruedas adentro (evita apariciones de un solo día). El retorno se mide desde el primer día que se vio a cada una en el Top 20. Días = ruedas de esos 10 días en las que estuvo en el Top 20.">🏆 Retorno Top 10 del Warren Score</div>'+
+      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9), con al menos '+DIAS_MINIMO+' ruedas adentro (evita apariciones de un solo día). Entró = fecha en la que apareció por primera vez en el Top 20 dentro de esta ventana. El retorno se mide desde esa fecha hasta hoy.">🏆 Retorno Top 10 del Warren Score</div>'+
       '<div class="panel-sub">Retorno últimas 10 ruedas</div>'+
     '</div></div>'+
     '<div class="panel-body" style="padding:0;">'+
@@ -10856,8 +10876,8 @@ try{
           '<div class="wb-t10-hero-value" style="color:'+(RET_SPY>=0?'var(--green)':'var(--red)')+'">'+(RET_SPY>=0?'+':'')+RET_SPY.toFixed(2)+'%</div>'+
         '</div>'+
       '</div>'+
-      '<div class="wb-t10-thead"><span></span><span>Ticker</span>'+
-        '<span>Score</span><span>Días</span><span></span><span>Retorno</span></div>'+
+      '<div class="wb-t10-thead"><span></span><span>Ticker</span><span>Evolución</span>'+
+        '<span>Score</span><span>Entró</span><span></span><span>Retorno</span></div>'+
       t10Rows+
     '</div>';
 
