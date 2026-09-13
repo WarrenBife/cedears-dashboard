@@ -10799,20 +10799,28 @@ try{
   }
 
   // ── Panel 1: Retorno Top 10 (datos fijos, ultimos 10 dias habiles) ──
+  // Filtro: minimo 2 ruedas en el Top20 para contar (2026-09-12, pedido
+  // del usuario) -- sin esto, HOOD entraba con un solo dia (score alto
+  // por una sola aparicion, poco robusto). Con el filtro, HOOD sale y
+  // entra TRV (6/10 dias) al 10mo puesto. Promedio baja de 7.71% a
+  // 7.20% -- se pierde el 3er mejor retorno (HOOD +7.97%) pero el
+  // ranking queda mas representativo de acciones que sostuvieron el
+  // Top20, no apariciones de un solo dia.
   var DIAS_TOTAL = 10;
+  var DIAS_MINIMO = 2;
   var FILAS = [
     {t:'USO',  score:75, dias:2,  ret:19.43},
     {t:'PBR',  score:82, dias:2,  ret:14.41},
-    {t:'HOOD', score:81, dias:1,  ret:7.97},
     {t:'DE',   score:83, dias:2,  ret:7.20},
     {t:'KB',   score:80, dias:2,  ret:6.32},
     {t:'YPF',  score:81, dias:6,  ret:5.89},
     {t:'OXY',  score:87, dias:10, ret:4.47},
     {t:'AAPL', score:85, dias:8,  ret:3.93},
     {t:'TSM',  score:89, dias:6,  ret:3.77},
-    {t:'BP',   score:79, dias:4,  ret:3.67}
+    {t:'BP',   score:79, dias:4,  ret:3.67},
+    {t:'TRV',  score:87, dias:6,  ret:2.88}
   ];
-  var PROMEDIO_TOP10 = 7.71;
+  var PROMEDIO_TOP10 = 7.20;
   var RET_SPY = -0.66;
   var maxAbsRet = Math.max.apply(null, FILAS.map(function(r){ return Math.abs(r.ret); }));
 
@@ -10834,7 +10842,7 @@ try{
   pTop10.className = 'panel'; pTop10.id = 'wb-t10-panel';
   pTop10.innerHTML =
     '<div class="panel-head"><div>'+
-      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre todas las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9). El retorno se mide desde el primer día que se vio a cada una en el Top 20. Días = ruedas de esos 10 días en las que estuvo en el Top 20.">🏆 Retorno Top 10 del Warren Score</div>'+
+      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9), con al menos '+DIAS_MINIMO+' ruedas adentro (evita apariciones de un solo día). El retorno se mide desde el primer día que se vio a cada una en el Top 20. Días = ruedas de esos 10 días en las que estuvo en el Top 20.">🏆 Retorno Top 10 del Warren Score</div>'+
       '<div class="panel-sub">Retorno últimas 10 ruedas</div>'+
     '</div></div>'+
     '<div class="panel-body" style="padding:0;">'+
