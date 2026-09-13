@@ -10643,6 +10643,284 @@ window.wbFeedbackEnviar = async function(){
 </script>
 <!-- ═══════════════ FIN WB UPGRADE V35 ═══════════════ -->
 
+<!-- ═══════════════ WB UPGRADE V47 — "Retorno Top 10" + "Nuevos ingresos
+     al Top 30" (2026-09-12, pedido del usuario, VISTA PREVIA con datos
+     fijos -- todavía NO conectado al pipeline).
+
+     Panel 1 (izquierda): retorno medio de las 10 acciones que más
+     rindieron entre las que pasaron por el Top 20 del Warren Score en
+     los últimos 10 días hábiles (28/8 al 11/9), medido desde el primer
+     día que se vio a cada una ahí. Formato pedido por el usuario
+     (mockup tipo tarjeta para redes: numero grande + tabla), SIN la
+     franja de "terminaron en verde" ni "extremos de la semana" del
+     mockup original -- el usuario pidio sacarlas.
+
+     Panel 2 (derecha): tickers que entraron al Top 30 del Warren Score
+     en la ÚLTIMA RUEDA (comparando el Top 30 de ayer 10/9 contra el de
+     hoy 11/9), con su Score/RS Score/Distancia a EMA200/VCP2 detectado
+     -- calculado igual que el panel 1, motor real corrido sobre
+     historial recortado, validado contra datos.json en vivo.
+
+     Datos HARDCODEADOS a proposito (ver nota del panel 1 de la version
+     anterior) -- vista previa antes de decidir si automatizar
+     (top20_historia.json en el pipeline). Corre ANTES de V36/V37, igual
+     que todos los paneles de arriba (esos scripts buscan los paneles
+     por id ya construidos y los reparten a su pestaña). -->
+<style id="wb-v47-css">
+  /* Apilados verticalmente, no lado a lado (2026-09-12, a probar --
+     antes compartían ancho en un grid-2). Cada uno ocupa el ancho
+     completo; el alto de "Nuevos ingresos" ya es naturalmente
+     adaptable a la cantidad de filas (nunca tuvo una altura fija). */
+  #wb-t10-nuevos-row{grid-template-columns:1fr;}
+
+  /* Tratamiento "joya" -- neón + dorado (2026-09-12, pedido del
+     usuario: "es la joyita de la página"). Mismo mecanismo que ya usa
+     #wb-warrenscore-panel/#wb-spotlight (borde con degradé animado vía
+     ::after enmascarado + glow), pero mezclando verde CON dorado en vez
+     de verde con azul -- ambos paneles son "familia Warren Score". */
+  #wb-t10-panel,#wb-nuevos30-panel{border:1px solid rgba(245,193,66,0.28);position:relative;
+    background:linear-gradient(180deg,rgba(34,201,138,0.05),transparent 35%),var(--bg2);
+    box-shadow:var(--shadow-panel),0 0 40px -20px rgba(245,193,66,0.35);}
+  #wb-t10-panel::after,#wb-nuevos30-panel::after{content:'';position:absolute;inset:-1px;
+    border-radius:var(--r-lg);padding:1px;pointer-events:none;
+    background:linear-gradient(120deg,rgba(245,193,66,0.6),rgba(34,201,138,0.35) 45%,transparent 65%,rgba(245,193,66,0.45));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;opacity:.8;}
+  #wb-t10-panel .panel-head,#wb-nuevos30-panel .panel-head{border-bottom-color:rgba(245,193,66,0.22);}
+
+  #wb-t10-panel .wb-t10-hero-value{text-shadow:0 0 18px currentColor;}
+  #wb-t10-panel .score-pill.pill-green{box-shadow:inset 0 0 0 1px rgba(34,201,138,0.25),0 0 8px rgba(34,201,138,0.5);}
+  #wb-t10-panel .score-pill.pill-amber{box-shadow:inset 0 0 0 1px rgba(245,166,35,0.25),0 0 8px rgba(245,166,35,0.5);}
+  #wb-nuevos30-panel .wb-n30-score{text-shadow:0 0 8px currentColor;color:var(--green);}
+
+  /* Puesto #1 -- mismo dorado pulsante que la card rank1 del podio del
+     día (wbGoldPulse, ya definido más abajo en el archivo). */
+  #wb-t10-panel .wb-t10-row.wb-t10-rank1{position:relative;background:rgba(245,193,66,0.06);
+    border-radius:8px;margin:0 8px;padding-left:10px;padding-right:10px;
+    border:1px solid rgba(245,193,66,0.4);box-shadow:0 0 12px -2px rgba(245,193,66,0.35);
+    animation:wbGoldPulse 3.2s ease-in-out infinite;}
+  #wb-t10-panel .wb-t10-row.wb-t10-rank1 .wb-t10-rank{color:#f5c142;font-weight:700;}
+  @media (prefers-reduced-motion: reduce){#wb-t10-panel .wb-t10-row.wb-t10-rank1{animation:none;}}
+
+  #wb-t10-panel .wb-t10-hero{display:flex;border-bottom:1px solid var(--border);}
+  #wb-t10-panel .wb-t10-hero-col{flex:1;text-align:center;padding:18px 12px 14px;}
+  #wb-t10-panel .wb-t10-hero-col:first-child{border-right:1px solid var(--border);}
+  #wb-t10-panel .wb-t10-hero-label{font-size:10.5px;color:var(--muted);letter-spacing:.08em;
+    text-transform:uppercase;margin-bottom:6px;}
+  #wb-t10-panel .wb-t10-hero-value{font-family:'DM Mono',monospace;font-size:32px;font-weight:600;
+    line-height:1.1;}
+  /* Grid en vez de flex (2026-09-12, pedido del usuario: centrar las
+     columnas) -- mismo criterio que la grilla de "Nuevos ingresos": una
+     sola plantilla de columnas compartida por el header y cada fila,
+     todas las celdas centradas de verdad (con flex + min-width no
+     quedaban centradas, solo alineadas a un lado). */
+  #wb-t10-panel .wb-t10-thead,
+  #wb-t10-panel .wb-t10-row{display:grid;grid-template-columns:32px 128px 52px 62px 1fr 74px;
+    align-items:center;gap:6px;padding:0 18px;}
+  #wb-t10-panel .wb-t10-thead{padding:7px 18px;font-size:9.5px;color:#fff;
+    text-shadow:0 0 8px rgba(255,255,255,0.75);font-weight:600;
+    letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.06);}
+  #wb-t10-panel .wb-t10-thead>span,
+  #wb-t10-panel .wb-t10-row>span{text-align:center;}
+  #wb-t10-panel .wb-t10-row{padding-top:6px;padding-bottom:6px;
+    border-bottom:1px solid rgba(255,255,255,0.04);font-size:12.5px;}
+  #wb-t10-panel .wb-t10-row:last-child{border-bottom:none;}
+  #wb-t10-panel .wb-t10-rank{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  #wb-t10-panel .wb-t10-dias{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);
+    white-space:nowrap;}
+  #wb-t10-panel .wb-t10-bar-track{width:100%;height:7px;border-radius:4px;
+    background:rgba(255,255,255,0.07);overflow:hidden;}
+  #wb-t10-panel .wb-t10-bar-fill{display:block;height:100%;border-radius:4px;box-shadow:0 0 6px currentColor;opacity:0.85;}
+  #wb-t10-panel .wb-t10-ret{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;}
+
+  /* Nuevos ingresos al Top 30 -- CSS Grid en vez de flex (2026-09-12,
+     pedido del usuario): una sola grilla con las mismas 6 columnas para
+     el header y cada fila, así quedan perfectamente alineadas y
+     equidistantes entre sí y de los bordes -- con flex + anchos sueltos
+     (versión anterior) no había garantía real de esa alineación. */
+  #wb-nuevos30-panel .wb-n30-grid{display:grid;grid-template-columns:0.9fr 0.7fr 0.8fr 1fr 0.7fr 1.1fr;}
+  #wb-nuevos30-panel .wb-n30-cell{text-align:center;padding:7px 6px;display:flex;align-items:center;justify-content:center;}
+  #wb-nuevos30-panel .wb-n30-th{font-size:9px;color:#fff;text-shadow:0 0 8px rgba(255,255,255,0.75);
+    font-weight:600;letter-spacing:.04em;
+    text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:7px;}
+  #wb-nuevos30-panel .wb-n30-cell:not(.wb-n30-th){border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;}
+  #wb-nuevos30-panel .wb-n30-score{font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;}
+  #wb-nuevos30-panel .wb-n30-num{font-family:'DM Mono',monospace;font-size:11.5px;}
+  #wb-nuevos30-panel .wb-n30-empty{grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:12px;}
+
+  @media(max-width:600px){
+    #wb-t10-panel .wb-t10-row,#wb-t10-panel .wb-t10-thead{padding:6px 14px;}
+    #wb-nuevos30-panel .wb-n30-grid{grid-template-columns:0.8fr 0.6fr 0.7fr 0.9fr 0.6fr 1fr;}
+    #wb-nuevos30-panel .wb-n30-cell{padding:7px 3px;font-size:11px;}
+  }
+</style>
+<script id="wb-v47-js">
+(function(){
+'use strict';
+try{
+  function badge(tk){
+    // Logo (2026-09-12, 2do pedido del usuario): la primera versión usaba
+    // getLogoUrl() (favicon de Google por dominio adivinado) -- a muchos
+    // tickers les faltaba. Se cambia a financialmodelingprep.com/image-
+    // stock, la MISMA fuente que usa la tabla real de Warren Score
+    // (desktop y mobile, ver warren-body/wbm-tick-logo más abajo en el
+    // archivo) -- mismo estilo (22px, círculo) para que se vea igual.
+    var logo = '<img src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(tk)+'.png" alt="" '+
+      'style="width:22px;height:22px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,0.05);'+
+      'border:1px solid rgba(255,255,255,0.07);flex-shrink:0;" onerror="this.style.display=\'none\'">';
+    return '<span style="display:inline-flex;align-items:center;gap:6px;justify-content:center">'+logo+
+      '<span class="ticker-badge" title="'+tk+'" onmouseenter="mostrarGrafico(\''+tk+'\',this)" onmouseleave="ocultarGrafico()">'+tk+'</span></span>';
+  }
+  function scorePill(v){
+    var cls = v>=80?'pill-green':(v>=60?'pill-amber':'pill-red');
+    return '<span class="score-pill '+cls+'" style="font-size:10.5px;min-width:30px;">'+Math.round(v)+'</span>';
+  }
+  // Mismo sparkline que la columna "Evolución" de la tabla Warren Score
+  // (ver evolChart() más abajo en el archivo) -- copiado acá porque esa
+  // versión vive en el closure de otra función y no queda expuesta
+  // globalmente. Misma firma: recibe una serie de valores (RS Score) y
+  // devuelve el SVG. Acá se alimenta con RS Mes ant./RS Semana ant./RS
+  // Score de datos.json (3 puntos reales), no con rotacion_historia.json
+  // completo -- alcanza para la vista previa; la versión conectada al
+  // pipeline podría usar el historial completo de 4 semanas igual que
+  // la tabla original.
+  function evolChart(vals){
+    if(!vals || vals.filter(function(v){return v!=null;}).length<2) return '<span style="color:var(--muted);font-size:10px">—</span>';
+    var w=64,h=22,pad=2;
+    var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals), range=(max-min)||1;
+    var pts=vals.map(function(v,i){
+      var x=pad+(i/(vals.length-1))*(w-pad*2);
+      var y=h-pad-((v-min)/range)*(h-pad*2);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    var col = vals[vals.length-1]>=vals[0] ? 'var(--green)' : 'var(--red)';
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="display:block">'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+
+  // ── Panel 1: Retorno Top 10 (datos fijos, ultimos 10 dias habiles) ──
+  var DIAS_TOTAL = 10;
+  var FILAS = [
+    {t:'USO',  score:75, dias:2,  ret:19.43},
+    {t:'PBR',  score:82, dias:2,  ret:14.41},
+    {t:'HOOD', score:81, dias:1,  ret:7.97},
+    {t:'DE',   score:83, dias:2,  ret:7.20},
+    {t:'KB',   score:80, dias:2,  ret:6.32},
+    {t:'YPF',  score:81, dias:6,  ret:5.89},
+    {t:'OXY',  score:87, dias:10, ret:4.47},
+    {t:'AAPL', score:85, dias:8,  ret:3.93},
+    {t:'TSM',  score:89, dias:6,  ret:3.77},
+    {t:'BP',   score:79, dias:4,  ret:3.67}
+  ];
+  var PROMEDIO_TOP10 = 7.71;
+  var RET_SPY = -0.66;
+  var maxAbsRet = Math.max.apply(null, FILAS.map(function(r){ return Math.abs(r.ret); }));
+
+  var t10Rows = FILAS.map(function(r,i){
+    var c = r.ret>=0 ? 'var(--green)' : 'var(--red)';
+    var s = r.ret>=0 ? '+' : '';
+    var pct = Math.round(Math.abs(r.ret)/maxAbsRet*100);
+    return '<div class="wb-t10-row'+(i===0?' wb-t10-rank1':'')+'">'+
+      '<span class="wb-t10-rank">'+(i+1)+'</span>'+
+      badge(r.t)+
+      '<span class="wb-t10-score">'+scorePill(r.score)+'</span>'+
+      '<span class="wb-t10-dias">'+r.dias+'/'+DIAS_TOTAL+' días</span>'+
+      '<span class="wb-t10-bar-track"><span class="wb-t10-bar-fill" style="width:'+pct+'%;background:'+c+';color:'+c+'"></span></span>'+
+      '<span class="wb-t10-ret" style="color:'+c+'">'+s+r.ret.toFixed(2)+'%</span>'+
+    '</div>';
+  }).join('');
+
+  var pTop10 = document.createElement('div');
+  pTop10.className = 'panel'; pTop10.id = 'wb-t10-panel';
+  pTop10.innerHTML =
+    '<div class="panel-head"><div>'+
+      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre todas las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9). El retorno se mide desde el primer día que se vio a cada una en el Top 20. Días = ruedas de esos 10 días en las que estuvo en el Top 20.">🏆 Retorno Top 10 del Warren Score</div>'+
+      '<div class="panel-sub">Retorno últimas 10 ruedas</div>'+
+    '</div></div>'+
+    '<div class="panel-body" style="padding:0;">'+
+      '<div class="wb-t10-hero">'+
+        '<div class="wb-t10-hero-col">'+
+          '<div class="wb-t10-hero-label">Retorno medio Top 10</div>'+
+          '<div class="wb-t10-hero-value" style="color:var(--green)">+'+PROMEDIO_TOP10.toFixed(2)+'%</div>'+
+        '</div>'+
+        '<div class="wb-t10-hero-col">'+
+          '<div class="wb-t10-hero-label">SPY</div>'+
+          '<div class="wb-t10-hero-value" style="color:'+(RET_SPY>=0?'var(--green)':'var(--red)')+'">'+(RET_SPY>=0?'+':'')+RET_SPY.toFixed(2)+'%</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="wb-t10-thead"><span></span><span>Ticker</span>'+
+        '<span>Score</span><span>Días</span><span></span><span>Retorno</span></div>'+
+      t10Rows+
+    '</div>';
+
+  // ── Panel 2: Nuevos ingresos al Top 30 (ultima rueda, 10/9 -> 11/9) ──
+  // evol: RS Score semanal, ULTIMAS 16 SEMANAS (2026-09-12, pedido del
+  // usuario -- antes solo 3 puntos). Datos reales: rs_score_series()
+  // (mismo motor Python real del pipeline, ver actualizar_datos.py)
+  // corrido sobre 3 años de historial diario de cada ticker vs SPY,
+  // muestreado 1 punto cada 5 ruedas (≈1 semana), últimas 16. Misma
+  // idea que la columna "Evolución" real (rotacion_historia.json), acá
+  // recalculado a mano para la vista previa.
+  var NUEVOS30 = [
+    {t:'GRMN', score:87, rs:81.0,  ema200:14.47, vcp:false,
+      evol:[31.4,32.5,36.5,31.4,42.5,37.7,44.4,49.6,46.8,99.6,97.6,97.2,93.7,84.9,64.3,81.0]},
+    {t:'EBAY', score:85, rs:64.7,  ema200:7.59,  vcp:false,
+      evol:[95.2,78.6,88.9,83.7,90.5,89.3,98.4,82.1,81.3,90.1,61.1,30.9,46.0,29.0,49.2,64.7]},
+    {t:'ABBV', score:84, rs:77.8,  ema200:12.04, vcp:false,
+      evol:[5.2,5.2,29.0,18.6,52.0,84.1,77.8,91.3,98.4,96.4,39.7,48.8,93.2,75.8,78.6,77.8]},
+    {t:'SMH',  score:83, rs:76.2,  ema200:15.00, vcp:true,
+      evol:[100.0,100.0,98.0,97.6,97.6,94.8,92.9,82.9,87.7,77.8,79.0,81.0,73.8,75.8,67.1,76.2]},
+    {t:'XRX',  score:80, rs:81.8,  ema200:17.87, vcp:false,
+      evol:[51.2,55.2,58.7,56.8,55.6,54.4,42.1,36.1,34.9,75.0,64.3,60.7,48.4,57.5,75.4,81.8]},
+    {t:'NTRA', score:79, rs:98.0,  ema200:35.38, vcp:false,
+      evol:[30.2,41.7,67.1,56.4,97.6,99.6,98.8,94.0,92.9,95.6,78.2,98.4,100.0,99.2,96.8,98.0]}
+  ];
+  var n30Thead =
+    '<div class="wb-n30-cell wb-n30-th">Ticker</div>'+
+    '<div class="wb-n30-cell wb-n30-th">Score</div>'+
+    '<div class="wb-n30-cell wb-n30-th">RS</div>'+
+    '<div class="wb-n30-cell wb-n30-th">Dist. EMA200</div>'+
+    '<div class="wb-n30-cell wb-n30-th">VCP</div>'+
+    '<div class="wb-n30-cell wb-n30-th">Evolución</div>';
+  var n30Rows = NUEVOS30.length
+    ? NUEVOS30.map(function(r){
+        return '<div class="wb-n30-cell">'+badge(r.t)+'</div>'+
+          '<div class="wb-n30-cell wb-n30-score">'+r.score+'</div>'+
+          '<div class="wb-n30-cell wb-n30-num">'+r.rs.toFixed(1)+'</div>'+
+          '<div class="wb-n30-cell wb-n30-num">+'+r.ema200.toFixed(1)+'%</div>'+
+          '<div class="wb-n30-cell" title="VCP2 detectado">'+(r.vcp?'🧬':'—')+'</div>'+
+          '<div class="wb-n30-cell">'+evolChart(r.evol)+'</div>';
+      }).join('')
+    : '<div class="wb-n30-empty">Ningún ticker nuevo en la última rueda</div>';
+
+  var pNuevos30 = document.createElement('div');
+  pNuevos30.className = 'panel'; pNuevos30.id = 'wb-nuevos30-panel';
+  pNuevos30.innerHTML =
+    '<div class="panel-head"><div>'+
+      '<div class="panel-title" data-tooltip="Acciones que entraron al Top 30 del Warren Score en la última rueda (no estaban ayer, están hoy). 🧬 = tiene VCP2 detectado. Evolución = RS Score mes anterior → semana anterior → hoy.">🆕 Nuevos ingresos al Top 30</div>'+
+      '<div class="panel-sub">Última rueda (10/9 → 11/9)</div>'+
+    '</div></div>'+
+    '<div class="panel-body" style="padding:0;">'+
+      '<div class="wb-n30-grid">'+n30Thead+n30Rows+'</div>'+
+    '</div>';
+
+  var row = document.createElement('div');
+  row.className = 'grid-2'; row.id = 'wb-t10-nuevos-row';
+  row.appendChild(pTop10);
+  row.appendChild(pNuevos30);
+
+  // Se ubica DESPUÉS de Régimen de mercado + Cartelera del día (pedido
+  // del usuario, 2026-09-12 -- antes iba justo debajo del podio del
+  // Warren Score).
+  var rgmCart = document.querySelector('.wb-rgm-cart-row');
+  if(rgmCart && rgmCart.parentNode){
+    rgmCart.parentNode.insertBefore(row, rgmCart.nextSibling);
+  }
+}catch(e){ console.error('WB V47 top10/nuevos30 panel error', e); }
+})();
+</script>
+<!-- ═══════════════ FIN WB UPGRADE V47 ═══════════════ -->
+
 <!-- ═══════════════ WB UPGRADE V36 — Pestañas de escritorio ═══════════════
      (2026-09-XX, pedido del usuario): agrupa los paneles YA EXISTENTES
      (construidos por los scripts de arriba, sin tocar ninguno) en 5
@@ -10732,6 +11010,7 @@ if(window.innerWidth <= 900) return;
 function byInner(id){ var el=document.getElementById(id); return el ? el.closest('.panel') : null; }
 
 var pSpotlight    = document.getElementById('wb-spotlight');
+var pTop10Row     = document.getElementById('wb-t10-nuevos-row'); // WB UPGRADE V47
 var statsRow      = main.querySelector('.stats-row');
 var pTicker       = document.querySelector('.ticker-strip-outer');
 var pEarnings     = document.getElementById('earnings-strip');
@@ -10825,6 +11104,7 @@ if(pTicker) tabContents.resumen.appendChild(pTicker);
 if(pEarnings) tabContents.resumen.appendChild(pEarnings);
 tabContents.resumen.appendChild(pSpotlight);
 tabContents.resumen.appendChild(pRgmCart);
+if(pTop10Row) tabContents.resumen.appendChild(pTop10Row); // WB UPGRADE V47
 if(pVinu) tabContents.resumen.appendChild(pVinu);
 
 // Warren Score: tabla completa, sola
@@ -11015,6 +11295,7 @@ if(window.innerWidth > 600) return;
 function byInner(id){ var el=document.getElementById(id); return el ? el.closest('.panel') : null; }
 
 var pSpotlight    = document.getElementById('wb-spotlight');
+var pTop10Row     = document.getElementById('wb-t10-nuevos-row'); // WB UPGRADE V47
 var statsRow      = main.querySelector('.stats-row');
 var pTicker       = document.querySelector('.ticker-strip-outer');
 var pEarnings     = document.getElementById('earnings-strip');
@@ -11069,6 +11350,7 @@ tabIds.forEach(function(id){
 // Resumen: Top 3 Warren Score + Régimen/Cartelera + Vol. inusual
 tabContents.resumen.appendChild(pSpotlight);
 tabContents.resumen.appendChild(pRgmCart);
+if(pTop10Row) tabContents.resumen.appendChild(pTop10Row); // WB UPGRADE V47
 if(pVinu) tabContents.resumen.appendChild(pVinu);
 
 // Warren Score: tabla completa (en mobile, la vista lista+detalle de
