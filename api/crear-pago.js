@@ -22,36 +22,33 @@ module.exports = async (req, res) => {
   // esto si el body trae la clave secreta -- no afecta el flujo real de
   // pago de ningun usuario. Se borra apenas se tenga el diagnostico.
   if (req.body?.diag === 'wb-diag-2026-09-14-temporal') {
-    const token = process.env.MP_ACCESS_TOKEN || '';
-    const out = {
-      token_presente: !!token,
-      token_prefijo: token ? token.split('-')[0] : null,
-      token_largo: token.length,
-    };
-    try {
-      const planApi = new PreApprovalPlan(client);
-      const plan = await planApi.create({
-        body: {
-          reason: 'DIAGNOSTICO temporal - Plan Warren Bife',
-          auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: 100, currency_id: 'ARS' },
-          back_url: `${SITE_URL}/api/confirmar-suscripcion`,
-        },
-      });
-      out.plan_ok = true;
-      out.plan_id = plan.id;
-      out.plan_init_point = plan.init_point;
-    } catch (e) {
-      out.plan_ok = false;
-      out.plan_error = { message: e?.message, cause: e?.cause, status: e?.status };
-    }
+    const out = {};
+    // Prueba combinada: preapproval CON preapproval_plan_id (reusa el plan
+    // ya creado en la prueba anterior) + payer_email/external_reference
+    // propios del usuario -- a ver si asi el checkout SI carga y ademas
+    // el sistema de reconciliacion (que matchea por external_reference)
+    // sigue funcionando igual que con el flujo viejo.
     try {
       const preapprovalApi = new PreApproval(client);
-      const leido = await preapprovalApi.get({ id: req.body?.check_id });
-      out.get_ok = true;
-      out.get_raw = leido;
+      const creado = await preapprovalApi.create({
+        body: {
+          preapproval_plan_id: '82bb255220ff42f099fcd86a1f225ef6',
+          reason:              'DIAGNOSTICO temporal - con plan',
+          external_reference:  'test-diagnostico-wb@example.com|dashboard',
+          payer_email:         'test-diagnostico-wb@example.com',
+          back_url:            `${SITE_URL}/api/confirmar-suscripcion`,
+          status:              'pending',
+        },
+      });
+      out.create_ok = true;
+      out.id = creado.id;
+      out.status = creado.status;
+      out.init_point = creado.init_point;
+      out.payer_email_guardado = creado.payer_email;
+      out.external_reference_guardado = creado.external_reference;
     } catch (e) {
-      out.get_ok = false;
-      out.get_error = { message: e?.message, cause: e?.cause, status: e?.status };
+      out.create_ok = false;
+      out.error = { message: e?.message, cause: e?.cause, status: e?.status };
     }
     return res.status(200).json(out);
   }
