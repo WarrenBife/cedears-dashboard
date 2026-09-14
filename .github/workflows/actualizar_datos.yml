@@ -28,3 +28,21 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           RUN_SCHEDULE: ${{ github.event.schedule }}
         run: python actualizar_datos.py
+
+      - name: Setup Node
+        if: github.event.schedule == '0 20 * * 1-5' || github.event.schedule == '45 20 * * 1-5'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Ranking Top 20/30 del Warren Score para el panel "Retorno Top 10"
+      # (2026-09-14) -- solo en la corrida de CIERRE (17:00 ARG / 20:00 UTC,
+      # mismo criterio que datos_lunes_cierre.json más abajo en el propio
+      # script de Python), para tener una sola foto por rueda. Lee el
+      # datos.json que acaba de escribir el paso de arriba en este mismo
+      # checkout -- no hace falta bajarlo de nuevo.
+      - name: Ranking diario Top 20/30 (Retorno Top 10 del Warren Score)
+        if: github.event.schedule == '0 20 * * 1-5' || github.event.schedule == '45 20 * * 1-5'
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: node wb_top20_historia.js

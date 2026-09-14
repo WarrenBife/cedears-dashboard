@@ -10662,28 +10662,37 @@ window.wbFeedbackEnviar = async function(){
 <!-- ═══════════════ FIN WB UPGRADE V35 ═══════════════ -->
 
 <!-- ═══════════════ WB UPGRADE V47 — "Retorno Top 10" + "Nuevos ingresos
-     al Top 30" (2026-09-12, pedido del usuario, VISTA PREVIA con datos
-     fijos -- todavía NO conectado al pipeline).
+     al Top 30" (2026-09-12, pedido del usuario; AUTOMATIZADO 2026-09-14
+     -- antes tenía 2 dias con datos hardcodeados, ahora lee
+     top20_historia.json real).
 
      Panel 1 (izquierda): retorno medio de las 10 acciones que más
      rindieron entre las que pasaron por el Top 20 del Warren Score en
-     los últimos 10 días hábiles (28/8 al 11/9), medido desde el primer
-     día que se vio a cada una ahí. Formato pedido por el usuario
+     los últimos 10 días hábiles guardados, medido desde el primer día
+     que se vio a cada una ahí hasta el último día de la ventana (aunque
+     ya haya salido del Top en el medio). Formato pedido por el usuario
      (mockup tipo tarjeta para redes: numero grande + tabla), SIN la
      franja de "terminaron en verde" ni "extremos de la semana" del
      mockup original -- el usuario pidio sacarlas.
 
      Panel 2 (derecha): tickers que entraron al Top 30 del Warren Score
-     en la ÚLTIMA RUEDA (comparando el Top 30 de ayer 10/9 contra el de
-     hoy 11/9), con su Score/RS Score/Distancia a EMA200/VCP2 detectado
-     -- calculado igual que el panel 1, motor real corrido sobre
-     historial recortado, validado contra datos.json en vivo.
+     en la ÚLTIMA RUEDA guardada (comparando el Top 30 del día anterior
+     contra el de hoy), con su Score/RS Score/Distancia a EMA200/VCP2
+     detectado.
 
-     Datos HARDCODEADOS a proposito (ver nota del panel 1 de la version
-     anterior) -- vista previa antes de decidir si automatizar
-     (top20_historia.json en el pipeline). Corre ANTES de V36/V37, igual
-     que todos los paneles de arriba (esos scripts buscan los paneles
-     por id ya construidos y los reparten a su pestaña). -->
+     Datos REALES (2026-09-14): top20_historia.json lo arma
+     wb_top20_historia.js en el pipeline de GitHub Actions, una foto por
+     cierre de rueda (17:00 ARG), con el Warren Score calculado por
+     wb_score_engine.js -- copia en Node del motor real de index.html,
+     ver ese archivo para el compromiso de mantenerlo sincronizado cada
+     vez que cambie la fórmula del Score acá. Todo el cálculo de retorno/
+     nuevos-ingresos se hace client-side, en construirPaneles() más abajo
+     -- el pipeline solo guarda la foto cruda de cada día. Corre ANTES de
+     V36/V37 igual que antes, pero la construcción de los paneles es
+     ASÍNCRONA (espera el fetch) -- la inserción en el DOM se hace
+     buscando ".wb-rgm-cart-row" en vivo en ese momento (no una referencia
+     vieja), así que funciona sin importar si V36/V37 ya reordenaron las
+     pestañas para cuando el fetch resuelve. -->
 <style id="wb-v47-css">
   /* Apilados verticalmente, no lado a lado (2026-09-12, a probar --
      antes compartían ancho en un grid-2). Cada uno ocupa el ancho
@@ -10781,6 +10790,21 @@ window.wbFeedbackEnviar = async function(){
 (function(){
 'use strict';
 try{
+  // Fuente real (2026-09-14, pedido del usuario: "debería actualizarse
+  // todos los días al cierre de cada rueda"): top20_historia.json lo arma
+  // wb_top20_historia.js en el pipeline, una foto por día de cierre con
+  // el Top 30 del Warren Score (score real, calculado con wb_score_engine.js)
+  // + precio de las 383 acciones (para poder medir el retorno de una
+  // acción hasta el último día aunque haya salido del Top 30 en el medio).
+  // Antes esto eran 2 arrays (FILAS/NUEVOS30) escritos a mano cada vez.
+  var TOP20_HISTORIA_URL = "https://warrenbife.github.io/cedears-dashboard/top20_historia.json";
+  var MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  function fmtFechaCorta(iso){
+    if(!iso) return '';
+    var p = iso.split('-');
+    return parseInt(p[2],10)+'-'+MESES_ABR[parseInt(p[1],10)-1];
+  }
+
   function badge(tk){
     // Logo (2026-09-12, 2do pedido del usuario): la primera versión usaba
     // getLogoUrl() (favicon de Google por dominio adivinado) -- a muchos
@@ -10821,147 +10845,176 @@ try{
       '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   }
 
-  // ── Panel 1: Retorno Top 10 (datos fijos, ultimos 10 dias habiles) ──
-  // Filtro: minimo 2 ruedas en el Top20 para contar (2026-09-12, pedido
-  // del usuario) -- sin esto, HOOD entraba con un solo dia (score alto
-  // por una sola aparicion, poco robusto). Con el filtro, HOOD sale y
-  // entra TRV (6/10 dias) al 10mo puesto. Promedio baja de 7.71% a
-  // 7.20% -- se pierde el 3er mejor retorno (HOOD +7.97%) pero el
-  // ranking queda mas representativo de acciones que sostuvieron el
-  // Top20, no apariciones de un solo dia.
+  // ── Panel 1: Retorno Top 10 -- min. 2 ruedas en el Top20 para contar
+  // (2026-09-12, pedido del usuario) -- sin esto, un ticker con una sola
+  // aparición puntual entra con un score alto, poco robusto.
   var DIAS_TOTAL = 10;
   var DIAS_MINIMO = 2;
-  // "entro": fecha real en la que cada ticker apareció por primera vez
-  // en el Top 20 dentro de la ventana de 10 días (2026-09-12, pedido
-  // del usuario -- reemplaza la columna "X/10 días" por la fecha
-  // concreta, formato "9-Sep").
-  var FILAS = [
-    {t:'USO',  score:75, entro:'28-Ago', ret:19.43,
-      evol:[86.5,84.1,80.2,72.2,70.2,67.9,69.0,72.2,90.9,74.2,66.3,67.1,77.8,68.7,84.5,96.4]},
-    {t:'PBR',  score:82, entro:'28-Ago', ret:14.41,
-      evol:[78.2,75.4,74.2,68.2,65.9,58.7,65.5,67.9,78.2,78.2,66.7,59.1,73.8,68.7,81.0,86.1]},
-    {t:'DE',   score:83, entro:'28-Ago', ret:7.20,
-      evol:[23.8,47.6,54.0,54.8,72.6,80.6,58.3,65.1,75.8,71.4,67.1,59.5,72.6,69.8,94.8,90.1]},
-    {t:'KB',   score:80, entro:'28-Ago', ret:6.32,
-      evol:[70.6,66.3,66.7,83.3,56.8,59.1,84.1,92.9,95.6,95.2,87.3,74.2,61.1,84.9,99.2,100.0]},
-    {t:'YPF',  score:81, entro:'1-Sep',  ret:5.89,
-      evol:[95.6,99.6,98.4,92.9,82.5,76.2,81.8,85.7,94.8,94.4,81.0,76.2,85.3,79.8,86.5,96.0]},
-    {t:'OXY',  score:87, entro:'28-Ago', ret:4.47,
-      evol:[78.2,80.2,76.6,61.5,53.6,30.2,53.6,63.1,80.2,70.6,63.1,64.3,86.9,73.4,77.8,86.5]},
-    {t:'AAPL', score:85, entro:'28-Ago', ret:3.93,
-      evol:[96.8,98.8,70.6,77.0,75.8,67.1,99.6,100.0,98.0,98.4,77.4,51.2,80.6,79.0,94.4,95.6]},
-    {t:'TSM',  score:89, entro:'28-Ago', ret:3.77,
-      evol:[94.8,100.0,99.2,96.0,99.2,98.0,93.7,78.6,85.7,75.4,75.4,81.3,74.2,81.3,63.9,88.1]},
-    {t:'BP',   score:79, entro:'1-Sep',  ret:3.67,
-      evol:[77.4,77.8,76.6,66.3,44.4,5.6,37.7,64.7,80.6,81.0,60.3,60.3,81.8,61.9,67.5,83.3]},
-    {t:'TRV',  score:87, entro:'31-Ago', ret:2.88,
-      evol:[14.3,0.4,19.4,30.2,84.5,92.9,92.1,92.5,100.0,98.0,97.6,92.5,92.1,90.9,92.1,94.0]}
-  ];
-  var PROMEDIO_TOP10 = 7.20;
-  var RET_SPY = -0.66;
-  var maxAbsRet = Math.max.apply(null, FILAS.map(function(r){ return Math.abs(r.ret); }));
 
-  var t10Rows = FILAS.map(function(r,i){
-    var c = r.ret>=0 ? 'var(--green)' : 'var(--red)';
-    var s = r.ret>=0 ? '+' : '';
-    var pct = Math.round(Math.abs(r.ret)/maxAbsRet*100);
-    return '<div class="wb-t10-row'+(i===0?' wb-t10-rank1':'')+'">'+
-      '<span class="wb-t10-rank">'+(i+1)+'</span>'+
-      badge(r.t)+
-      '<span>'+evolChart(r.evol)+'</span>'+
-      '<span class="wb-t10-score">'+scorePill(r.score)+'</span>'+
-      '<span class="wb-t10-dias">'+r.entro+'</span>'+
-      '<span class="wb-t10-bar-track"><span class="wb-t10-bar-fill" style="width:'+pct+'%;background:'+c+';color:'+c+'"></span></span>'+
-      '<span class="wb-t10-ret" style="color:'+c+'">'+s+r.ret.toFixed(2)+'%</span>'+
-    '</div>';
-  }).join('');
-
-  var pTop10 = document.createElement('div');
-  pTop10.className = 'panel'; pTop10.id = 'wb-t10-panel';
-  pTop10.innerHTML =
-    '<div class="panel-head"><div>'+
-      '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre las que pasaron por el Top 20 del Warren Score en los últimos 10 días hábiles (28/8 al 11/9), con al menos '+DIAS_MINIMO+' ruedas adentro (evita apariciones de un solo día). Entró = fecha en la que apareció por primera vez en el Top 20 dentro de esta ventana. El retorno se mide desde esa fecha hasta hoy.">🏆 Retorno Top 10 del Warren Score</div>'+
-      '<div class="panel-sub">Retorno últimas 10 ruedas</div>'+
-    '</div></div>'+
-    '<div class="panel-body" style="padding:0;">'+
-      '<div class="wb-t10-hero">'+
-        '<div class="wb-t10-hero-col">'+
-          '<div class="wb-t10-hero-label">Retorno medio Top 10</div>'+
-          '<div class="wb-t10-hero-value" style="color:var(--green)">+'+PROMEDIO_TOP10.toFixed(2)+'%</div>'+
-        '</div>'+
-        '<div class="wb-t10-hero-col">'+
-          '<div class="wb-t10-hero-label">SPY</div>'+
-          '<div class="wb-t10-hero-value" style="color:'+(RET_SPY>=0?'var(--green)':'var(--red)')+'">'+(RET_SPY>=0?'+':'')+RET_SPY.toFixed(2)+'%</div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="wb-t10-thead"><span></span><span>Ticker</span><span>Evolución</span>'+
-        '<span>Score</span><span>Entró</span><span></span><span>Retorno</span></div>'+
-      t10Rows+
-    '</div>';
-
-  // ── Panel 2: Nuevos ingresos al Top 30 (ultima rueda, 10/9 -> 11/9) ──
-  // evol: RS Score semanal, ULTIMAS 16 SEMANAS (2026-09-12, pedido del
-  // usuario -- antes solo 3 puntos). Datos reales: rs_score_series()
-  // (mismo motor Python real del pipeline, ver actualizar_datos.py)
-  // corrido sobre 3 años de historial diario de cada ticker vs SPY,
-  // muestreado 1 punto cada 5 ruedas (≈1 semana), últimas 16. Misma
-  // idea que la columna "Evolución" real (rotacion_historia.json), acá
-  // recalculado a mano para la vista previa.
-  var NUEVOS30 = [
-    {t:'GRMN', score:87, rs:81.0,  ema200:14.47, vcp:false,
-      evol:[31.4,32.5,36.5,31.4,42.5,37.7,44.4,49.6,46.8,99.6,97.6,97.2,93.7,84.9,64.3,81.0]},
-    {t:'EBAY', score:85, rs:64.7,  ema200:7.59,  vcp:false,
-      evol:[95.2,78.6,88.9,83.7,90.5,89.3,98.4,82.1,81.3,90.1,61.1,30.9,46.0,29.0,49.2,64.7]},
-    {t:'ABBV', score:84, rs:77.8,  ema200:12.04, vcp:false,
-      evol:[5.2,5.2,29.0,18.6,52.0,84.1,77.8,91.3,98.4,96.4,39.7,48.8,93.2,75.8,78.6,77.8]},
-    {t:'SMH',  score:83, rs:76.2,  ema200:15.00, vcp:true,
-      evol:[100.0,100.0,98.0,97.6,97.6,94.8,92.9,82.9,87.7,77.8,79.0,81.0,73.8,75.8,67.1,76.2]},
-    {t:'XRX',  score:80, rs:81.8,  ema200:17.87, vcp:false,
-      evol:[51.2,55.2,58.7,56.8,55.6,54.4,42.1,36.1,34.9,75.0,64.3,60.7,48.4,57.5,75.4,81.8]},
-    {t:'NTRA', score:79, rs:98.0,  ema200:35.38, vcp:false,
-      evol:[30.2,41.7,67.1,56.4,97.6,99.6,98.8,94.0,92.9,95.6,78.2,98.4,100.0,99.2,96.8,98.0]}
-  ];
-  var n30Thead =
-    '<div class="wb-n30-cell wb-n30-th">Ticker</div>'+
-    '<div class="wb-n30-cell wb-n30-th">Score</div>'+
-    '<div class="wb-n30-cell wb-n30-th">RS</div>'+
-    '<div class="wb-n30-cell wb-n30-th">Dist. EMA200</div>'+
-    '<div class="wb-n30-cell wb-n30-th">VCP</div>'+
-    '<div class="wb-n30-cell wb-n30-th">Evolución</div>';
-  var n30Rows = NUEVOS30.length
-    ? NUEVOS30.map(function(r){
-        return '<div class="wb-n30-cell">'+badge(r.t)+'</div>'+
-          '<div class="wb-n30-cell wb-n30-score">'+r.score+'</div>'+
-          '<div class="wb-n30-cell wb-n30-num">'+r.rs.toFixed(1)+'</div>'+
-          '<div class="wb-n30-cell wb-n30-num">+'+r.ema200.toFixed(1)+'%</div>'+
-          '<div class="wb-n30-cell" title="VCP2 detectado">'+(r.vcp?'🧬':'—')+'</div>'+
-          '<div class="wb-n30-cell">'+evolChart(r.evol)+'</div>';
-      }).join('')
-    : '<div class="wb-n30-empty">Ningún ticker nuevo en la última rueda</div>';
-
-  var pNuevos30 = document.createElement('div');
-  pNuevos30.className = 'panel'; pNuevos30.id = 'wb-nuevos30-panel';
-  pNuevos30.innerHTML =
-    '<div class="panel-head"><div>'+
-      '<div class="panel-title" data-tooltip="Acciones que entraron al Top 30 del Warren Score en la última rueda (no estaban ayer, están hoy). 🧬 = tiene VCP2 detectado. Evolución = RS Score mes anterior → semana anterior → hoy.">🆕 Nuevos ingresos al Top 30</div>'+
-      '<div class="panel-sub">Última rueda (10/9 → 11/9)</div>'+
-    '</div></div>'+
-    '<div class="panel-body" style="padding:0;">'+
-      '<div class="wb-n30-grid">'+n30Thead+n30Rows+'</div>'+
-    '</div>';
-
-  var row = document.createElement('div');
-  row.className = 'grid-2'; row.id = 'wb-t10-nuevos-row';
-  row.appendChild(pTop10);
-  row.appendChild(pNuevos30);
-
-  // Se ubica DESPUÉS de Régimen de mercado + Cartelera del día (pedido
-  // del usuario, 2026-09-12 -- antes iba justo debajo del podio del
-  // Warren Score).
-  var rgmCart = document.querySelector('.wb-rgm-cart-row');
-  if(rgmCart && rgmCart.parentNode){
-    rgmCart.parentNode.insertBefore(row, rgmCart.nextSibling);
+  // evol de un ticker a partir del historial completo retenido (hasta
+  // ~85 ruedas): RS Score de cada día en que ese ticker estuvo en el Top
+  // 30 (fuera de eso no se guarda RS Score de los 383 tickers, sería
+  // repetir mucho dato por poco beneficio) -- últimos 16 puntos
+  // encontrados, en orden cronológico. Con historial corto (recién
+  // arrancando esta automatización) va a mostrar menos de 16 puntos, o
+  // "—" si hay menos de 2 -- evolChart ya contempla ese caso.
+  function evolDeTicker(historiaCompleta, ticker){
+    var vals = [];
+    historiaCompleta.forEach(function(dia){
+      var e = dia.top30.find(function(x){ return x.t === ticker; });
+      if(e && e.rs != null) vals.push(e.rs);
+    });
+    return vals.slice(-16);
   }
+
+  function construirPaneles(historia){
+    historia = Array.isArray(historia) ? historia.slice().sort(function(a,b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); }) : [];
+    var ventana = historia.slice(-DIAS_TOTAL);
+    var hayDatos = ventana.length >= 2;
+
+    var FILAS = [], PROMEDIO_TOP10 = 0, RET_SPY = 0, rangoTxt = '';
+    if(hayDatos){
+      var primero = ventana[0], ultimo = ventana[ventana.length-1];
+      rangoTxt = fmtFechaCorta(primero.fecha)+' al '+fmtFechaCorta(ultimo.fecha);
+
+      var apariciones = {};
+      ventana.forEach(function(dia){
+        dia.top30.slice(0,20).forEach(function(x){
+          if(!apariciones[x.t]) apariciones[x.t] = { count:0, entradaScore:x.s, entradaPrecio:x.p, entradaFecha:dia.fecha };
+          apariciones[x.t].count++;
+        });
+      });
+      FILAS = Object.keys(apariciones)
+        .filter(function(t){ return apariciones[t].count >= DIAS_MINIMO; })
+        .map(function(t){
+          var a = apariciones[t];
+          var precioHoy = ultimo.precios ? ultimo.precios[t] : null;
+          if(precioHoy == null || !a.entradaPrecio) return null;
+          return {
+            t: t, score: a.entradaScore, entro: fmtFechaCorta(a.entradaFecha),
+            ret: (precioHoy - a.entradaPrecio) / a.entradaPrecio * 100,
+            evol: evolDeTicker(historia, t)
+          };
+        })
+        .filter(Boolean)
+        .sort(function(x,y){ return y.ret - x.ret; })
+        .slice(0, 10);
+
+      if(FILAS.length){
+        PROMEDIO_TOP10 = FILAS.reduce(function(s,r){ return s+r.ret; }, 0) / FILAS.length;
+      }
+      if(primero.spy && ultimo.spy){
+        RET_SPY = (ultimo.spy - primero.spy) / primero.spy * 100;
+      }
+    }
+
+    var pTop10 = document.createElement('div');
+    pTop10.className = 'panel'; pTop10.id = 'wb-t10-panel';
+    if(!FILAS.length){
+      pTop10.innerHTML =
+        '<div class="panel-head"><div>'+
+          '<div class="panel-title">🏆 Retorno Top 10 del Warren Score</div>'+
+          '<div class="panel-sub">Recolectando datos históricos</div>'+
+        '</div></div>'+
+        '<div class="panel-body" style="text-align:center;color:var(--muted);font-size:12.5px;padding:22px 16px;">'+
+          'Este panel se arma con el cierre de cada rueda -- necesita al menos 2 cierres guardados para calcular retornos. Volvé a mirarlo en los próximos días.'+
+        '</div>';
+    } else {
+      var maxAbsRet = Math.max.apply(null, FILAS.map(function(r){ return Math.abs(r.ret); }));
+      var t10Rows = FILAS.map(function(r,i){
+        var c = r.ret>=0 ? 'var(--green)' : 'var(--red)';
+        var s = r.ret>=0 ? '+' : '';
+        var pct = Math.round(Math.abs(r.ret)/maxAbsRet*100);
+        return '<div class="wb-t10-row'+(i===0?' wb-t10-rank1':'')+'">'+
+          '<span class="wb-t10-rank">'+(i+1)+'</span>'+
+          badge(r.t)+
+          '<span>'+evolChart(r.evol)+'</span>'+
+          '<span class="wb-t10-score">'+scorePill(r.score)+'</span>'+
+          '<span class="wb-t10-dias">'+r.entro+'</span>'+
+          '<span class="wb-t10-bar-track"><span class="wb-t10-bar-fill" style="width:'+pct+'%;background:'+c+';color:'+c+'"></span></span>'+
+          '<span class="wb-t10-ret" style="color:'+c+'">'+s+r.ret.toFixed(2)+'%</span>'+
+        '</div>';
+      }).join('');
+      pTop10.innerHTML =
+        '<div class="panel-head"><div>'+
+          '<div class="panel-title" data-tooltip="Las 10 acciones con mejor retorno entre las que pasaron por el Top 20 del Warren Score en los últimos '+ventana.length+' días hábiles ('+rangoTxt+'), con al menos '+DIAS_MINIMO+' ruedas adentro (evita apariciones de un solo día). Entró = fecha en la que apareció por primera vez en el Top 20 dentro de esta ventana. El retorno se mide desde esa fecha hasta el último día analizado, aunque haya salido del Top en el medio.">🏆 Retorno Top 10 del Warren Score</div>'+
+          '<div class="panel-sub">Retorno últimas '+ventana.length+' ruedas</div>'+
+        '</div></div>'+
+        '<div class="panel-body" style="padding:0;">'+
+          '<div class="wb-t10-hero">'+
+            '<div class="wb-t10-hero-col">'+
+              '<div class="wb-t10-hero-label">Retorno medio Top 10</div>'+
+              '<div class="wb-t10-hero-value" style="color:'+(PROMEDIO_TOP10>=0?'var(--green)':'var(--red)')+'">'+(PROMEDIO_TOP10>=0?'+':'')+PROMEDIO_TOP10.toFixed(2)+'%</div>'+
+            '</div>'+
+            '<div class="wb-t10-hero-col">'+
+              '<div class="wb-t10-hero-label">SPY</div>'+
+              '<div class="wb-t10-hero-value" style="color:'+(RET_SPY>=0?'var(--green)':'var(--red)')+'">'+(RET_SPY>=0?'+':'')+RET_SPY.toFixed(2)+'%</div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="wb-t10-thead"><span></span><span>Ticker</span><span>Evolución</span>'+
+            '<span>Score</span><span>Entró</span><span></span><span>Retorno</span></div>'+
+          t10Rows+
+        '</div>';
+    }
+
+    // ── Panel 2: Nuevos ingresos al Top 30 (última rueda vs la anterior) ──
+    var NUEVOS30 = [], fechaAyer = null, fechaHoy = null;
+    if(hayDatos){
+      var hoy = ventana[ventana.length-1], ayer = ventana[ventana.length-2];
+      fechaHoy = hoy.fecha; fechaAyer = ayer.fecha;
+      var tickersAyer = {};
+      ayer.top30.forEach(function(x){ tickersAyer[x.t] = true; });
+      NUEVOS30 = hoy.top30
+        .filter(function(x){ return !tickersAyer[x.t]; })
+        .map(function(x){ return { t:x.t, score:x.s, rs:x.rs, ema200:x.ema200, vcp:x.vcp, evol: evolDeTicker(historia, x.t) }; });
+    }
+    var n30Thead =
+      '<div class="wb-n30-cell wb-n30-th">Ticker</div>'+
+      '<div class="wb-n30-cell wb-n30-th">Score</div>'+
+      '<div class="wb-n30-cell wb-n30-th">RS</div>'+
+      '<div class="wb-n30-cell wb-n30-th">Dist. EMA200</div>'+
+      '<div class="wb-n30-cell wb-n30-th">VCP</div>'+
+      '<div class="wb-n30-cell wb-n30-th">Evolución</div>';
+    var n30Rows = NUEVOS30.length
+      ? NUEVOS30.map(function(r){
+          return '<div class="wb-n30-cell">'+badge(r.t)+'</div>'+
+            '<div class="wb-n30-cell wb-n30-score">'+r.score+'</div>'+
+            '<div class="wb-n30-cell wb-n30-num">'+(r.rs!=null?r.rs.toFixed(1):'—')+'</div>'+
+            '<div class="wb-n30-cell wb-n30-num">'+(r.ema200!=null?((r.ema200>=0?'+':'')+r.ema200.toFixed(1)+'%'):'—')+'</div>'+
+            '<div class="wb-n30-cell" title="VCP2 detectado">'+(r.vcp?'🧬':'—')+'</div>'+
+            '<div class="wb-n30-cell">'+evolChart(r.evol)+'</div>';
+        }).join('')
+      : '<div class="wb-n30-empty">'+(hayDatos ? 'Ningún ticker nuevo en la última rueda' : 'Recolectando datos históricos -- volvé en los próximos días')+'</div>';
+
+    var pNuevos30 = document.createElement('div');
+    pNuevos30.className = 'panel'; pNuevos30.id = 'wb-nuevos30-panel';
+    pNuevos30.innerHTML =
+      '<div class="panel-head"><div>'+
+        '<div class="panel-title" data-tooltip="Acciones que entraron al Top 30 del Warren Score en la última rueda (no estaban en el cierre anterior, están en el de hoy). 🧬 = tiene VCP2 detectado.">🆕 Nuevos ingresos al Top 30</div>'+
+        '<div class="panel-sub">'+(hayDatos ? 'Última rueda ('+fmtFechaCorta(fechaAyer)+' → '+fmtFechaCorta(fechaHoy)+')' : 'Recolectando datos históricos')+'</div>'+
+      '</div></div>'+
+      '<div class="panel-body" style="padding:0;">'+
+        '<div class="wb-n30-grid">'+n30Thead+n30Rows+'</div>'+
+      '</div>';
+
+    var row = document.createElement('div');
+    row.className = 'grid-2'; row.id = 'wb-t10-nuevos-row';
+    row.appendChild(pTop10);
+    row.appendChild(pNuevos30);
+
+    // Se ubica DESPUÉS de Régimen de mercado + Cartelera del día (pedido
+    // del usuario, 2026-09-12 -- antes iba justo debajo del podio del
+    // Warren Score).
+    var rgmCart = document.querySelector('.wb-rgm-cart-row');
+    if(rgmCart && rgmCart.parentNode){
+      rgmCart.parentNode.insertBefore(row, rgmCart.nextSibling);
+    }
+  }
+
+  fetch(TOP20_HISTORIA_URL + '?t=' + Date.now())
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(historia){ construirPaneles(historia); })
+    .catch(function(){ construirPaneles([]); });
 }catch(e){ console.error('WB V47 top10/nuevos30 panel error', e); }
 })();
 </script>
