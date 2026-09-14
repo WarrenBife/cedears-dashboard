@@ -2609,7 +2609,25 @@ function showView(name) {
   }
   if (name === 'dashboard') {
     if (!DATOS.length) cargarDatos();
-    else { document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); renderEarnings(); }
+    else {
+      document.getElementById('loading').style.display = 'none'; poblarFiltros(); renderTodo(); renderEarnings();
+      // Bug real encontrado 2026-09-14 (caso "precios del viernes a las 11"):
+      // el pre-fetch silencioso de DATOS para las cards SPY/QQQ del home
+      // (más abajo, "Pre-fetch datos en background para mostrar precios en
+      // home") deja DATOS ya poblado ANTES de que el usuario entre al
+      // Dashboard. Como ese pre-fetch nunca pasa por cargarDatos(), nunca
+      // arma preciosTimer/refreshTimer -- y como acá el chequeo era solo
+      // "!DATOS.length", este branch (el que corre casi siempre, porque el
+      // 99% de las visitas pasan por home primero) tampoco los armaba.
+      // Resultado: ni el ticker de precio en vivo (actualizarPrecios) ni la
+      // recarga completa cada 5 min arrancaban NUNCA en toda la sesión.
+      // Fix: si los timers no están armados todavía, armarlos acá también.
+      if (!refreshTimer) {
+        actualizarPrecios();
+        preciosTimer = setInterval(actualizarPrecios, 5 * 60 * 1000);
+        refreshTimer = setInterval(cargarDatos, REFRESH_MS);
+      }
+    }
   }
   if (name === 'planilla') {
     cargarWatchlist().then(() => {
