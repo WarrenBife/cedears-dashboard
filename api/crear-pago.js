@@ -1,4 +1,4 @@
-const { MercadoPagoConfig, Preference, PreApproval, PreApprovalPlan } = require('mercadopago');
+const { MercadoPagoConfig, Preference, PreApproval } = require('mercadopago');
 
 const client   = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const SITE_URL = process.env.SITE_URL
@@ -8,6 +8,21 @@ const SITE_URL = process.env.SITE_URL
 const PRECIOS_MENSUAL    = { dashboard: 10000, planilla: 10000, both: 15000 };
 const PRECIO_ANUAL_COMBO = 100000; // solo combo Dashboard + Planilla
 
+// BUG DE MERCADOPAGO (detectado 2026-09-14, ver
+// https://github.com/mercadopago/sdk-nodejs/issues/480): desde el 4/9/2026
+// el init_point de un PreApproval sin plan viene con "&activation=true" y
+// esa URL tira "Esta página no existe" en el checkout hosteado de MP. La
+// misma URL sin ese parámetro carga el formulario de pago normal. Bug de
+// MP, no nuestro -- el workaround (sacar el parámetro antes de mandarle la
+// URL al pagador) confirmado funcionando a mano en el navegador.
+function _sacarActivationParam(url) {
+  try {
+    const u = new URL(url);
+    u.searchParams.delete('activation');
+    return u.toString();
+  } catch { return url; }
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -15,39 +30,6 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
-
-  // DIAGNOSTICO TEMPORAL (2026-09-14) -- investigar "Esta pagina no existe"
-  // en el checkout de MP, sin agregar un archivo nuevo en api/ (el plan
-  // Hobby de Vercel ya esta en el limite de 12 funciones). Solo responde
-  // esto si el body trae la clave secreta -- no afecta el flujo real de
-  // pago de ningun usuario. Se borra apenas se tenga el diagnostico.
-  if (req.body?.diag === 'wb-diag-2026-09-14-temporal') {
-    const out = {};
-    // Nueva hipotesis: crear un PLAN FRESCO por cada intento de pago (no
-    // reusar uno fijo), con external_reference puesto EN EL PLAN -- a ver
-    // si eso es un campo valido ahi y si se propaga al preapproval real
-    // que arma MP una vez que el usuario completa el checkout.
-    try {
-      const planApi = new PreApprovalPlan(client);
-      const plan = await planApi.create({
-        body: {
-          reason:              'Warren Bife Dashboard — Suscripción mensual',
-          external_reference:  'test-diagnostico-wb@example.com|dashboard',
-          auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: 10000, currency_id: 'ARS' },
-          back_url:            `${SITE_URL}/api/confirmar-suscripcion`,
-        },
-      });
-      out.plan_ok = true;
-      out.plan_id = plan.id;
-      out.plan_init_point = plan.init_point;
-      out.plan_external_reference_guardado = plan.external_reference;
-      out.plan_raw = plan;
-    } catch (e) {
-      out.plan_ok = false;
-      out.plan_error = { message: e?.message, cause: e?.cause, status: e?.status };
-    }
-    return res.status(200).json(out);
-  }
 
   const email    = (req.body?.email || '').toLowerCase().trim();
   const products = Array.isArray(req.body?.products) && req.body.products.length
@@ -117,7 +99,7 @@ module.exports = async (req, res) => {
     });
 
     return res.status(200).json({
-      init_point:     result.init_point,
+      init_point:     _sacarActivationParam(result.init_point),
       preapproval_id: result.id,
     });
   } catch (err) {
