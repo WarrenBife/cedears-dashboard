@@ -1,4 +1,4 @@
-const { MercadoPagoConfig, Preference, PreApproval } = require('mercadopago');
+const { MercadoPagoConfig, Preference, PreApproval, PreApprovalPlan } = require('mercadopago');
 
 const client   = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const SITE_URL = process.env.SITE_URL
@@ -15,6 +15,46 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+
+  // DIAGNOSTICO TEMPORAL (2026-09-14) -- investigar "Esta pagina no existe"
+  // en el checkout de MP, sin agregar un archivo nuevo en api/ (el plan
+  // Hobby de Vercel ya esta en el limite de 12 funciones). Solo responde
+  // esto si el body trae la clave secreta -- no afecta el flujo real de
+  // pago de ningun usuario. Se borra apenas se tenga el diagnostico.
+  if (req.body?.diag === 'wb-diag-2026-09-14-temporal') {
+    const token = process.env.MP_ACCESS_TOKEN || '';
+    const out = {
+      token_presente: !!token,
+      token_prefijo: token ? token.split('-')[0] : null,
+      token_largo: token.length,
+    };
+    try {
+      const planApi = new PreApprovalPlan(client);
+      const plan = await planApi.create({
+        body: {
+          reason: 'DIAGNOSTICO temporal - Plan Warren Bife',
+          auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: 100, currency_id: 'ARS' },
+          back_url: `${SITE_URL}/api/confirmar-suscripcion`,
+        },
+      });
+      out.plan_ok = true;
+      out.plan_id = plan.id;
+      out.plan_init_point = plan.init_point;
+    } catch (e) {
+      out.plan_ok = false;
+      out.plan_error = { message: e?.message, cause: e?.cause, status: e?.status };
+    }
+    try {
+      const preapprovalApi = new PreApproval(client);
+      const leido = await preapprovalApi.get({ id: req.body?.check_id });
+      out.get_ok = true;
+      out.get_raw = leido;
+    } catch (e) {
+      out.get_ok = false;
+      out.get_error = { message: e?.message, cause: e?.cause, status: e?.status };
+    }
+    return res.status(200).json(out);
+  }
 
   const email    = (req.body?.email || '').toLowerCase().trim();
   const products = Array.isArray(req.body?.products) && req.body.products.length
