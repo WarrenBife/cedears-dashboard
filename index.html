@@ -10781,9 +10781,27 @@ window.wbFeedbackEnviar = async function(){
   #wb-nuevos30-panel .wb-n30-empty{grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:12px;}
 
   @media(max-width:600px){
-    #wb-t10-panel .wb-t10-row,#wb-t10-panel .wb-t10-thead{padding:6px 14px;}
+    /* Mobile (2026-09-12, pedido del usuario): la regla 50/50 de la
+       barra es de escritorio -- en un celular esa mitad no deja lugar
+       para las otras 6 columnas (se ve todo amontonado a la izquierda,
+       el header se pisa). Acá se define un ancho FIJO propio por
+       columna (en vez de fr) y la barra pasa a ser la más chica del
+       grupo -- prioridad total a que ticker/evolución/score/entró se
+       lean bien, la barra queda de apoyo visual nomás (el % ya está en
+       "Retorno"). */
+    #wb-t10-panel .wb-t10-thead,
+    #wb-t10-panel .wb-t10-row{grid-template-columns:14px 60px 46px 32px 42px 38px 54px;
+      gap:4px;padding:6px 8px;}
+    #wb-t10-panel .wb-t10-thead{font-size:7.5px;line-height:1.2;white-space:normal;
+      padding:6px 8px;}
+    #wb-t10-panel .wb-t10-row{font-size:11px;}
+    #wb-t10-panel .wb-t10-dias{font-size:9px;}
+    #wb-t10-panel .wb-t10-ret{font-size:11px;}
+    #wb-t10-panel svg{width:100%;height:16px;}
+
     #wb-nuevos30-panel .wb-n30-grid{grid-template-columns:0.8fr 0.6fr 0.7fr 0.9fr 0.6fr 1fr;}
     #wb-nuevos30-panel .wb-n30-cell{padding:7px 3px;font-size:11px;}
+    #wb-nuevos30-panel .wb-n30-th{font-size:7.5px;line-height:1.2;white-space:normal;}
   }
 </style>
 <script id="wb-v47-js">
