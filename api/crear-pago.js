@@ -23,32 +23,28 @@ module.exports = async (req, res) => {
   // pago de ningun usuario. Se borra apenas se tenga el diagnostico.
   if (req.body?.diag === 'wb-diag-2026-09-14-temporal') {
     const out = {};
-    // Prueba combinada: preapproval CON preapproval_plan_id (reusa el plan
-    // ya creado en la prueba anterior) + payer_email/external_reference
-    // propios del usuario -- a ver si asi el checkout SI carga y ademas
-    // el sistema de reconciliacion (que matchea por external_reference)
-    // sigue funcionando igual que con el flujo viejo.
+    // Nueva hipotesis: crear un PLAN FRESCO por cada intento de pago (no
+    // reusar uno fijo), con external_reference puesto EN EL PLAN -- a ver
+    // si eso es un campo valido ahi y si se propaga al preapproval real
+    // que arma MP una vez que el usuario completa el checkout.
     try {
-      const preapprovalApi = new PreApproval(client);
-      const creado = await preapprovalApi.create({
+      const planApi = new PreApprovalPlan(client);
+      const plan = await planApi.create({
         body: {
-          preapproval_plan_id: '82bb255220ff42f099fcd86a1f225ef6',
-          reason:              'DIAGNOSTICO temporal - con plan',
+          reason:              'Warren Bife Dashboard — Suscripción mensual',
           external_reference:  'test-diagnostico-wb@example.com|dashboard',
-          payer_email:         'test-diagnostico-wb@example.com',
+          auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: 10000, currency_id: 'ARS' },
           back_url:            `${SITE_URL}/api/confirmar-suscripcion`,
-          status:              'pending',
         },
       });
-      out.create_ok = true;
-      out.id = creado.id;
-      out.status = creado.status;
-      out.init_point = creado.init_point;
-      out.payer_email_guardado = creado.payer_email;
-      out.external_reference_guardado = creado.external_reference;
+      out.plan_ok = true;
+      out.plan_id = plan.id;
+      out.plan_init_point = plan.init_point;
+      out.plan_external_reference_guardado = plan.external_reference;
+      out.plan_raw = plan;
     } catch (e) {
-      out.create_ok = false;
-      out.error = { message: e?.message, cause: e?.cause, status: e?.status };
+      out.plan_ok = false;
+      out.plan_error = { message: e?.message, cause: e?.cause, status: e?.status };
     }
     return res.status(200).json(out);
   }
