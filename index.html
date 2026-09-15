@@ -8492,6 +8492,26 @@ function _vcpqMejor(d){
            lifecycle: d['VCP2 Lifecycle'], fuente: 'VCP2' };
 }
 
+var VCPQ_TOP_N = 20;
+
+// Expone la lista de tickers que HOY entran en el Top 20 de este panel
+// (2026-09-15, pedido del usuario) -- la usa wbmCrossPanelItems() (fuera
+// de este closure, en el bloque de la ficha mobile) para decidir si
+// mostrar "También destaca en Bases VCP de Alta Calidad": antes esa
+// ficha solo miraba VCP2 Score>=60 sin el corte por ranking, y podía
+// marcar "destaca" un ticker que en los hechos no aparecía listado acá
+// (caso XRX, Score 71, afuera del Top 15/20 real). Misma fuente de
+// verdad que wbRenderVcpQuality, para que nunca se desincronicen.
+window.wbVcpqTop20 = function(){
+  if(!datosOK()) return [];
+  return filtrados()
+    .map(function(d){ return { t: d['Ticker'], m: _vcpqMejor(d) }; })
+    .filter(function(x){ return x.m.score !== null && x.m.score >= 60; })
+    .sort(function(a,b){ return b.m.score - a.m.score; })
+    .slice(0, VCPQ_TOP_N)
+    .map(function(x){ return x.t; });
+};
+
 var VCPQ_LIFECYCLE_LBL = {
   forming:'Formándose', armed:'Armado', executed:'Recién rompió',
   success:'Rompió y confirmó', fail_before:'Falló antes de romper',
@@ -8522,7 +8542,15 @@ function wbRenderVcpQuality(){
     .filter(function(x){ return x.m.score !== null && x.m.score >= 60; });
 
   rows.sort(function(a,b){ return b.m.score - a.m.score; });
-  rows = rows.slice(0, 15);
+  // Top 20, no 15 (2026-09-15, pedido del usuario): con más de 20
+  // tickers pasando el umbral de 60 en días de mercado activo, el corte
+  // de 15 dejaba afuera bases válidas (ej. XRX, Score 71, quedaba #19).
+  // VCPQ_TOP_N centralizado para que window.wbVcpqTop20() (más abajo,
+  // usado por la ficha del ticker para decidir si "destaca" en este
+  // panel) use SIEMPRE el mismo corte -- antes la ficha solo miraba el
+  // umbral de 60 sin el corte por ranking, y podía decir "destaca acá"
+  // para un ticker que en la práctica no entraba en la lista.
+  rows = rows.slice(0, VCPQ_TOP_N);
   // wb-vcpq-count vivía en .panel-sub -- sacada 2026-09-09 (ver popup
   // "⋮" del panel-head), ya no hay elemento que actualizar acá.
 
@@ -9988,7 +10016,12 @@ function wbmSignalItems(d){
    card nunca diga algo que el panel de origen no confirme:
    - 🎯 Rebotes en la EMA200 (calcEMA200Reversal, expuesto en window
      desde wb-v2-js -- devuelve null si no califica).
-   - 🧬 Bases VCP de Alta Calidad (WB UPGRADE V9): VCP Score ≥60.
+   - 🧬 Bases VCP de Alta Calidad (WB UPGRADE V9): VCP2 Score ≥60 Y
+     dentro del Top 20 real que muestra el panel (ver window.wbVcpqTop20,
+     expuesto por ese mismo panel -- fix 2026-09-15, caso XRX: antes acá
+     solo se miraba el umbral de 60 sin el corte por ranking, así que la
+     card podía decir "destaca acá" para un ticker que en los hechos
+     quedaba afuera de la lista por no entrar en el Top 20).
    - 📊 Volumen inusual hoy: Vol Inusual % >50 (mismo umbral que usa
      el resto de la app -- quickFilter 'vol', contador 'st-vol', etc.).
    `panelId` (cuando está presente) hace clickeable el ítem -- cierra
@@ -10006,8 +10039,13 @@ function wbmCrossPanelItems(d){
   // Alta Calidad" filtra por VCP2 desde que se sacó el detector viejo
   // (commit e81d037), así que esto podía marcar "destaca en" un panel
   // donde el ticker en realidad no aparecía (o al revés).
+  // Fix 2026-09-15 (caso XRX): el umbral de 60 solo no alcanza -- el
+  // panel además corta en el Top 20 por Score. Se usa window.wbVcpqTop20()
+  // (misma fuente que arma la lista real del panel) para no repetir la
+  // lógica dos veces y terminar desincronizados de nuevo.
   var vcpScore = Number(d['VCP2 Score']);
-  if (!isNaN(vcpScore) && vcpScore >= 60) {
+  var vcpEnTop20 = typeof window.wbVcpqTop20 === 'function' && window.wbVcpqTop20().indexOf(d['Ticker']) !== -1;
+  if (!isNaN(vcpScore) && vcpScore >= 60 && vcpEnTop20) {
     items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore), panelId:'wb-vcpq-panel'});
   }
   var volInu = d['Vol Inusual %'];
