@@ -10784,13 +10784,24 @@ window.wbFeedbackEnviar = async function(){
     /* Mobile (2026-09-12, pedido del usuario): la regla 50/50 de la
        barra es de escritorio -- en un celular esa mitad no deja lugar
        para las otras 6 columnas (se ve todo amontonado a la izquierda,
-       el header se pisa). Acá se define un ancho FIJO propio por
-       columna (en vez de fr) y la barra pasa a ser la más chica del
-       grupo -- prioridad total a que ticker/evolución/score/entró se
-       lean bien, la barra queda de apoyo visual nomás (el % ya está en
-       "Retorno"). */
+       el header se pisa). Acá se define un peso propio por columna
+       (en vez del 1fr...6fr...1fr de escritorio) y la barra pasa a ser
+       la mas chica del grupo -- prioridad total a que ticker/evolución/
+       score/entró se lean bien, la barra queda de apoyo visual nomás
+       (el % ya está en "Retorno").
+
+       fr, no px fijo (2026-09-15, pedido del usuario, bug real: con
+       anchos fijos en px la suma de las 7 columnas + gaps quedaba por
+       debajo del ancho real de pantalla en la mayoría de los celulares
+       -- el sobrante no se reparte solo en un grid de anchos fijos,
+       queda como espacio muerto al final, y las columnas se ven todas
+       amontonadas a la izquierda en vez de equidistantes. Con fr las
+       columnas siempre ocupan el 100% del ancho disponible manteniendo
+       la misma proporción relativa de antes, y quedan centradas con su
+       título (text-align:center ya aplicado a thead/row más arriba, es
+       el mismo grid-template-columns para header y filas). */
     #wb-t10-panel .wb-t10-thead,
-    #wb-t10-panel .wb-t10-row{grid-template-columns:14px 60px 46px 32px 42px 38px 54px;
+    #wb-t10-panel .wb-t10-row{grid-template-columns:0.4fr 1.7fr 1.3fr 0.9fr 1.2fr 1.1fr 1.5fr;
       gap:4px;padding:6px 8px;}
     #wb-t10-panel .wb-t10-thead{font-size:7.5px;line-height:1.2;white-space:normal;
       padding:6px 8px;}
