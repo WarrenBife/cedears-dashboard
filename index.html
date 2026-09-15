@@ -9930,11 +9930,18 @@ function wbmPenaltyItems(d, flags, restaChop){
     if (WBM_PEN_LABEL[f]) items.push({emoji:f, label:WBM_PEN_LABEL[f], pts:WBM_PEN_PTS[f]});
   });
   if (agot.length){
+    // Peso diferenciado (2026-08-28, ver _penalizacionesV50): Div RSI 8pts,
+    // Div OBV 4pts, Churn Máximos 4pts, tope 14 combinados -- este bloque
+    // se había quedado con la fórmula vieja (4 solo / 10 combinado, previa
+    // al cambio) y mostraba mal el desglose en la card aunque el Score en
+    // sí ya usaba el peso correcto (caso HOG: Score restaba 8 por Div RSI
+    // sola, la card decía 4 -- "¿dónde están los otros 4?").
     var lbl = {'📉':'Divergencia RSI','🪫':'Divergencia OBV','🐘':'Churning en máximos'};
+    var pesoAgot = (agot.indexOf('📉')>=0?8:0) + (agot.indexOf('🪫')>=0?4:0) + (agot.indexOf('🐘')>=0?4:0);
     items.push({
       emoji: agot.join(''),
       label: agot.map(function(f){ return lbl[f]; }).join(' + '),
-      pts: agot.length >= 2 ? 10 : 4
+      pts: Math.min(pesoAgot, 14)
     });
   }
   return items;
