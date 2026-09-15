@@ -450,7 +450,15 @@ var calcWarrenDetalleV50 = function(d){
   // de usar acá.
   const atrGate = d['ATR14 %'];
   const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
-  if (score > 80 && !entradaSana) score = 79;
+  // Advertencia visible del gate (2026-09-15, sincronizado con index.html) --
+  // gateATRPts + flag 🌡️ para que el ranking del pipeline (wb_top20_historia.js)
+  // sepa igual que el navegador cuánto le costó el tope a cada ticker.
+  let gateATRPts = 0;
+  if (score > 80 && !entradaSana) {
+    gateATRPts = Math.round((score - 79) * 10) / 10;
+    score = 79;
+    flags.push('🌡️');
+  }
 
   // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
   // usuario, caso XYZ) -- ojo: usa 'Vela Rechazo Confirmada' (dispara +
@@ -475,7 +483,7 @@ var calcWarrenDetalleV50 = function(d){
   // sumaba un cachetazo binario extra por la misma señal que Pilar A ya
   // penaliza de forma proporcional.
 
-  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, bomba, version: WB_SCORE_VERSION_50 };
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, gateATRPts, sacudon, bomba, version: WB_SCORE_VERSION_50 };
 };
 
 
