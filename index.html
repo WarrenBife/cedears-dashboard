@@ -7976,11 +7976,7 @@ function draw(){
        estela corta se dibuja pareja/marcada (t_ratio fijo en 1, sin el
        desvanecido hacia atrás que tenía antes) -- con 56 ETFs sueltos
        cruzándose, el degradé interno de cada estela sumaba ruido visual
-       ("3 semanas bien marcada y el resto mas suave"). El degradé
-       (más tenue hacia atrás, más marcado el segmento reciente) se
-       mantiene SOLO para la estela larga de 16 semanas, cuando el ETF
-       está resaltado por filtro o burbuja -- ahí sí ayuda a leer la
-       dirección del recorrido en vez de sumar ruido.
+       ("3 semanas bien marcada y el resto mas suave").
 
        Default baja de 3 a 1 semana (2026-09-15, pedido del usuario):
        con los 56 ETFs sueltos (sin ningún filtro tildado) 3 semanas de
@@ -7988,7 +7984,16 @@ function draw(){
        -- con 1 sola semana (un segmento corto por ETF) el cuadro queda
        legible de entrada. Se ve la estela larga y completa recién
        cuando se aplica un filtro (dropdown o click en burbuja) sobre
-       el/los ETF resaltado/s -- sin cambios en esa parte. */
+       el/los ETF resaltado/s.
+
+       Estela larga TAMBIÉN pareja/marcada, sin degradé (2026-09-15,
+       2do pedido del usuario, mismo día): el degradé (más tenue hacia
+       atrás, más marcado el segmento reciente) que tenía la estela de
+       16 semanas cuando el ETF está resaltado hacía que las semanas
+       viejas casi no se vieran -- pedido explícito de que se vean las
+       16 semanas completas y bien marcadas, parejo de punta a punta,
+       igual que ya pasa con la estela corta sin filtro. t_ratio queda
+       fijo en 1 siempre, ya no depende de esResaltado. */
     if(rrgSource==='real' && pts.length>=2){
       const esResaltado = hasSel && isSel;
       const TRAIL = esResaltado ? 16 : 1;
@@ -7996,7 +8001,7 @@ function draw(){
       const tPts=visPts.slice(Math.max(0,visPts.length-TRAIL-1));
       const n=tPts.length;
       for(let i=1;i<n;i++){
-        const t_ratio = esResaltado ? i/(n-1) : 1;
+        const t_ratio = 1;
         const a=t_ratio*0.72*alpha;
         ctx.strokeStyle=`rgba(${rgb},${a})`;
         ctx.lineWidth=0.8+t_ratio*2.2;
