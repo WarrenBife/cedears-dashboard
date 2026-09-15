@@ -431,34 +431,9 @@ var calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): si el papel
-  // es muy volátil en términos absolutos (ATR14%>4), topea en 79.
-  // Único hallazgo de toda la sesión de investigación que sobrevivió
-  // el escrutinio riguroso (mercado, sector, ML, reponderar pilares) --
-  // leave-one-year-out sobre 306 tickers, sube P(subir a 10r) de
-  // ~50-52% a ~53-55%.
-  //
-  // 2026-09-06 (pedido del usuario, caso MU): se saca la excepción del
-  // percentil relativo (ATR14 Pctl>70) que se había agregado el
-  // 2026-09-01 -- vuelve a ser SOLO el criterio absoluto, sin OR. La
-  // excepción no le servía de nada a MU específicamente (percentil 13,
-  // lejísimos de 70, sigue gateado igual con o sin ella) y el usuario
-  // prefirió simplificar la regla para todos en vez de mantener una
-  // excepción que en la práctica casi no cambiaba resultados. El campo
-  // 'ATR14 Pctl' sigue calculándose en el pipeline (usado en la card
-  // de contracción y disponible para análisis futuros), solo se dejó
-  // de usar acá.
-  const atrGate = d['ATR14 %'];
-  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
-  // Advertencia visible del gate (2026-09-15, sincronizado con index.html) --
-  // gateATRPts + flag 🌡️ para que el ranking del pipeline (wb_top20_historia.js)
-  // sepa igual que el navegador cuánto le costó el tope a cada ticker.
-  let gateATRPts = 0;
-  if (score > 80 && !entradaSana) {
-    gateATRPts = Math.round((score - 79) * 10) / 10;
-    score = 79;
-    flags.push('🌡️');
-  }
+  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28 a 2026-09-15,
+  // ELIMINADO -- sincronizado con index.html, ver ese archivo para el
+  // detalle completo de por qué se sacó).
 
   // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
   // usuario, caso XYZ) -- ojo: usa 'Vela Rechazo Confirmada' (dispara +
@@ -483,7 +458,7 @@ var calcWarrenDetalleV50 = function(d){
   // sumaba un cachetazo binario extra por la misma señal que Pilar A ya
   // penaliza de forma proporcional.
 
-  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, gateATRPts, sacudon, bomba, version: WB_SCORE_VERSION_50 };
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, bomba, version: WB_SCORE_VERSION_50 };
 };
 
 

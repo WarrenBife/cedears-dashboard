@@ -9388,37 +9388,19 @@ window.calcWarrenDetalleV50 = function(d){
     score = Math.min(score, 40);
   }
 
-  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28): si el papel
-  // es muy volátil en términos absolutos (ATR14%>4), topea en 79.
-  // Único hallazgo de toda la sesión de investigación que sobrevivió
-  // el escrutinio riguroso (mercado, sector, ML, reponderar pilares) --
-  // leave-one-year-out sobre 306 tickers, sube P(subir a 10r) de
-  // ~50-52% a ~53-55%.
-  //
-  // 2026-09-06 (pedido del usuario, caso MU): se saca la excepción del
-  // percentil relativo (ATR14 Pctl>70) que se había agregado el
-  // 2026-09-01 -- vuelve a ser SOLO el criterio absoluto, sin OR. La
-  // excepción no le servía de nada a MU específicamente (percentil 13,
-  // lejísimos de 70, sigue gateado igual con o sin ella) y el usuario
-  // prefirió simplificar la regla para todos en vez de mantener una
-  // excepción que en la práctica casi no cambiaba resultados. El campo
-  // 'ATR14 Pctl' sigue calculándose en el pipeline (usado en la card
-  // de contracción y disponible para análisis futuros), solo se dejó
-  // de usar acá.
-  const atrGate = d['ATR14 %'];
-  const entradaSana = (atrGate !== null && atrGate !== undefined && atrGate <= 4);
-  // Advertencia visible del gate (2026-09-15, pedido del usuario): antes
-  // el tope a 79 era mudo -- no aparecía ni en la columna Penalización ni
-  // en la card, así que un papel gateado se veía igual que uno que
-  // legítimamente sacó 79. gateATRPts guarda cuánto le costó el tope
-  // (score bruto - 79) para mostrarlo como un ítem más del desglose,
-  // igual que ya se hace con 🌊/🪤/🌪️ (puntos variables, no fijos).
-  let gateATRPts = 0;
-  if (score > 80 && !entradaSana) {
-    gateATRPts = Math.round((score - 79) * 10) / 10;
-    score = 79;
-    flags.push('🌡️');
-  }
+  // Gate "calidad de entrada" en el tramo 80+ (2026-08-28 a 2026-09-15,
+  // ELIMINADO a pedido del usuario) -- topeaba en 79 si el papel era muy
+  // volátil en términos absolutos (ATR14%>4). Había sobrevivido el
+  // escrutinio riguroso de su validación original (leave-one-year-out
+  // sobre 306 tickers, sube P(subir a 10r) de ~50-52% a ~53-55%), pero
+  // en la práctica diaria casi nunca disparaba (4 de 383 tickers el
+  // 15/9) y agregarle de vuelta la excepción del percentil relativo
+  // (ATR14 Pctl>70, sacada el 6/9 por el caso MU) no cambiaba ninguno de
+  // esos 4 casos -- el usuario decidió sacarlo directamente en vez de
+  // mantener una regla que rara vez se notaba. La advertencia visible
+  // 🌡️ que se le había agregado el mismo día (columna Penalización +
+  // card) se sacó entera junto con el gate -- ver historial de commits
+  // si hace falta reponer cualquiera de los dos.
 
   // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
   // usuario, caso XYZ) -- ojo: usa 'Vela Rechazo Confirmada' (dispara +
@@ -9443,7 +9425,7 @@ window.calcWarrenDetalleV50 = function(d){
   // sumaba un cachetazo binario extra por la misma señal que Pilar A ya
   // penaliza de forma proporcional.
 
-  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, gateATRPts, sacudon, bomba, version: WB_SCORE_VERSION_50 };
+  return { score, fallas, pa, pb, pc, pd, pen, flags, restaVert, velocidadAtrs, restaChop, sacudon, bomba, version: WB_SCORE_VERSION_50 };
 };
 
 window.calcWarrenDetalle = window.calcWarrenDetalleV50;
@@ -9533,8 +9515,7 @@ window.renderWarrenScore = function() {
     '🧨':'Agotamiento OBV + Divergencia RSI a la vez — castigo más severo',
     '🕯️':'No demand en ruptura: rompió el máximo de 40 ruedas con velas sin cuerpo y volumen seco. Activo hasta 2 velas verdes seguidas',
     '🪤':'Pendiente SMA50 pronunciada con buen RS Score: ya rebotó pero la media de 50 todavía no confirma',
-    '⚠️':'Posible toma de ganancias: vela de rechazo en zona de máximos. Si confirma (día siguiente en rojo), tapa el Score en 70 hasta 2 verdes seguidos o un nuevo máximo',
-    '🌡️':'Gate calidad 80+: ATR14% > 4% (papel muy volátil en términos absolutos) — el Score queda topeado en 79 aunque el resto diera más'
+    '⚠️':'Posible toma de ganancias: vela de rechazo en zona de máximos. Si confirma (día siguiente en rojo), tapa el Score en 70 hasta 2 verdes seguidos o un nuevo máximo'
   };
   // Penalizaciones (2026-08-29, más chica y con los emojis al lado en vez
   // de abajo): barrita angosta sin el box/borde de .wbm-pbar + número,
@@ -9902,8 +9883,7 @@ var WBM_PEN_LABEL = {
   '🧨':'Agotamiento OBV + Divergencia RSI', '🌫️':'Agotamiento OBV',
   '🕯️':'No demand en ruptura: siguió subiendo sin cuerpo de vela ni volumen',
   '🪤':'Pendiente SMA50 pronunciada (buen RS Score, la media todavía no confirma)',
-  '🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real',
-  '🌡️':'Gate calidad 80+ (ATR14% > 4%): tope en 79 aunque el resto del Score diera más'
+  '🌪️':'Volatilidad sin dirección: velas grandes que no se traducen en avance real'
 };
 var WBM_PEN_PTS = {'🎈':6, '🩸':15, '💥':8, '⛔':10, '🧨':12, '🌫️':5};
 
@@ -9914,15 +9894,11 @@ var WBM_PEN_PTS = {'🎈':6, '🩸':15, '💥':8, '⛔':10, '🧨':12, '🌫️'
    (no hay rama "if (f==='🌪️')" ni cae en el fallback generico porque los
    puntos son variables), asi que en mobile la card de Penalizaciones lo
    descartaba en silencio aunque el flag estuviera activo. */
-function wbmPenaltyItems(d, flags, restaChop, gateATRPts){
+function wbmPenaltyItems(d, flags, restaChop){
   var items = [];
   var agot = [];
   (flags||[]).forEach(function(f){
     if (f==='📉' || f==='🪫' || f==='🐘') { agot.push(f); return; }
-    if (f==='🌡️'){
-      items.push({emoji:'🌡️', label:WBM_PEN_LABEL['🌡️'], pts: Math.round(gateATRPts||0)});
-      return;
-    }
     if (f==='🧊'){
       var esFallo = d['Rebote SMA10 Estado']==='falso';
       items.push({emoji:'🧊', label: esFallo?'Rebote en SMA10 fallido':'Churning en resistencia', pts: esFallo?8:6});
@@ -10343,7 +10319,7 @@ window.wbmOpenDetail = function(ticker){
     : '<div class="wbm-gate-item"><div class="wbm-gate-check" style="background:var(--red-bg);border-color:rgba(240,96,90,0.4)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>' +
       '<div class="wbm-gate-text">' + _wbmEsc(fallas.join(', ')) + '</div><div class="wbm-gate-val" style="color:var(--red)">' + gateVal + '</div></div>';
 
-  var items = wbmPenaltyItems(d, flags, det.restaChop, det.gateATRPts);
+  var items = wbmPenaltyItems(d, flags, det.restaChop);
   // Total = suma de los pts de los items ya listados, no det.pen: restaChop
   // (🌪️) resta directo del Pilar C, no de "pen" -- Math.abs(pen) se quedaba
   // afuera de esos puntos y el total no cerraba con lo que se veía en la
@@ -11698,8 +11674,7 @@ function wbShowWarrenInfo(){
         '🧊 <b>Churning en resistencia</b> — Volumen alto sin avance cerca de un máximo previo — posible toma de ganancias<br>' +
         '🌊 <b>Caso B</b> — Deambulando cerca de un máximo previo sin romperlo, con volumen que no baja — alto riesgo de fracaso<br>' +
         '🪤 <b>Pendiente SMA50 pronunciada</b> — Ya rebotó pero la media de 50 todavía no confirma — riesgo de que vuelva a caer<br>' +
-        '⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente). Si el día siguiente confirma cerrando en rojo, tapa el Score en 70 hasta que sostenga 2 días verdes seguidos o haga un nuevo máximo<br>' +
-        '🌡️ <b>Gate calidad 80+</b> — ATR14% mayor a 4% (papel muy volátil en términos absolutos): el Score queda topeado en 79 aunque el resto diera más' +
+        '⚠️ <b>Posible toma de ganancias</b> — Vela con mecha superior larga y cierre débil, con volumen alto, en zona de máximos (52 semanas o reciente). Si el día siguiente confirma cerrando en rojo, tapa el Score en 70 hasta que sostenga 2 días verdes seguidos o haga un nuevo máximo' +
       '</div>' +
       '<div style="margin-top:10px;color:var(--text);font-size:9px;text-transform:uppercase;letter-spacing:.05em">Contexto favorable — no penalizan</div>' +
       '<div style="line-height:1.9;margin-top:4px">' +
