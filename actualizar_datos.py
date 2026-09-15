@@ -2838,16 +2838,42 @@ def _vcp2_evaluate_lifecycle(df_o, df_h, df_l, df_c, df_v, last, pivot, stop,
             breakout_vol_ratio = (float(df_v[i]) / vsma) if vsma > 0 else None
             break
 
-        if low_i_ < stop * (1.0 - stop_buffer):
+        # Perforacion del stop por CUERPO, no por mecha (2026-09-15, pedido
+        # del usuario, caso XRX): antes se comparaba contra low_i_ (mecha) --
+        # XRX perforo el stop de $2.81 con una mecha a $2.78 el 25/8, pero el
+        # cuerpo de esa vela (open $2.88 / close $2.95) nunca bajo de $2.88,
+        # bien arriba del stop. Mismo criterio que ya usa el resto del
+        # detector (zigzag por cierre, body_low en sequence_quality) --
+        # un pinchazo intradia que la vela recupera no deberia cancelar la
+        # base. La excepcion de sacudon (shakeout_ok, RS>85) sigue mirando
+        # la mecha real: ahi el pinchazo violento ES el evento que se quiere
+        # perdonar, no algo a filtrar.
+        body_low_i = min(float(open_i), float(close_i))
+        if body_low_i < stop * (1.0 - stop_buffer):
             if shakeout_ok:
                 flags.append('undercut_perdonado_rs_alto')
                 stop = min(stop, float(low_i_))
             else:
-                flags.append('undercut_stop_pre')
-                return {'lifecycle': 'fail_before', 'reason': 'perforo el low de la ultima T antes de romper el pivot',
-                        'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
-                        'mae_pct': round((float(low_i_) / pivot - 1) * 100, 2),
-                        'breakout_vol_ratio': None, 'flags': flags}
+                # Aguante de 2 ruedas (2026-09-15, pedido del usuario, mismo
+                # criterio que _vcp2_swing_tail_holdover): una perforacion
+                # por cuerpo tampoco cancela de una si las 2 ruedas
+                # siguientes cierran por encima del minimo (mecha) de ESTA
+                # vela -- ese minimo pasa a ser el nuevo stop y la base
+                # sigue viva. Si no hay 2 ruedas siguientes todavia (la
+                # perforacion es de hoy o ayer), se da el beneficio de la
+                # duda: no se cancela, queda pendiente de confirmar mañana.
+                hay_2_ruedas = (i + 2) < n
+                recupero = hay_2_ruedas and float(df_c[i + 1]) > float(low_i_) and float(df_c[i + 2]) > float(low_i_)
+                if not hay_2_ruedas or recupero:
+                    if recupero:
+                        flags.append('undercut_perdonado_recupero_2r')
+                        stop = min(stop, float(low_i_))
+                else:
+                    flags.append('undercut_stop_pre')
+                    return {'lifecycle': 'fail_before', 'reason': 'perforo el low de la ultima T antes de romper el pivot',
+                            'cancelled': True, 'breakout_i': None, 'outcome_i': i, 'mfe_pct': 0.0,
+                            'mae_pct': round((float(low_i_) / pivot - 1) * 100, 2),
+                            'breakout_vol_ratio': None, 'flags': flags}
 
         post_high = float(np.max(df_h[start:i + 1]))
         if post_high > 0:
