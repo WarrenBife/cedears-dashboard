@@ -6,11 +6,34 @@ on:
     - cron: '45 15 * * 1-5'  # respaldo (2026-08-31): el cron nativo de GitHub se retrasa/saltea corridas seguido en repos de poco trafico -- si la de las 15:00 UTC no dispara, esta la reemplaza
     - cron: '0 20 * * 1-5'   # 17:00 Argentina (UTC-3) = 20:00 UTC
     - cron: '45 20 * * 1-5'  # respaldo de la corrida de cierre (ver es_corrida_cierre en actualizar_datos.py -- ya no depende del minuto exacto, solo de la hora)
-  workflow_dispatch:         # permite correrlo manualmente desde GitHub
+  workflow_dispatch:         # permite correrlo manualmente desde GitHub -- también
+                              # lo usa el disparador externo (2026-09-15, pedido del
+                              # usuario: el cron nativo de GitHub venía disparando la
+                              # corrida de cierre con horas de atraso -- 19:46 ART en
+                              # vez de 17:00/17:45 -- un servicio externo (cron-job.org
+                              # o similar) llama a este mismo workflow_dispatch con
+                              # inputs.cierre=true a la hora exacta que se quiera).
+                              # Los cron de arriba NO se sacan: quedan de respaldo --
+                              # wb_top20_historia.js ya es idempotente por fecha (ver
+                              # ese archivo), así que si el externo y el nativo
+                              # terminan corriendo el mismo día no se duplica nada.
+    inputs:
+      cierre:
+        description: 'Tratar esta corrida como la corrida de CIERRE (para el disparador externo, o para forzarla a mano)'
+        required: false
+        default: 'false'
 
 jobs:
   actualizar:
     runs-on: ubuntu-latest
+    env:
+      # Verdadero si es la corrida de cierre -- por el cron nativo (string
+      # exacto) O por el disparador externo/manual (inputs.cierre=true).
+      # Centralizado acá (2026-09-15) para no repetir la condición en cada
+      # "if" de más abajo -- antes solo miraba el string del cron, así que
+      # un workflow_dispatch (disparador externo incluido) SIEMPRE caía
+      # como "no es cierre", aunque la intención fuera esa.
+      ES_CIERRE: ${{ github.event.schedule == '0 20 * * 1-5' || github.event.schedule == '45 20 * * 1-5' || github.event.inputs.cierre == 'true' }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -26,11 +49,16 @@ jobs:
       - name: Ejecutar Colab script
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-          RUN_SCHEDULE: ${{ github.event.schedule }}
+          # RUN_SCHEDULE solo necesita ser un string NO VACÍO para que
+          # es_corrida_cierre() en actualizar_datos.py lo tome como cierre
+          # (ese chequeo además exige que la hora UTC real sea 20) -- si
+          # viene de ES_CIERRE (disparador externo) no hay string de cron
+          # real, así que se manda un valor cualquiera no vacío.
+          RUN_SCHEDULE: ${{ github.event.schedule || (env.ES_CIERRE == 'true' && 'external-cierre' || '') }}
         run: python actualizar_datos.py
 
       - name: Setup Node
-        if: github.event.schedule == '0 20 * * 1-5' || github.event.schedule == '45 20 * * 1-5'
+        if: env.ES_CIERRE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -42,7 +70,7 @@ jobs:
       # datos.json que acaba de escribir el paso de arriba en este mismo
       # checkout -- no hace falta bajarlo de nuevo.
       - name: Ranking diario Top 20/30 (Retorno Top 10 del Warren Score)
-        if: github.event.schedule == '0 20 * * 1-5' || github.event.schedule == '45 20 * * 1-5'
+        if: env.ES_CIERRE == 'true'
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: node wb_top20_historia.js
