@@ -2487,6 +2487,51 @@ def _vcp2_clean_swings(swings, close, min_gap=2):
     return cleaned
 
 
+def _vcp2_swing_tail_holdover(close, swings, hold_dias=2):
+    """Confirma provisoriamente el extremo MAS RECIENTE (la punta, todavia
+    sin cerrar) si el cierre no lo perfora durante `hold_dias` ruedas
+    seguidas -- aunque el rebote/caida posterior nunca llegue a cubrir el
+    umbral por % que exige _vcp2_zigzag_swings (2026-09-15, pedido del
+    usuario, caso CRWD): el minimo del 2/9 (cierre 203.42) recien quedaba
+    confirmado el 14/9 (el mismo dia del breakout) porque ningun rebote
+    intermedio supero el umbral por % (pedia +7.7/8.2% con el ATR de esos
+    dias; el mejor rebote intermedio fue +5.68% el 3/9) -- con este
+    aguante de 2 ruedas hubiera quedado listo el 4/9, mucho antes.
+
+    A PROPOSITO solo toca la punta, nunca reevalua el historial ya
+    asentado: aplicar el mismo aguante DENTRO del zigzag (probado
+    primero) duplica o triplica la cantidad de swings en toda la serie
+    -- 2 ruedas sin violar un extremo es algo que pasa todo el tiempo en
+    medio de una tendencia, no solo en los giros reales, y esa version
+    rompia casos ya afinados (PM y C pasaban de Score 82-83/armado a 0).
+    Aca en cambio se busca el minimo/maximo de cierre DESPUES del ultimo
+    swing ya confirmado (si ese ultimo swing es 'H' buscamos el minimo,
+    si es 'L' el maximo) y, si ese extremo quedo sin perforar durante
+    `hold_dias` ruedas, se agrega como un swing mas al final de la
+    lista -- listo para que _vcp2_extract_contractions lo empareje como
+    la ultima contraccion, igual que si el zigzag lo hubiera confirmado
+    por umbral."""
+    if not swings:
+        return swings
+    n = len(close)
+    last_i, last_px, last_t = swings[-1]
+    tail = close[last_i + 1:]
+    if len(tail) < hold_dias + 1:
+        return swings
+    if last_t == 'H':
+        idx_rel = int(np.argmin(tail))
+        cand_tipo = 'L'
+    else:
+        idx_rel = int(np.argmax(tail))
+        cand_tipo = 'H'
+    cand_i = last_i + 1 + idx_rel
+    cand_px = float(tail[idx_rel])
+    dias_sin_violar = (n - 1) - cand_i
+    if dias_sin_violar >= hold_dias:
+        return swings + [(cand_i, cand_px, cand_tipo)]
+    return swings
+
+
 def _vcp2_mean_down_volume(close, open_, volume, start, end):
     c_s = close[start:end + 1]; o_s = open_[start:end + 1]; v_s = volume[start:end + 1]
     if len(c_s) == 0:
@@ -2925,6 +2970,7 @@ def _detectar_vcp2_raw(hist, rs_score=None, pivot_order=3):
 
         swings = _vcp2_zigzag_swings(h, l, c)
         swings = _vcp2_clean_swings(swings, c)
+        swings = _vcp2_swing_tail_holdover(c, swings)
         if len(swings) < 3:
             return dict(NULL, **{'VCP2 Score': 0})
 
