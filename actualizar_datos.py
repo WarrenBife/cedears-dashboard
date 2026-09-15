@@ -2587,20 +2587,37 @@ def _vcp2_extract_contractions(df_o, df_h, df_l, df_c, df_v, swings, lookback=12
     # solo mira si el precio ACTUAL supero el pivote, no si un techo
     # NUEVO y mucho mas alto aparecio en el medio del patron. Un VCP de
     # verdad se contrae bajo (mas o menos) el MISMO techo -- cada cima
-    # puede quedar igual (+-1%) o por debajo de la anterior; si sube mas
-    # de 1% ya no es la misma base, son dos tramos de tendencia distintos
+    # puede quedar igual o por debajo de la anterior; si sube demasiado
+    # ya no es la misma base, son dos tramos de tendencia distintos
     # empalmados. Se compara CUERPO de vela (max open/close), no mecha,
     # para no dejar que un gap de un solo dia distorsione la comparacion.
     # Se camina de la mas vieja a la mas nueva y se trunca en cuanto
     # aparece una cima que sube demasiado -- se conserva el tramo
     # consistente mas reciente, se descarta lo anterior (otra tendencia).
-    TOL_CIMA_SUBE = 0.01
+    #
+    # Tolerancia ESCALADA POR ATR en vez de 1% fijo (2026-09-14, pedido
+    # del usuario, caso CRWD): un 1% fijo es irreal para una accion
+    # volatil -- CRWD tenia un techo nuevo (31/8, $231.00) a solo +2.43%
+    # de su techo anterior (13/8, $225.53), un salto de apenas 0.44 ATR,
+    # pero el 1% fijo lo hubiera descartado igual apenas se confirme el
+    # minimo que le sigue. Tolerancia = 0.5 x ATR% medido en el techo
+    # NUEVO (no en el viejo -- se probaron ambos, con el viejo no
+    # alcanza a cubrir el caso CRWD). Validado contra PM/ANET/ACN/C sin
+    # cambios; TSLA SI cambia (antes 2 contracciones, con esto fusiona
+    # un tramo mar-jun con un tramo jun-ago en 5 "contracciones" por un
+    # salto de +1.79% que con 0.5xATR ya entra en tolerancia) -- este
+    # trade-off fue mostrado y aceptado explicitamente por el usuario,
+    # prioriza que casos como CRWD detecten VCP2 antes que mantener a
+    # TSLA separado.
+    atr_series_cimas = _vcp2_atr(df_h, df_l, df_c)
     cuerpos = np.maximum(df_o, df_c)
     consistentes = [raw[0]]
     for ct in raw[1:]:
         cima_prev = cuerpos[consistentes[-1]['high_i']]
         cima_act = cuerpos[ct['high_i']]
-        if cima_act > cima_prev * (1 + TOL_CIMA_SUBE):
+        atr_act = atr_series_cimas[ct['high_i']]
+        tol_cima_sube = 0.5 * (atr_act / df_c[ct['high_i']]) if not np.isnan(atr_act) else 0.01
+        if cima_act > cima_prev * (1 + tol_cima_sube):
             consistentes = [ct]  # arranca una base nueva desde aca
         else:
             consistentes.append(ct)
