@@ -10816,6 +10816,11 @@ try{
   // acción hasta el último día aunque haya salido del Top 30 en el medio).
   // Antes esto eran 2 arrays (FILAS/NUEVOS30) escritos a mano cada vez.
   var TOP20_HISTORIA_URL = "https://warrenbife.github.io/cedears-dashboard/top20_historia.json";
+  // Misma URL que WBM_ROT_URL (WB UPGRADE V32, más arriba) -- se pide de
+  // nuevo acá en vez de depender de window._wbmRotHistoria porque ese
+  // fetch corre en otro script y no hay garantía de orden de resolución
+  // (2026-09-15, fix evolución con pocos puntos).
+  var ROTACION_HISTORIA_URL = "https://warrenbife.github.io/cedears-dashboard/rotacion_historia.json";
   var MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   function fmtFechaCorta(iso){
     if(!iso) return '';
@@ -10841,14 +10846,11 @@ try{
     return '<span class="score-pill '+cls+'" style="font-size:10.5px;min-width:30px;">'+Math.round(v)+'</span>';
   }
   // Mismo sparkline que la columna "Evolución" de la tabla Warren Score
-  // (ver evolChart() más abajo en el archivo) -- copiado acá porque esa
-  // versión vive en el closure de otra función y no queda expuesta
+  // (ver evolChart() en WB UPGRADE V34, más arriba) -- copiado acá porque
+  // esa versión vive en el closure de otra función y no queda expuesta
   // globalmente. Misma firma: recibe una serie de valores (RS Score) y
-  // devuelve el SVG. Acá se alimenta con RS Mes ant./RS Semana ant./RS
-  // Score de datos.json (3 puntos reales), no con rotacion_historia.json
-  // completo -- alcanza para la vista previa; la versión conectada al
-  // pipeline podría usar el historial completo de 4 semanas igual que
-  // la tabla original.
+  // devuelve el SVG. Desde 2026-09-15 se alimenta con rotacion_historia.json
+  // completo (ver evolDeTicker/agruparRotacion arriba), igual que la tabla.
   function evolChart(vals){
     if(!vals || vals.filter(function(v){return v!=null;}).length<2) return '<span style="color:var(--muted);font-size:10px">—</span>';
     var w=64,h=22,pad=2;
@@ -10869,24 +10871,40 @@ try{
   var DIAS_TOTAL = 10;
   var DIAS_MINIMO = 2;
 
-  // evol de un ticker a partir del historial completo retenido (hasta
-  // ~85 ruedas): RS Score de cada día en que ese ticker estuvo en el Top
-  // 30 (fuera de eso no se guarda RS Score de los 383 tickers, sería
-  // repetir mucho dato por poco beneficio) -- últimos 16 puntos
-  // encontrados, en orden cronológico. Con historial corto (recién
-  // arrancando esta automatización) va a mostrar menos de 16 puntos, o
-  // "—" si hay menos de 2 -- evolChart ya contempla ese caso.
-  function evolDeTicker(historiaCompleta, ticker){
-    var vals = [];
-    historiaCompleta.forEach(function(dia){
-      var e = dia.top30.find(function(x){ return x.t === ticker; });
-      if(e && e.rs != null) vals.push(e.rs);
-    });
-    return vals.slice(-16);
+  // Evolución (2026-09-15, pedido del usuario): antes salía de
+  // top20_historia.json, que solo guarda el RS Score de los días en que
+  // ese ticker estuvo DENTRO del Top 30 -- un ticker recién llegado
+  // mostraba apenas 2-3 puntos aunque tuviera semanas de historia real.
+  // Ahora usa rotacion_historia.json (RS Score semanal, 16-20 semanas
+  // para TODO el universo), la misma fuente que ya usa la columna
+  // "Evolución" del cuadro de Warren Score (ver evolChart() en WB
+  // UPGRADE V34, más arriba) -- así el sparkline es idéntico en ambos
+  // lados. rotPorTicker ya viene agrupado/ordenado por fecha (ver
+  // agruparRotacion()).
+  function evolDeTicker(rotPorTicker, ticker){
+    return (rotPorTicker[ticker] || []).map(function(e){ return e.rs_score; });
   }
 
-  function construirPaneles(historia){
+  // Agrupa rotacion_historia.json (array plano {ticker,fecha,rs_score,...})
+  // por ticker, ordenado cronológicamente -- se arma una sola vez por
+  // carga en vez de recorrer el array completo por cada fila de los
+  // paneles.
+  function agruparRotacion(rotHistoria){
+    var m = {};
+    (Array.isArray(rotHistoria) ? rotHistoria : []).forEach(function(e){
+      if(e.rs_score == null) return;
+      if(!m[e.ticker]) m[e.ticker] = [];
+      m[e.ticker].push(e);
+    });
+    Object.keys(m).forEach(function(t){
+      m[t].sort(function(a,b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); });
+    });
+    return m;
+  }
+
+  function construirPaneles(historia, rotHistoria){
     historia = Array.isArray(historia) ? historia.slice().sort(function(a,b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); }) : [];
+    var rotPorTicker = agruparRotacion(rotHistoria);
     var ventana = historia.slice(-DIAS_TOTAL);
     var hayDatos = ventana.length >= 2;
 
@@ -10911,7 +10929,7 @@ try{
           return {
             t: t, score: a.entradaScore, entro: fmtFechaCorta(a.entradaFecha),
             ret: (precioHoy - a.entradaPrecio) / a.entradaPrecio * 100,
-            evol: evolDeTicker(historia, t)
+            evol: evolDeTicker(rotPorTicker, t)
           };
         })
         .filter(Boolean)
@@ -10984,7 +11002,7 @@ try{
       ayer.top30.forEach(function(x){ tickersAyer[x.t] = true; });
       NUEVOS30 = hoy.top30
         .filter(function(x){ return !tickersAyer[x.t]; })
-        .map(function(x){ return { t:x.t, score:x.s, rs:x.rs, ema200:x.ema200, vcp:x.vcp, evol: evolDeTicker(historia, x.t) }; });
+        .map(function(x){ return { t:x.t, score:x.s, rs:x.rs, ema200:x.ema200, vcp:x.vcp, evol: evolDeTicker(rotPorTicker, x.t) }; });
     }
     var n30Thead =
       '<div class="wb-n30-cell wb-n30-th">Ticker</div>'+
@@ -11029,10 +11047,10 @@ try{
     }
   }
 
-  fetch(TOP20_HISTORIA_URL + '?t=' + Date.now())
-    .then(function(r){ return r.ok ? r.json() : []; })
-    .then(function(historia){ construirPaneles(historia); })
-    .catch(function(){ construirPaneles([]); });
+  Promise.all([
+    fetch(TOP20_HISTORIA_URL + '?t=' + Date.now()).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(ROTACION_HISTORIA_URL + '?t=' + Date.now()).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
+  ]).then(function(res){ construirPaneles(res[0], res[1]); });
 }catch(e){ console.error('WB V47 top10/nuevos30 panel error', e); }
 })();
 </script>
