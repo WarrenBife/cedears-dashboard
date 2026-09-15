@@ -7971,19 +7971,27 @@ function draw(){
     const [r,g,b]=QCOLORS[q];
     const rgb=`${r},${g},${b}`;
 
-    /* estela — 3 semanas por defecto, 16 cuando está seleccionado.
-       WB UPGRADE V21 (2026-09-06, pedido del usuario): sin filtro, las 3
-       semanas se dibujan TODAS parejas/marcadas (t_ratio fijo en 1, sin
-       el desvanecido hacia atrás que tenía antes) -- con 56 ETFs sueltos
+    /* estela — 1 semana por defecto, 16 cuando está seleccionado.
+       WB UPGRADE V21 (2026-09-06, pedido del usuario): sin filtro, la
+       estela corta se dibuja pareja/marcada (t_ratio fijo en 1, sin el
+       desvanecido hacia atrás que tenía antes) -- con 56 ETFs sueltos
        cruzándose, el degradé interno de cada estela sumaba ruido visual
        ("3 semanas bien marcada y el resto mas suave"). El degradé
        (más tenue hacia atrás, más marcado el segmento reciente) se
        mantiene SOLO para la estela larga de 16 semanas, cuando el ETF
        está resaltado por filtro o burbuja -- ahí sí ayuda a leer la
-       dirección del recorrido en vez de sumar ruido. */
+       dirección del recorrido en vez de sumar ruido.
+
+       Default baja de 3 a 1 semana (2026-09-15, pedido del usuario):
+       con los 56 ETFs sueltos (sin ningún filtro tildado) 3 semanas de
+       estela por cada uno se pisaban entre sí y no se distinguía nada
+       -- con 1 sola semana (un segmento corto por ETF) el cuadro queda
+       legible de entrada. Se ve la estela larga y completa recién
+       cuando se aplica un filtro (dropdown o click en burbuja) sobre
+       el/los ETF resaltado/s -- sin cambios en esa parte. */
     if(rrgSource==='real' && pts.length>=2){
       const esResaltado = hasSel && isSel;
-      const TRAIL = esResaltado ? 16 : 3;
+      const TRAIL = esResaltado ? 16 : 1;
       const visPts=pts.slice(0,Math.min(Math.floor(wf)+2,pts.length));
       const tPts=visPts.slice(Math.max(0,visPts.length-TRAIL-1));
       const n=tPts.length;
