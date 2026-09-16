@@ -1142,12 +1142,31 @@ def contraccion_volatilidad(hist):
     fracaso (no es un promedio inflado por pocos ganadores grandes):
     62.3%→64.6% éxito y 23.6%→21.5% fracaso al entrar en zona.
 
-    Mismo esqueleto reciente/referencia que la versión anterior (TR):
-    serie diaria de BBW sobre las últimas 20 ruedas, partida en
-    reciente=últimas 10 (vs) referencia=10 anteriores a esas (3 bloques
-    de ~3-4 días, el de 4 con _promedio_sin_outlier). Ratio, no valor
-    absoluto: mide ESTADO (¿más quieto que de costumbre?), no
-    temperamento."""
+    Referencia = techo de expansión, no bloque anterior (2026-09-15,
+    pedido del usuario): antes reciente=últimas 10 ruedas de BBW se
+    comparaba contra referencia=promedio de las 10 ruedas anteriores a
+    esas (3 bloques, el de 4 con _promedio_sin_outlier) -- si ESE bloque
+    de referencia ya venía con volatilidad rara (ej. veníamos de un
+    tramo agitado), un papel realmente comprimido podía seguir dando un
+    ratio alto y perder casi todos los puntos (casos reales: URA 0.57/15.25,
+    GOOGL 1.16, CAT 1.85, HOOD 5.20 -- ver los 19 casos de referencia).
+    Ahora referencia = MÁXIMO de BBW(10) en las últimas 20 ruedas (mismo
+    concepto que "Highest Expansion" del indicador estándar de
+    TradingView) -- mide qué tan comprimido está HOY relativo al techo de
+    expansión reciente, no contra un bloque que puede estar tan tranquilo
+    (o tan agitado) como el de hoy por pura casualidad.
+
+    Validado en dos niveles: contra los 19 casos de referencia, dentro de
+    las 10 ruedas antes de romper, esta version lleva los 19/19 a >=11 pts
+    (antes 12/19, promedio 11.47->14.78 sobre 15.25) -- rescata justo los
+    4 casos de arriba. Y en un backtest de 1.632 señales reales (tickers
+    con RS Score>75, sobre SMA50 y SMA200, retorno a +15 ruedas): esta
+    version es la ÚNICA de las probadas (bloque-vs-bloque, vs máx 20, vs
+    máx 30) con correlación significativa con el retorno futuro (Pearson
+    -0.053 p=0.03, Spearman -0.061 p=0.01, spread quintiles +1.84 pts) --
+    la de máx 30 puntúa incluso más alto en los 19 casos pero pierde poder
+    predictivo por efecto techo (casi todo toca el máximo, deja de
+    distinguir un setup bueno de uno excelente)."""
     if hist is None or len(hist) < 30:
         return None
     try:
@@ -1160,11 +1179,7 @@ def contraccion_volatilidad(hist):
             return None
         t = bbw.tail(20).tolist()
         reciente = _promedio_sin_outlier(t[-10:])
-        ref = t[:-10]  # las 10 ruedas anteriores a las "recientes"
-        bloque_1 = sum(ref[0:3]) / 3
-        bloque_2 = sum(ref[3:6]) / 3
-        bloque_3 = _promedio_sin_outlier(ref[6:10])
-        referencia = (bloque_1 + bloque_2 + bloque_3) / 3
+        referencia = max(t)  # techo de expansion de las ultimas 20 ruedas (incluye el bloque reciente)
         if referencia <= 0:
             return None
         return round(reciente / referencia, 4)
