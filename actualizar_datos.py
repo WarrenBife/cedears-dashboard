@@ -66,9 +66,14 @@ TICKERS = {
         "AAP", "CAR", "CCL", "GT", "LVS", "ORLY"
     ],
     "CEDEARs Energía & Materiales": [
+        # "B" = Barrick Mining Corporation (2026-09-16, pedido del usuario,
+        # caso real: el ticker viejo "GOLD" se lo quedo Gold.com Inc., una
+        # financiera sin relacion, cuando Barrick cambio de simbolo -- se
+        # saca "GOLD" del universo y se agrega "B" para no perder a
+        # Barrick, con el ticker correcto).
         "XOM", "CVX", "BP", "SHEL", "TTE", "OXY", "HAL", "SLB",
         "BKR", "PSX", "CEG", "FCX", "RIO", "BHP", "VALE",
-        "GOLD", "NEM", "AEM", "GFI", "HMY", "KGC", "PAAS",
+        "B", "NEM", "AEM", "GFI", "HMY", "KGC", "PAAS",
         "MUX", "HL", "CDE", "NG", "AUY", "GGB", "SID",
         "NUE", "SCCO", "MOS", "DOW", "LND", "BNG",
         "SUZ", "BAK", "UGP", "PBR", "PTR", "SNP",
@@ -248,7 +253,7 @@ ETF_SECTOR = {
 
     # Mineras de oro y plata (sin sectorial propio en la spec)
     "AEM": "GDX", "AUY": "GDX", "CDE": "GDX", "GFI": "GDX",
-    "GOLD": "GDX", "HL": "GDX", "HMY": "GDX", "KGC": "GDX",
+    "B": "GDX", "HL": "GDX", "HMY": "GDX", "KGC": "GDX",
     "MUX": "GDX", "NG": "GDX", "PAAS": "GDX",
 
     # Uranio / nuclear (sin sectorial propio en la spec)
