@@ -79,12 +79,22 @@ def main():
     if not GITHUB_TOKEN:
         raise RuntimeError("Falta PAT_TOKEN")
 
+    # datos.json pesa >1MB -- la API de contenidos de GitHub NO devuelve
+    # el campo "content" para archivos de mas de 1MB (viene vacio, rompe
+    # el base64/json.loads de abajo con un JSONDecodeError -- caso real,
+    # 2026-09-16). El "sha" si viene siempre, sin importar el tamano, asi
+    # que se sigue pidiendo por acá (hace falta para el PUT de mas
+    # abajo) -- pero el CONTENIDO se lee del raw de GitHub, que no tiene
+    # ese limite.
     url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{ARCHIVO}"
     r = requests.get(url, headers=headers())
     r.raise_for_status()
-    body = r.json()
-    sha = body["sha"]
-    datos = json.loads(base64.b64decode(body["content"]).decode("utf-8"))
+    sha = r.json()["sha"]
+
+    raw_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/{ARCHIVO}"
+    r_raw = requests.get(raw_url, headers={"Cache-Control": "no-cache"})
+    r_raw.raise_for_status()
+    datos = r_raw.json()
 
     tickers = [d["Ticker"] for d in datos if d.get("Ticker")]
     print(f"⏳ Pidiendo precio en vivo de {len(tickers)} tickers...")
