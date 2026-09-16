@@ -261,7 +261,26 @@ ETF_SECTOR = {
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Bug real encontrado en vivo (2026-09-15, madrugada): "hoy_str" y varias
+# fechas de salida (regimen.json, fr_historia.json, rotacion_historia.json,
+# el snapshot de cierre de lunes) se calculaban con datetime.now()/utcnow()
+# -- el runner de GitHub Actions corre en UTC, y Argentina es UTC-3. En
+# cuanto el reloj UTC cruza medianoche (~21hs ART), el pipeline empezaba a
+# creer que "hoy" ya era el dia siguiente -- casi 3 horas antes de que
+# termine la jornada en Argentina/EEUU, y le pedia a Yahoo Finance la vela
+# de un dia que todavia no paso. Resultado: Precio/SMA10/SMA50/Dist EMA200%
+# nulos para (casi) todo el universo, regimen.json con "fecha" del dia
+# siguiente, rotacion/rs_historia con una semana futura. Argentina no tiene
+# horario de verano -- un offset fijo de -3hs alcanza, sin depender de
+# zoneinfo/tzdata (no siempre disponible en el runner). Usar SIEMPRE esto
+# (no datetime.now()/utcnow()) para cualquier fecha que represente "el dia
+# de rueda de hoy" en Argentina. es_corrida_cierre/es_lunes (mas abajo) son
+# la EXCEPCION a propuesito -- comparan contra la hora UTC exacta del cron,
+# no contra el dia calendario.
+def hoy_argentina():
+    return datetime.utcnow() - timedelta(hours=3)
 
 def calcular_rsi(close, periodo=14):
     # Wilder's Smoothing (RMA) — igual a TradingView
@@ -4819,7 +4838,7 @@ def calcular_regimen(hist_spy, hist_qqq):
         print(f"  ⚠️  CCL no disponible: {e}")
 
     return {
-        "fecha":          datetime.now().strftime('%Y-%m-%d'),
+        "fecha":          hoy_argentina().strftime('%Y-%m-%d'),
         "ccl":            ccl,
         "spy_tendencia":  spy_r['tend'],
         "spy_dist_days":  spy_r['dist_days'],
@@ -4934,7 +4953,7 @@ try:
 except Exception as e:
     print(f"  ⚠️  Error cargando fr_historia.json: {e}")
 
-hoy_str = datetime.now().strftime('%Y-%m-%d')
+hoy_str = hoy_argentina().strftime('%Y-%m-%d')
 
 # Cache de ETFs de sector (2026-09-07, pedido del usuario, limpieza de
 # redundancia): ETF_SECTOR mapea 329 tickers a solo 20 ETFs distintos,
@@ -5100,7 +5119,7 @@ CIERRE_LUNES_ARCHIVO = "datos_lunes_cierre.json"
 es_corrida_cierre = bool(os.environ.get("RUN_SCHEDULE")) and datetime.utcnow().hour == 20
 es_lunes = datetime.utcnow().weekday() == 0
 if es_corrida_cierre and es_lunes:
-    snapshot = {"fecha": datetime.utcnow().strftime('%Y-%m-%d'), "datos": datos_export}
+    snapshot = {"fecha": hoy_argentina().strftime('%Y-%m-%d'), "datos": datos_export}
     snapshot_str = json.dumps(snapshot, ensure_ascii=False)
     snapshot_b64 = base64.b64encode(snapshot_str.encode()).decode()
     url_snap = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{CIERRE_LUNES_ARCHIVO}"
