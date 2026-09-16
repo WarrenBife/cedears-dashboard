@@ -258,6 +258,8 @@ ETF_SECTOR = {
     "ASTS": "ITA", "RKLB": "ITA", "SATL": "ITA", "SPCE": "ITA"
 }
 
+import os
+import requests
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -281,6 +283,44 @@ from datetime import datetime, timedelta
 # no contra el dia calendario.
 def hoy_argentina():
     return datetime.utcnow() - timedelta(hours=3)
+
+# Respaldo cuando Yahoo Finance no cerro la vela de hoy (2026-09-15,
+# pedido del usuario tras el incidente real de esa noche -- Volumen
+# poblado pero Open/High/Low/Close en NaN para practicamente todo el
+# universo, hasta SPY, durante horas despues del cierre real). Misma
+# API key que ya usa api/earnings.js en Vercel (FINNHUB_KEY) -- ahi vive
+# como variable de entorno de Vercel, ACA se carga como secret aparte de
+# GitHub Actions (son dos plataformas de secretos separadas, no se
+# comparten solas). Endpoint /quote (no /stock/candle): no hace falta
+# historial, solo el precio de HOY -- los otros ~500 dias de historia ya
+# vienen bien de Yahoo. Se llama UNA vez por ticker, solo para los que
+# quedaron con la vela de hoy sin cerrar -- no reemplaza a Yahoo como
+# fuente principal.
+def finnhub_quote(ticker_symbol):
+    token = os.environ.get("FINNHUB_KEY")
+    if not token:
+        return None
+    try:
+        r = requests.get(
+            "https://finnhub.io/api/v1/quote",
+            params={"symbol": ticker_symbol, "token": token},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        c = j.get("c")
+        if not c or c <= 0:
+            return None
+        o, h, l = j.get("o"), j.get("h"), j.get("l")
+        return {
+            "open":  o if o else c,
+            "high":  h if h else c,
+            "low":   l if l else c,
+            "close": c,
+        }
+    except Exception:
+        return None
 
 def calcular_rsi(close, periodo=14):
     # Wilder's Smoothing (RMA) — igual a TradingView
@@ -4224,10 +4264,35 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         # ultimo cierre real conocido (el de ayer) -- mismo criterio que
         # mostraria cualquier terminal de mercado mientras no hay un
         # cierre nuevo confirmado, en vez de mostrar un hueco.
+        filas_antes_trim = len(hist)
         while len(hist) > 0 and pd.isna(hist["Close"].iloc[-1]):
             hist = hist.iloc[:-1]
         if hist.empty or len(hist) < 60:
             return None
+
+        # Respaldo Finnhub (2026-09-15, pedido del usuario): si se
+        # descarto al menos una vela porque Yahoo no la habia cerrado
+        # todavia, se intenta 1 pedido a Finnhub para conseguir el precio
+        # de HOY real en vez de quedarse en el de ayer. Se agrega como
+        # una fila mas al final de `hist` -- asi TODO lo que sigue
+        # (EMA200, RSI, MACD, distancias a maximos/minimos, etc.) ya la
+        # incorpora de forma coherente, no es un parche aislado sobre
+        # "Precio" nomas. Volumen queda en 0 (el /quote gratuito de
+        # Finnhub no lo trae) -- unico campo con precision reducida ese
+        # dia puntual. Si Finnhub tampoco responde, sigue el cierre de
+        # ayer (fallback de arriba) sin romper nada.
+        if len(hist) < filas_antes_trim:
+            fh = finnhub_quote(ticker_symbol)
+            if fh:
+                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, usando respaldo Finnhub (${fh['close']})")
+                fila_hoy = pd.DataFrame(
+                    [{"Open": fh["open"], "High": fh["high"], "Low": fh["low"],
+                      "Close": fh["close"], "Volume": 0}],
+                    index=[hist.index[-1] + pd.Timedelta(days=1)],
+                )
+                hist = pd.concat([hist, fila_hoy])
+            else:
+                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, Finnhub tampoco disponible -- se usa el cierre de ayer")
 
         close  = hist["Close"]
         high   = hist["High"]
