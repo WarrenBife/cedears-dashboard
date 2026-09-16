@@ -1,0 +1,39 @@
+name: Precios en vivo (liviano)
+
+# Actualizacion liviana de precios cada 15 min durante la rueda
+# (2026-09-16, pedido del usuario) -- NO recalcula RSI/MACD/VCP/Warren
+# Score (eso lo sigue haciendo "Actualizar datos.json", 2 veces por
+# dia). Solo pide el precio actual en bloque y actualiza Precio/Var
+# Día % -- mucho mas rapido (~40s para 383 tickers vs varios minutos
+# de la corrida completa), pensado para correr seguido sin sobrecargar
+# a Yahoo Finance.
+
+on:
+  schedule:
+    # Cada 15 min, 13:00 a 19:45 UTC = 10:00 a 16:45 Argentina (UTC-3),
+    # cubre la rueda de NYSE (9:30-16:00 ET = 10:30-17:00 ART en horario
+    # de verano de EEUU) con margen de sobra a cada punta. El cierre
+    # real (17:00 ART) ya lo cubre la corrida completa de
+    # actualizar_datos.yml, no hace falta que esta se solape ahi.
+    - cron: '*/15 13-19 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  precios:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install yfinance requests
+
+      - name: Actualizar precios
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: python actualizar_precios_rapido.py

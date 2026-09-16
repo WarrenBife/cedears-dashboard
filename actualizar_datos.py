@@ -4453,6 +4453,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         dist_min52 = round((precio_actual - min_52w) / min_52w * 100, 2)
 
         # Variación del día
+        cierre_anterior = round(float(close.iloc[-2]), 2)
         var_dia = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2)
 
         # Avance Pico 15r % — verticalidad reciente, medida contra el pico (Warren Score v2.3)
@@ -4652,6 +4653,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         return {
             "Ticker":          ticker_symbol,
             "Precio":          precio_actual,
+            # Cierre Anterior (2026-09-16, pedido del usuario): el cierre
+            # completo (esta funcion) corre solo 2 veces por dia -- este
+            # campo le da a actualizar_precios_rapido.py (corrida liviana,
+            # cada 15 min durante la rueda, solo Precio/Var Dia %) la
+            # referencia que necesita para calcular la variacion sin tener
+            # que volver a bajar 2 anios de historial por ticker.
+            "Cierre Anterior": cierre_anterior,
             "Var Día %":       var_dia,
             "Avance Pico 15r %": avance_pico15r,
             "EMA200":          ema200,
