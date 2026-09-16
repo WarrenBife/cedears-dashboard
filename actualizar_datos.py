@@ -284,18 +284,43 @@ from datetime import datetime, timedelta
 def hoy_argentina():
     return datetime.utcnow() - timedelta(hours=3)
 
-# Respaldo cuando Yahoo Finance no cerro la vela de hoy (2026-09-15,
-# pedido del usuario tras el incidente real de esa noche -- Volumen
-# poblado pero Open/High/Low/Close en NaN para practicamente todo el
-# universo, hasta SPY, durante horas despues del cierre real). Misma
-# API key que ya usa api/earnings.js en Vercel (FINNHUB_KEY) -- ahi vive
-# como variable de entorno de Vercel, ACA se carga como secret aparte de
-# GitHub Actions (son dos plataformas de secretos separadas, no se
-# comparten solas). Endpoint /quote (no /stock/candle): no hace falta
-# historial, solo el precio de HOY -- los otros ~500 dias de historia ya
-# vienen bien de Yahoo. Se llama UNA vez por ticker, solo para los que
-# quedaron con la vela de hoy sin cerrar -- no reemplaza a Yahoo como
-# fuente principal.
+# Respaldo INTRADIA de la propia Yahoo (2026-09-15, pedido del usuario):
+# la vela DIARIA agregada puede quedar sin cerrar durante horas (ver
+# comentario grande mas abajo, incidente real de esa noche), pero el
+# feed intradia (velas de 1 o 5 minutos) sigue disponible con datos
+# reales -- probado en vivo esa misma noche: la de 1 minuto llegaba
+# hasta las 15:59 ET (1 minuto antes del cierre de las 16:00), con
+# precio real. Gratis, sin API key, mismo proveedor (Yahoo) -- se prueba
+# ANTES que Finnhub por eso. period='1d' alcanza (no hace falta
+# historial intradia, solo la ultima barra de HOY).
+def yahoo_intraday_close(ticker_symbol):
+    for intervalo in ("1m", "5m"):
+        try:
+            df = yf.Ticker(ticker_symbol).history(period="1d", interval=intervalo)
+            df = df.dropna(subset=["Close"])
+            if df.empty:
+                continue
+            ultima = df.iloc[-1]
+            return {
+                "open":  float(ultima["Open"]),
+                "high":  float(df["High"].max()),
+                "low":   float(df["Low"].min()),
+                "close": float(ultima["Close"]),
+            }
+        except Exception:
+            continue
+    return None
+
+# Respaldo Finnhub, SEGUNDA opcion si el intradia de Yahoo (arriba)
+# tampoco esta disponible (2026-09-15, pedido del usuario tras el
+# incidente real de esa noche -- Volumen poblado pero Open/High/Low/Close
+# en NaN para practicamente todo el universo, hasta SPY, durante horas
+# despues del cierre real). Misma API key que ya usa api/earnings.js en
+# Vercel (FINNHUB_KEY) -- ahi vive como variable de entorno de Vercel,
+# ACA se carga como secret aparte de GitHub Actions (son dos plataformas
+# de secretos separadas, no se comparten solas). Endpoint /quote (no
+# /stock/candle): no hace falta historial, solo el precio de HOY -- los
+# otros ~500 dias de historia ya vienen bien de Yahoo.
 def finnhub_quote(ticker_symbol):
     token = os.environ.get("FINNHUB_KEY")
     if not token:
@@ -4270,21 +4295,25 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         if hist.empty or len(hist) < 60:
             return None
 
-        # Respaldo Finnhub (2026-09-15, pedido del usuario): si se
+        # Respaldos en cascada (2026-09-15, pedido del usuario) si se
         # descarto al menos una vela porque Yahoo no la habia cerrado
-        # todavia, se intenta 1 pedido a Finnhub para conseguir el precio
-        # de HOY real en vez de quedarse en el de ayer. Se agrega como
-        # una fila mas al final de `hist` -- asi TODO lo que sigue
-        # (EMA200, RSI, MACD, distancias a maximos/minimos, etc.) ya la
-        # incorpora de forma coherente, no es un parche aislado sobre
-        # "Precio" nomas. Volumen queda en 0 (el /quote gratuito de
-        # Finnhub no lo trae) -- unico campo con precision reducida ese
-        # dia puntual. Si Finnhub tampoco responde, sigue el cierre de
-        # ayer (fallback de arriba) sin romper nada.
+        # todavia: 1) intradia de la propia Yahoo (gratis, sin key,
+        # mismo proveedor), 2) Finnhub (/quote, requiere FINNHUB_KEY),
+        # 3) si ninguno responde, sigue el cierre de ayer (fallback de
+        # arriba) sin romper nada. El que responda se agrega como una
+        # fila mas al final de `hist` -- asi TODO lo que sigue (EMA200,
+        # RSI, MACD, distancias a maximos/minimos, etc.) ya lo incorpora
+        # de forma coherente, no es un parche aislado sobre "Precio"
+        # nomas. Volumen queda en 0 ese dia puntual (ninguno de los dos
+        # respaldos trae volumen diario real).
         if len(hist) < filas_antes_trim:
-            fh = finnhub_quote(ticker_symbol)
+            fh = yahoo_intraday_close(ticker_symbol)
+            fuente = "intradia de Yahoo"
+            if not fh:
+                fh = finnhub_quote(ticker_symbol)
+                fuente = "Finnhub"
             if fh:
-                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, usando respaldo Finnhub (${fh['close']})")
+                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo (diario), usando respaldo {fuente} (${fh['close']})")
                 fila_hoy = pd.DataFrame(
                     [{"Open": fh["open"], "High": fh["high"], "Low": fh["low"],
                       "Close": fh["close"], "Volume": 0}],
@@ -4292,7 +4321,7 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
                 )
                 hist = pd.concat([hist, fila_hoy])
             else:
-                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, Finnhub tampoco disponible -- se usa el cierre de ayer")
+                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, ni intradia ni Finnhub disponibles -- se usa el cierre de ayer")
 
         close  = hist["Close"]
         high   = hist["High"]
