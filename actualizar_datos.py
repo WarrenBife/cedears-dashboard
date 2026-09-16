@@ -347,6 +347,40 @@ def finnhub_quote(ticker_symbol):
     except Exception:
         return None
 
+# Envuelve el trim + cascada de respaldos en una sola funcion reusable
+# (2026-09-15/16, pedido del usuario) -- antes esto vivia SOLO adentro
+# de calcular_kpis(), asi que el fetch de SPY/QQQ para el panel de
+# Regimen de mercado (hist_spy/hist_qqq, mas abajo, un fetch totalmente
+# aparte) se quedaba afuera y seguia rompiendose (regimen.json con
+# literal "NaN" en spy_ext_atr -- invalido como JSON, el panel entero
+# de Regimen quedaba en "Pendiente de pipeline"). Devuelve (hist, None)
+# si quedo utilizable, o (None, motivo) si hay que abortar (por ej.
+# muy poca historia real).
+def completar_vela_hoy(ticker_symbol, hist, minimo=60):
+    filas_antes_trim = len(hist)
+    while len(hist) > 0 and pd.isna(hist["Close"].iloc[-1]):
+        hist = hist.iloc[:-1]
+    if hist.empty or len(hist) < minimo:
+        return None, "historia insuficiente"
+
+    if len(hist) < filas_antes_trim:
+        fh = yahoo_intraday_close(ticker_symbol)
+        fuente = "intradia de Yahoo"
+        if not fh:
+            fh = finnhub_quote(ticker_symbol)
+            fuente = "Finnhub"
+        if fh:
+            print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo (diario), usando respaldo {fuente} (${fh['close']})")
+            fila_hoy = pd.DataFrame(
+                [{"Open": fh["open"], "High": fh["high"], "Low": fh["low"],
+                  "Close": fh["close"], "Volume": 0}],
+                index=[hist.index[-1] + pd.Timedelta(days=1)],
+            )
+            hist = pd.concat([hist, fila_hoy])
+        else:
+            print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, ni intradia ni Finnhub disponibles -- se usa el cierre de ayer")
+    return hist, None
+
 def calcular_rsi(close, periodo=14):
     # Wilder's Smoothing (RMA) — igual a TradingView
     delta = close.diff()
@@ -4285,43 +4319,13 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
         # despues del cierre real de mercado, Yahoo no habia terminado de
         # "hornear" la vela). Antes esto escribia Precio/SMA10/SMA50/Dist
         # EMA200%/etc en null para (casi) todo el dashboard en cuanto
-        # pasaba. Se descartan las velas finales sin cerrar y se usa el
-        # ultimo cierre real conocido (el de ayer) -- mismo criterio que
-        # mostraria cualquier terminal de mercado mientras no hay un
-        # cierre nuevo confirmado, en vez de mostrar un hueco.
-        filas_antes_trim = len(hist)
-        while len(hist) > 0 and pd.isna(hist["Close"].iloc[-1]):
-            hist = hist.iloc[:-1]
-        if hist.empty or len(hist) < 60:
+        # pasaba. completar_vela_hoy() descarta la vela sin cerrar y
+        # prueba respaldos en cascada (intradia de Yahoo, despues
+        # Finnhub) antes de resignarse al cierre de ayer -- ver esa
+        # funcion mas arriba para el detalle completo.
+        hist, motivo = completar_vela_hoy(ticker_symbol, hist)
+        if hist is None:
             return None
-
-        # Respaldos en cascada (2026-09-15, pedido del usuario) si se
-        # descarto al menos una vela porque Yahoo no la habia cerrado
-        # todavia: 1) intradia de la propia Yahoo (gratis, sin key,
-        # mismo proveedor), 2) Finnhub (/quote, requiere FINNHUB_KEY),
-        # 3) si ninguno responde, sigue el cierre de ayer (fallback de
-        # arriba) sin romper nada. El que responda se agrega como una
-        # fila mas al final de `hist` -- asi TODO lo que sigue (EMA200,
-        # RSI, MACD, distancias a maximos/minimos, etc.) ya lo incorpora
-        # de forma coherente, no es un parche aislado sobre "Precio"
-        # nomas. Volumen queda en 0 ese dia puntual (ninguno de los dos
-        # respaldos trae volumen diario real).
-        if len(hist) < filas_antes_trim:
-            fh = yahoo_intraday_close(ticker_symbol)
-            fuente = "intradia de Yahoo"
-            if not fh:
-                fh = finnhub_quote(ticker_symbol)
-                fuente = "Finnhub"
-            if fh:
-                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo (diario), usando respaldo {fuente} (${fh['close']})")
-                fila_hoy = pd.DataFrame(
-                    [{"Open": fh["open"], "High": fh["high"], "Low": fh["low"],
-                      "Close": fh["close"], "Volume": 0}],
-                    index=[hist.index[-1] + pd.Timedelta(days=1)],
-                )
-                hist = pd.concat([hist, fila_hoy])
-            else:
-                print(f"  ℹ️  {ticker_symbol}: vela de hoy sin cerrar en Yahoo, ni intradia ni Finnhub disponibles -- se usa el cierre de ayer")
 
         close  = hist["Close"]
         high   = hist["High"]
@@ -4975,6 +4979,16 @@ def calcular_regimen(hist_spy, hist_qqq):
 # ── DESCARGA SPY ──────────────────────────────────────────────
 print("⏳ Descargando SPY como referencia...")
 hist_spy = yf.Ticker("SPY").history(period="2y")
+# Mismo problema/fix que calcular_kpis() (2026-09-15/16, pedido del
+# usuario, caso real: este fetch de SPY/QQQ es APARTE del de arriba, asi
+# que se quedaba afuera del primer fix -- regimen.json terminaba con un
+# literal "NaN" en spy_ext_atr (invalido como JSON), y el panel entero
+# de Regimen de mercado (capas "Indices SPY/QQQ" y "Sentimiento", las
+# dos leen del mismo archivo) quedaba en "Pendiente de pipeline" aunque
+# el resto del dashboard ya estuviera sano.
+hist_spy, _motivo_spy = completar_vela_hoy("SPY", hist_spy)
+if hist_spy is None:
+    print(f"  ⚠️  SPY: {_motivo_spy}")
 
 # SPY semanal NATIVO (2026-09-07, pedido del usuario, RS Score semanal
 # para "Análisis Semanal") -- OJO: yfinance ancla las velas semanales
@@ -4986,9 +5000,12 @@ hist_spy_semanal = yf.Ticker("SPY").history(period="10y", interval="1wk")
 
 print("⏳ Descargando QQQ para régimen de mercado...")
 hist_qqq = yf.Ticker("QQQ").history(period="2y")
+hist_qqq, _motivo_qqq = completar_vela_hoy("QQQ", hist_qqq)
+if hist_qqq is None:
+    print(f"  ⚠️  QQQ: {_motivo_qqq}")
 
 print("⏳ Calculando régimen de mercado (SPY/QQQ + VIX + P/C)...")
-regimen_data = calcular_regimen(hist_spy, hist_qqq)
+regimen_data = calcular_regimen(hist_spy, hist_qqq) if (hist_spy is not None and hist_qqq is not None) else None
 if regimen_data:
     spy_pts = (regimen_data['spy_tendencia'] + regimen_data['spy_dist_score'] + regimen_data['spy_ftd_score']
                + regimen_data['spy_adx_score'] + regimen_data['spy_ext_score'])
