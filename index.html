@@ -5825,32 +5825,27 @@ if ('serviceWorker' in navigator) {
     }};
   }
 
-  /* ── Capa 4: sentimiento VIX/P-C (15 pts -- era 10, +5 de la
-     repartición de Capa 3). Escala ×1.5 (15/10). ── */
+  /* ── Capa 4: sentimiento VIX (15 pts). Antes se repartía 5/5 con el
+     P/C ratio de CBOE (^CPCE/^CPC), pero esos tickers ya no existen en
+     Yahoo Finance ("No data found, symbol may be delisted", confirmado
+     2026-09-16) -- putcall_5d quedaba siempre null y esa mitad usaba
+     un valor fijo neutro (3 pts) todos los días, sin reflejar nada
+     real. Se saca por completo y el VIX pasa a valer los 15 puntos
+     enteros (mismos umbrales de antes, escalados x3 en vez de x1.5). ── */
   function calcSentimiento(reg, capa1, capa2){
     if(!reg) return null;
-    var vix=num(reg.vix), pc=num(reg.putcall_5d);
-    if(vix===null&&pc===null) return null;
+    var vix=num(reg.vix);
+    if(vix===null) return null;
     var sumO=(capa1?capa1.pts:0)+(capa2?capa2.pts:0);
     var sumM=(capa1?capa1.max:0)+(capa2?capa2.max:0);
     var fuertes=sumM>0&&sumO/sumM>0.6;
     var ptVIX=3;
-    if(vix!==null){
-      if(vix>=13&&vix<20) ptVIX=5;
-      else if(vix>=20&&vix<28) ptVIX=3;
-      else if(vix<13) ptVIX=2;
-      else ptVIX=fuertes?4:0;
-    }
-    var ptPC=3;
-    if(pc!==null){
-      if(pc>=0.7&&pc<=1.0) ptPC=5;
-      else if(pc>1.0&&pc<=1.2) ptPC=3;
-      else if(pc>1.2) ptPC=fuertes?4:1;
-      else if(pc>=0.55) ptPC=2;
-      else ptPC=0;
-    }
-    var ESCALA=15/10;
-    return {pts:(ptVIX+ptPC)*ESCALA,max:15,detail:{vix:vix,pc:pc,ptVIX:ptVIX*ESCALA,ptPC:ptPC*ESCALA}};
+    if(vix>=13&&vix<20) ptVIX=5;
+    else if(vix>=20&&vix<28) ptVIX=3;
+    else if(vix<13) ptVIX=2;
+    else ptVIX=fuertes?4:0;
+    var ESCALA=15/5;
+    return {pts:ptVIX*ESCALA,max:15,detail:{vix:vix,ptVIX:ptVIX*ESCALA}};
   }
 
   /* ── Función central: score compuesto con reponderación automática.
@@ -5924,8 +5919,8 @@ if ('serviceWorker' in navigator) {
       {ico:'🌐',lbl:'Amplitud del universo',max:30,capa:R.capa2,
        micro:R.capa2?R.capa2.detail.pE+'% sobre EMA200 · '+R.capa2.detail.pS+'% sobre SMA50 · NH '+R.capa2.detail.nh+' vs NL '+R.capa2.detail.nl:null,
        pendMsg:null},
-      {ico:'🧠',lbl:'Sentimiento (VIX / P-C ratio)',max:15,capa:R.capa4,
-       micro:R.capa4?'VIX '+(R.capa4.detail.vix!=null?R.capa4.detail.vix.toFixed(1):'—')+'  ·  P/C ratio '+(R.capa4.detail.pc!=null?R.capa4.detail.pc.toFixed(2):'—'):null,
+      {ico:'🧠',lbl:'Sentimiento (VIX)',max:15,capa:R.capa4,
+       micro:R.capa4?'VIX '+(R.capa4.detail.vix!=null?R.capa4.detail.vix.toFixed(1):'—'):null,
        pendMsg:'Pendiente de pipeline'}
     ];
     var TOTAL_MAX_PTS=layerDefs.reduce(function(s,d){return s+d.max;},0);
@@ -6059,7 +6054,7 @@ if ('serviceWorker' in navigator) {
   rgmPanel.id='wb-rgm-panel';
   rgmPanel.innerHTML=
     '<div class="panel-head"><div>'+
-    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 80 pts -- tendencia, días de distribución, follow-through day, ADX/DMI y extensión ATR), amplitud del universo (30 pts) y sentimiento VIX/P-C ratio (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
+    '<div class="panel-title" data-tooltip="Score 0-100 calculado sobre 3 capas: índices SPY/QQQ (pipeline, 80 pts -- tendencia, días de distribución, follow-through day, ADX/DMI y extensión ATR), amplitud del universo (30 pts) y sentimiento VIX (pipeline, 15 pts). Score reponderado automáticamente según las capas disponibles.">'+
     '⚡ Régimen de mercado</div>'+
     '</div><button class="panel-info-btn" data-info-title="⚡ Régimen de mercado" data-info-text="Termómetro 0-100 del mercado en general (no de un ticker puntual), pensado para decidir CUÁNTO exponerte, no QUÉ comprar. Se arma con 3 capas:&lt;br&gt;&lt;br&gt;&lt;b&gt;Índices SPY/QQQ&lt;/b&gt; (80 pts) — tendencia, días de distribución, follow-through day, ADX/DMI y extensión sobre ATR.&lt;br&gt;&lt;b&gt;Amplitud del universo&lt;/b&gt; (30 pts) — cuántas acciones acompañan el movimiento, no solo el índice.&lt;br&gt;&lt;b&gt;Sentimiento&lt;/b&gt; (15 pts) — VIX y ratio Put/Call.&lt;br&gt;&lt;br&gt;Si falta alguna capa, el score se reponderá automáticamente sobre las que sí están disponibles." onclick="wbShowInfo(this)">⋮</button></div>'+
     '<div class="panel-body" id="wb-rgm-body">'+

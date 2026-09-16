@@ -4926,23 +4926,6 @@ def calcular_regimen(hist_spy, hist_qqq):
     except Exception as e:
         print(f"  ⚠️  VIX no disponible: {e}")
 
-    putcall_5d = None
-    for pc_ticker in ['^CPCE', '^CPC']:
-        try:
-            pc_hist = yf.Ticker(pc_ticker).history(period='1mo')
-            if not pc_hist.empty:
-                closes = pc_hist['Close'].dropna()
-                if not closes.empty:
-                    putcall_5d = round(float(closes.tail(5).mean() if len(closes) >= 5 else closes.iloc[-1]), 3)
-                    print(f"    P/C ratio obtenido de {pc_ticker}: {putcall_5d}")
-                    break
-                else:
-                    print(f"    ⚠️ {pc_ticker}: columna Close vacía")
-            else:
-                print(f"    ⚠️ {pc_ticker}: historia vacía")
-        except Exception as e:
-            print(f"  ⚠️  P/C ({pc_ticker}) no disponible: {e}")
-
     # CCL de referencia -- 2026-09-06, pedido del usuario: "Precio
     # recomendado del CEDEAR" en la ficha de cada ticker (precio subyacente
     # USD × ratio CEDEAR × este CCL). Se toma "venta" -- es el lado que le
@@ -4985,7 +4968,6 @@ def calcular_regimen(hist_spy, hist_qqq):
         "qqq_ext_atr":    qqq_r['ext_atr'],
         "qqq_ext_score":  qqq_r['ext_pts'],
         "vix":            vix,
-        "putcall_5d":     putcall_5d,
     }
 
 
@@ -5017,7 +4999,7 @@ hist_qqq, _motivo_qqq = completar_vela_hoy("QQQ", hist_qqq)
 if hist_qqq is None:
     print(f"  ⚠️  QQQ: {_motivo_qqq}")
 
-print("⏳ Calculando régimen de mercado (SPY/QQQ + VIX + P/C)...")
+print("⏳ Calculando régimen de mercado (SPY/QQQ + VIX)...")
 regimen_data = calcular_regimen(hist_spy, hist_qqq) if (hist_spy is not None and hist_qqq is not None) else None
 if regimen_data:
     spy_pts = (regimen_data['spy_tendencia'] + regimen_data['spy_dist_score'] + regimen_data['spy_ftd_score']
@@ -5026,7 +5008,7 @@ if regimen_data:
                + regimen_data['qqq_adx_score'] + regimen_data['qqq_ext_score'])
     print(f"  ✅ SPY {spy_pts}/40 pts (ADX {regimen_data['spy_adx']}, ext {regimen_data['spy_ext_atr']} ATRs) | "
           f"QQQ {qqq_pts}/40 pts (ADX {regimen_data['qqq_adx']}, ext {regimen_data['qqq_ext_atr']} ATRs) | "
-          f"VIX {regimen_data['vix']} | P/C {regimen_data['putcall_5d']} | CCL {regimen_data['ccl']}")
+          f"VIX {regimen_data['vix']} | CCL {regimen_data['ccl']}")
 else:
     print("  ⚠️  Régimen no disponible, las capas 1 y 4 quedarán inactivas")
 
