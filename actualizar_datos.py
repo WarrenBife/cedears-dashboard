@@ -4213,6 +4213,19 @@ def calcular_kpis(ticker_symbol, hist_spy, breakouts_log, rebote_state, hoy_str,
     try:
         tk   = yf.Ticker(ticker_symbol)
         hist = tk.history(period="2y")
+
+        # Vela de HOY sin cerrar todavia en Yahoo (2026-09-15, caso real:
+        # Volumen venia poblado pero Open/High/Low/Close en NaN para
+        # practicamente todo el universo -- hasta SPY -- durante horas
+        # despues del cierre real de mercado, Yahoo no habia terminado de
+        # "hornear" la vela). Antes esto escribia Precio/SMA10/SMA50/Dist
+        # EMA200%/etc en null para (casi) todo el dashboard en cuanto
+        # pasaba. Se descartan las velas finales sin cerrar y se usa el
+        # ultimo cierre real conocido (el de ayer) -- mismo criterio que
+        # mostraria cualquier terminal de mercado mientras no hay un
+        # cierre nuevo confirmado, en vez de mostrar un hueco.
+        while len(hist) > 0 and pd.isna(hist["Close"].iloc[-1]):
+            hist = hist.iloc[:-1]
         if hist.empty or len(hist) < 60:
             return None
 
