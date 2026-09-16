@@ -9,13 +9,14 @@ name: Precios en vivo (liviano)
 # a Yahoo Finance.
 
 on:
-  schedule:
-    # Cada 15 min, 13:00 a 19:45 UTC = 10:00 a 16:45 Argentina (UTC-3),
-    # cubre la rueda de NYSE (9:30-16:00 ET = 10:30-17:00 ART en horario
-    # de verano de EEUU) con margen de sobra a cada punta. El cierre
-    # real (17:00 ART) ya lo cubre la corrida completa de
-    # actualizar_datos.yml, no hace falta que esta se solape ahi.
-    - cron: '*/15 13-19 * * 1-5'
+  # Cron nativo sacado (2026-09-16), mismo criterio que actualizar_datos.yml:
+  # el cron nativo de GitHub atrasa/se salta corridas en repos de poco
+  # trafico. Ahora un servicio externo (cron-job.org) llama a este mismo
+  # workflow_dispatch cada 15 min, 13:00 a 19:45 UTC = 10:00 a 16:45
+  # Argentina (UTC-3), cubriendo la rueda de NYSE (9:30-16:00 ET) con
+  # margen de sobra a cada punta. El cierre real (17:00 ART) ya lo cubre
+  # la corrida completa de actualizar_datos.yml, no hace falta que esta
+  # se solape ahi.
   workflow_dispatch:
 
 jobs:
