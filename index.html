@@ -1620,14 +1620,15 @@ function renderTrend() {
   }
 
   // Responsive (2026-09-02, pedido del usuario: en mobile obligaba a
-  // scroll horizontal). Achica el padding lateral de cada celda y el
-  // sparkline por debajo de 600px (mismo corte que el resto del
-  // dashboard, ver @media(max-width:600px) en el CSS) -- entre las 5
-  // columnas, el padding lateral solo (10px×2 por celda) ya sumaba ~90px
-  // fijos, más del ancho disponible completo en un celular angosto.
+  // scroll horizontal). Por debajo de 600px (mismo corte que el resto
+  // del dashboard, ver @media(max-width:600px) en el CSS) se achica el
+  // padding lateral de cada celda y, desde 2026-09-16, se saca por
+  // completo la columna Tendencia (el sparkline) -- con 6 columnas el
+  // gráfico era lo primero que no entraba sin scroll horizontal en un
+  // celular angosto.
   const isMobile = window.innerWidth <= 600;
   const pad     = isMobile ? 4 : 10;
-  const sparkW  = isMobile ? 42 : 90;
+  const sparkW  = 90;
   const secMaxW = isMobile ? 46 : 64;
 
   const thBase = `font-size:12px;font-weight:700;padding:0 ${pad}px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s`;
@@ -1636,7 +1637,7 @@ function renderTrend() {
   function th(col, label, align) {
     const active = trendSort.col === col;
     const ind = active ? (trendSort.asc ? ' ▲' : ' ▼') : '';
-    return `<th style="${thBase};text-align:${align||'right'};color:${active ? 'var(--accent)' : thInactive}"
+    return `<th style="${thBase};text-align:${align||'center'};color:${active ? 'var(--accent)' : thInactive}"
       onclick="setTrendSort('${col}')"
       onmouseover="this.style.color='var(--accent)'"
       onmouseout="this.style.color='${active ? 'var(--accent)' : thInactive}'">${label}${ind}</th>`;
@@ -1650,15 +1651,15 @@ function renderTrend() {
   }
 
   function deltaCell(delta) {
-    if (delta === null || isNaN(delta)) return `<td style="text-align:right;padding:0 ${pad}px;font-size:11px;color:#6b7280">—</td>`;
+    if (delta === null || isNaN(delta)) return `<td style="text-align:center;padding:0 ${pad}px;font-size:11px;color:#6b7280">—</td>`;
     const color = delta >= 0 ? '#22c98a' : '#f0605a';
     const sign  = delta >= 0 ? '+' : '';
-    return `<td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${sign}${delta.toFixed(1)}</td>`;
+    return `<td style="text-align:center;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${sign}${delta.toFixed(1)}</td>`;
   }
 
   const header = `<tr>
     <th style="color:${thInactive};font-size:12px;font-weight:700;padding:0 ${pad}px 10px 0;text-align:left">Ticker</th>
-    <th style="color:${thInactive};font-size:12px;font-weight:700;padding:0 ${pad}px 10px;text-align:center">Tendencia</th>
+    ${isMobile ? '' : `<th style="color:${thInactive};font-size:12px;font-weight:700;padding:0 ${pad}px 10px;text-align:center">Tendencia</th>`}
     ${th('rs', 'RS Score')}
     ${th('ddia', 'Δ día')}
     ${th('dsem', 'Δ sem')}
@@ -1682,8 +1683,8 @@ function renderTrend() {
           </div>
         </div>
       </td>
-      <td style="padding:4px ${pad}px;vertical-align:middle"><div style="display:flex;justify-content:center">${sparklineSVG(vals, sparkW, 32)}</div></td>
-      <td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
+      ${isMobile ? '' : `<td style="padding:4px ${pad}px;vertical-align:middle"><div style="display:flex;justify-content:center">${sparklineSVG(vals, sparkW, 32)}</div></td>`}
+      <td style="text-align:center;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
       ${deltaCell(dDia)}
       ${deltaCell(dSem)}
       ${deltaCell(dMes)}
