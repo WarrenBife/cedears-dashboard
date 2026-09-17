@@ -1630,15 +1630,16 @@ function renderTrend() {
   const sparkW  = isMobile ? 42 : 90;
   const secMaxW = isMobile ? 46 : 64;
 
-  const thBase = `font-size:10px;font-weight:normal;padding:0 ${pad}px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s`;
+  const thBase = `font-size:12px;font-weight:700;padding:0 ${pad}px 10px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s`;
+  const thInactive = '#9ca3af';
 
   function th(col, label, align) {
     const active = trendSort.col === col;
     const ind = active ? (trendSort.asc ? ' ▲' : ' ▼') : '';
-    return `<th style="${thBase};text-align:${align||'right'};color:${active ? '#e8eaf0' : '#6b7280'}"
+    return `<th style="${thBase};text-align:${align||'right'};color:${active ? 'var(--accent)' : thInactive}"
       onclick="setTrendSort('${col}')"
-      onmouseover="this.style.color='#9ca3af'"
-      onmouseout="this.style.color='${active ? '#e8eaf0' : '#6b7280'}'">${label}${ind}</th>`;
+      onmouseover="this.style.color='var(--accent)'"
+      onmouseout="this.style.color='${active ? 'var(--accent)' : thInactive}'">${label}${ind}</th>`;
   }
 
   function rsColor(v) {
@@ -1656,12 +1657,12 @@ function renderTrend() {
   }
 
   const header = `<tr>
-    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 ${pad}px 10px 0;text-align:left">Ticker</th>
-    <th style="color:#6b7280;font-size:10px;font-weight:normal;padding:0 ${pad}px 10px;text-align:center">Tendencia</th>
+    <th style="color:${thInactive};font-size:12px;font-weight:700;padding:0 ${pad}px 10px 0;text-align:left">Ticker</th>
+    <th style="color:${thInactive};font-size:12px;font-weight:700;padding:0 ${pad}px 10px;text-align:center">Tendencia</th>
     ${th('rs', 'RS Score')}
     ${th('ddia', 'Δ día')}
-    ${th('dmes', 'Δ mes')}
     ${th('dsem', 'Δ sem')}
+    ${th('dmes', 'Δ mes')}
   </tr>`;
 
   const rows = data.map(d => {
@@ -1684,8 +1685,8 @@ function renderTrend() {
       <td style="padding:4px ${pad}px;vertical-align:middle"><div style="display:flex;justify-content:center">${sparklineSVG(vals, sparkW, 32)}</div></td>
       <td style="text-align:right;padding:0 ${pad}px;font-family:'DM Mono',monospace;font-size:14px;color:${rsCol};font-weight:600;vertical-align:middle">${d['RS Score'] != null ? d['RS Score'].toFixed(1) : '—'}</td>
       ${deltaCell(dDia)}
-      ${deltaCell(dMes)}
       ${deltaCell(dSem)}
+      ${deltaCell(dMes)}
     </tr>`;
   });
 
