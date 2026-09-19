@@ -4309,7 +4309,7 @@ if ('serviceWorker' in navigator) {
     'MACD estándar (12/26/9): línea = EMA12 − EMA26, señal = EMA9 de la línea. Solo cruces de hoy o de ayer, y solo si la línea todavía está del lado "flojo" (bajo cero para un cruce alcista, sobre cero para uno bajista) -- son los cruces que anticipan un cambio de impulso, no los que confirman uno que ya viene fuerte hace rato.');
 
   var macdSemP = mkPanel('wb-macd-sem-panel','📊 MACD Semanal: Cruces',
-    'Mismo mecanismo que el diario, sobre velas semanales — solo si el cruce pasó en las últimas 2 semanas<br><br>'+
+    'Mismo mecanismo que el diario, sobre velas semanales — solo si el cruce pasó hasta 3 semanas atrás<br><br>'+
     '<b>Alcista bajo cero</b> — la línea cruza hacia arriba a su señal, todavía por debajo de 0.<br><br>'+
     '<b>Bajista sobre cero</b> — la línea cruza hacia abajo a su señal, todavía por encima de 0.',
     '<div class="rrg-toggle-wrap" style="margin:-14px 0 12px;">'+
@@ -4317,7 +4317,7 @@ if ('serviceWorker' in navigator) {
       '<button class="rrg-pill" id="macdsem-tab-bajista" onclick="wbMACDSemSetTab(\'bajista\')">🔽 Bajista sobre cero</button>'+
     '</div>'+
     '<div id="wb-macd-sem-body" style="max-height:315px;overflow-y:auto"></div>',
-    'Igual que "MACD: Cruces" de arriba, pero calculado sobre velas SEMANALES en vez de diarias -- solo cruces dentro de las últimas 2 semanas, con la línea todavía del lado flojo al momento de cruzar.');
+    'Igual que "MACD: Cruces" de arriba, pero calculado sobre velas SEMANALES en vez de diarias -- solo cruces de hasta 3 semanas atrás, con la línea todavía del lado flojo al momento de cruzar.');
 
   /* — Reordenar todo — */
   // 2026-09-06 (pedido del usuario, reorganización de escritorio): debajo
@@ -5438,7 +5438,7 @@ if ('serviceWorker' in navigator) {
       var tipo = d['MACD Semanal Cruce Tipo'];
       if(tipo!==wbMacdSemTab) return null;
       var haceSemanas = num(d['MACD Semanal Cruce Hace Semanas']);
-      if(haceSemanas==null || haceSemanas>1) return null;
+      if(haceSemanas==null || haceSemanas>3) return null;
       var nivel = num(d['MACD Semanal Cruce Nivel']);
       if(nivel==null) return null;
       if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
@@ -5447,8 +5447,8 @@ if ('serviceWorker' in navigator) {
 
     if(!rows.length){
       var vacio = wbMacdSemTab==='alcista'
-        ? 'Ningún cruce alcista del MACD semanal bajo cero en las últimas 2 semanas.'
-        : 'Ningún cruce bajista del MACD semanal sobre cero en las últimas 2 semanas.';
+        ? 'Ningún cruce alcista del MACD semanal bajo cero en las últimas 4 semanas.'
+        : 'Ningún cruce bajista del MACD semanal sobre cero en las últimas 4 semanas.';
       body.innerHTML='<div class="wb-empty">'+vacio+'</div>';
       return;
     }
@@ -5461,7 +5461,7 @@ if ('serviceWorker' in navigator) {
             '<td><span class="wb-row-ticker-wrap"><img class="wb-row-logo" src="https://financialmodelingprep.com/image-stock/'+encodeURIComponent(d['Ticker'])+'.png" onerror="this.style.display=\'none\'"><span class="ticker-badge">'+esc(d['Ticker'])+'</span></span></td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:'+col+'">'+fmt(num(d['MACD Semanal']),2)+'</td>'+
             '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmt(num(d['MACD Semanal Señal']),2)+'</td>'+
-            '<td>'+(r.haceSemanas===0?'esta sem.':'semana pasada')+'</td>'+
+            '<td>'+(r.haceSemanas===0?'esta sem.':(r.haceSemanas===1?'semana pasada':'hace '+r.haceSemanas+' semanas'))+'</td>'+
             '<td>'+fmt(num(d['RS Score']),0)+'</td>'+
           '</tr>';
       }).join('')+'</tbody></table>';
