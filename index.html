@@ -5244,6 +5244,7 @@ if ('serviceWorker' in navigator) {
       contactoSemanas:contactoSemanas, climaxVol:climaxVol, climaxPos:climaxPos, rsContacto:rsContacto,
       tipo:tipo};
   }
+  window.calcEMA200ReversalSemanal = calcEMA200ReversalSemanal;
 
   // Humaniza la racha semanal (ya viene en semanas, a diferencia de
   // _ema200RachaHumano que espera ruedas diarias -- no reusar esa acá).
@@ -5313,6 +5314,26 @@ if ('serviceWorker' in navigator) {
      calculados en el pipeline (rsi_sma_cruce_features): ya trae el tipo
      de cruce y hace cuántas semanas pasó, sin necesidad de reconstruir
      la serie en el frontend. */
+  /* Chequeo puro reusado por wbRenderRSISemCruce y wbmCrossPanelItems
+     (card "También destaca en") -- misma fuente de verdad, para no
+     terminar con el panel y la card desincronizados (mismo patrón que
+     window.wbVcpqTop20 para Bases VCP de Alta Calidad). */
+  function wbRsiSemCruceInfo(d){
+    var tipo = d['RSI Semanal Cruce Tipo'];
+    if(tipo!=='alcista' && tipo!=='bajista') return null;
+    var haceSemanas = num(d['RSI Semanal Cruce Hace Semanas']);
+    if(haceSemanas==null) return null;
+    // Resaltado (2026-09-09, pedido del usuario): cruce alcista con el
+    // RSI todavía débil (<40) al momento de cruzar, o cruce bajista con
+    // el RSI todavía fuerte (>60) al cruzar -- señal más significativa
+    // que un cruce "en el medio" del rango.
+    var nivelCruce = num(d['RSI Semanal Cruce Nivel']);
+    var destacado = (tipo==='alcista' && nivelCruce!=null && nivelCruce<40) ||
+                    (tipo==='bajista' && nivelCruce!=null && nivelCruce>60);
+    return {tipo:tipo, haceSemanas:haceSemanas, destacado:destacado};
+  }
+  window.wbRsiSemCruceInfo = wbRsiSemCruceInfo;
+
   var wbRsiSemTab = 'alcista';
   window.wbRSISemSetTab = function(tipo){
     wbRsiSemTab = tipo;
@@ -5324,18 +5345,9 @@ if ('serviceWorker' in navigator) {
   window.wbRenderRSISemCruce = function(){
     var body=$('wb-rsisem-body'); if(!body || !datosOK()) return;
     var rows = filtrados().map(function(d){
-      var tipo = d['RSI Semanal Cruce Tipo'];
-      if(tipo!==wbRsiSemTab) return null;
-      var haceSemanas = num(d['RSI Semanal Cruce Hace Semanas']);
-      if(haceSemanas==null) return null;
-      // Resaltado (2026-09-09, pedido del usuario): cruce alcista con el
-      // RSI todavía débil (<40) al momento de cruzar, o cruce bajista con
-      // el RSI todavía fuerte (>60) al cruzar -- señal más significativa
-      // que un cruce "en el medio" del rango.
-      var nivelCruce = num(d['RSI Semanal Cruce Nivel']);
-      var destacado = (tipo==='alcista' && nivelCruce!=null && nivelCruce<40) ||
-                      (tipo==='bajista' && nivelCruce!=null && nivelCruce>60);
-      return {d:d, haceSemanas:haceSemanas, destacado:destacado};
+      var info = wbRsiSemCruceInfo(d);
+      if(!info || info.tipo!==wbRsiSemTab) return null;
+      return {d:d, haceSemanas:info.haceSemanas, destacado:info.destacado};
     }).filter(Boolean).sort(function(a,b){
       if(a.destacado!==b.destacado) return a.destacado?-1:1;
       return a.haceSemanas-b.haceSemanas;
@@ -5381,6 +5393,20 @@ if ('serviceWorker' in navigator) {
      todavía positiva -- impulso recién empeorando desde terreno
      fuerte). Mismo patrón que RSI Semanal (5d) de arriba: toggle
      alcista/bajista, una tabla a la vez. */
+  /* Chequeo puro reusado por wbRenderMACDCruce y wbmCrossPanelItems (card
+     "También destaca en") -- ver nota de wbRsiSemCruceInfo más arriba. */
+  function wbMacdCruceInfo(d){
+    var tipo = d['MACD Cruce Tipo'];
+    if(tipo!=='alcista' && tipo!=='bajista') return null;
+    var haceRuedas = num(d['MACD Cruce Hace Ruedas']);
+    if(haceRuedas==null || haceRuedas>1) return null;
+    var nivel = num(d['MACD Cruce Nivel']);
+    if(nivel==null) return null;
+    if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
+    return {tipo:tipo, haceRuedas:haceRuedas};
+  }
+  window.wbMacdCruceInfo = wbMacdCruceInfo;
+
   var wbMacdTab = 'alcista';
   window.wbMACDSetTab = function(tipo){
     wbMacdTab = tipo;
@@ -5392,14 +5418,9 @@ if ('serviceWorker' in navigator) {
   window.wbRenderMACDCruce = function(){
     var body=$('wb-macd-body'); if(!body || !datosOK()) return;
     var rows = filtrados().map(function(d){
-      var tipo = d['MACD Cruce Tipo'];
-      if(tipo!==wbMacdTab) return null;
-      var haceRuedas = num(d['MACD Cruce Hace Ruedas']);
-      if(haceRuedas==null || haceRuedas>1) return null;
-      var nivel = num(d['MACD Cruce Nivel']);
-      if(nivel==null) return null;
-      if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
-      return {d:d, haceRuedas:haceRuedas};
+      var info = wbMacdCruceInfo(d);
+      if(!info || info.tipo!==wbMacdTab) return null;
+      return {d:d, haceRuedas:info.haceRuedas};
     }).filter(Boolean).sort(function(a,b){ return (num(b.d['RS Score'])||0) - (num(a.d['RS Score'])||0); });
 
     if(!rows.length){
@@ -5432,17 +5453,26 @@ if ('serviceWorker' in navigator) {
     if(ba) ba.classList.toggle('active', tipo==='bajista');
     wbRenderMACDCruceSemanal();
   };
+  /* Chequeo puro reusado por wbRenderMACDCruceSemanal y wbmCrossPanelItems
+     (card "También destaca en") -- ver nota de wbRsiSemCruceInfo más arriba. */
+  function wbMacdSemCruceInfo(d){
+    var tipo = d['MACD Semanal Cruce Tipo'];
+    if(tipo!=='alcista' && tipo!=='bajista') return null;
+    var haceSemanas = num(d['MACD Semanal Cruce Hace Semanas']);
+    if(haceSemanas==null || haceSemanas>3) return null;
+    var nivel = num(d['MACD Semanal Cruce Nivel']);
+    if(nivel==null) return null;
+    if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
+    return {tipo:tipo, haceSemanas:haceSemanas};
+  }
+  window.wbMacdSemCruceInfo = wbMacdSemCruceInfo;
+
   window.wbRenderMACDCruceSemanal = function(){
     var body=$('wb-macd-sem-body'); if(!body || !datosOK()) return;
     var rows = filtrados().map(function(d){
-      var tipo = d['MACD Semanal Cruce Tipo'];
-      if(tipo!==wbMacdSemTab) return null;
-      var haceSemanas = num(d['MACD Semanal Cruce Hace Semanas']);
-      if(haceSemanas==null || haceSemanas>3) return null;
-      var nivel = num(d['MACD Semanal Cruce Nivel']);
-      if(nivel==null) return null;
-      if(tipo==='alcista' ? !(nivel<0) : !(nivel>0)) return null;
-      return {d:d, haceSemanas:haceSemanas};
+      var info = wbMacdSemCruceInfo(d);
+      if(!info || info.tipo!==wbMacdSemTab) return null;
+      return {d:d, haceSemanas:info.haceSemanas};
     }).filter(Boolean).sort(function(a,b){ return (num(b.d['RS Score'])||0) - (num(a.d['RS Score'])||0); });
 
     if(!rows.length){
@@ -10015,17 +10045,24 @@ function wbmSignalItems(d){
 
 /* ── "También destaca en" -- va en la parte superior de la card,
    independiente del Warren Score: avisa si el ticker aparece HOY en
-   alguno de los 3 paneles cross-universo del dashboard. Mismos
-   criterios que usa cada panel para listar candidatos, para que la
-   card nunca diga algo que el panel de origen no confirme:
+   alguno de los paneles cross-universo del dashboard. Mismos criterios
+   que usa cada panel para listar candidatos (varios reusan una función
+   pura expuesta en window, ej. wbVcpqTop20/wbRsiSemCruceInfo, para que
+   la card nunca diga algo que el panel de origen no confirme):
    - 🎯 Rebotes en la EMA200 (calcEMA200Reversal, expuesto en window
      desde wb-v2-js -- devuelve null si no califica).
+   - 📅 Rebotes en la EMA200 Semanal (calcEMA200ReversalSemanal, mismo
+     mecanismo que el diario -- 2026-09-19, pedido del usuario).
    - 🧬 Bases VCP de Alta Calidad (WB UPGRADE V9): VCP2 Score ≥60 Y
      dentro del Top 20 real que muestra el panel (ver window.wbVcpqTop20,
      expuesto por ese mismo panel -- fix 2026-09-15, caso XRX: antes acá
      solo se miraba el umbral de 60 sin el corte por ranking, así que la
      card podía decir "destaca acá" para un ticker que en los hechos
      quedaba afuera de la lista por no entrar en el Top 20).
+   - 📶 RSI Semanal: cruce reciente en su SMA14 (wbRsiSemCruceInfo,
+     2026-09-19, pedido del usuario).
+   - 📊 MACD: cruce diario reciente (wbMacdCruceInfo) y MACD Semanal
+     (wbMacdSemCruceInfo) -- 2026-09-19, pedido del usuario.
    - 📊 Volumen inusual hoy: Vol Inusual % >50 (mismo umbral que usa
      el resto de la app -- quickFilter 'vol', contador 'st-vol', etc.).
    `panelId` (cuando está presente) hace clickeable el ítem -- cierra
@@ -10037,6 +10074,10 @@ function wbmCrossPanelItems(d){
   if (typeof calcEMA200Reversal === 'function') {
     var r = calcEMA200Reversal(d);
     if (r) items.push({emoji:'🎯', label:(r.tipo==='cruce' ? 'Cruce al alza de la EMA200' : 'Rebote en la EMA200') + ' — score ' + r.score, panelId:'wb-ema200-panel', panelTipo:r.tipo});
+  }
+  if (typeof calcEMA200ReversalSemanal === 'function') {
+    var rs = calcEMA200ReversalSemanal(d);
+    if (rs) items.push({emoji:'📅', label:(rs.tipo==='cruce' ? 'Cruce al alza de la EMA200 Semanal' : 'Rebote en la EMA200 Semanal') + ' — score ' + rs.score, panelId:'wb-ema200-sem-panel', panelTipo:rs.tipo});
   }
   // Fix 2026-09-11 (caso ANET): usaba d['VCP Score'] (detector VIEJO,
   // pivote fijo) en vez de d['VCP2 Score'] -- el panel "Bases VCP de
@@ -10051,6 +10092,18 @@ function wbmCrossPanelItems(d){
   var vcpEnTop20 = typeof window.wbVcpqTop20 === 'function' && window.wbVcpqTop20().indexOf(d['Ticker']) !== -1;
   if (!isNaN(vcpScore) && vcpScore >= 60 && vcpEnTop20) {
     items.push({emoji:'🧬', label:'Bases VCP de Alta Calidad — VCP Score ' + Math.round(vcpScore), panelId:'wb-vcpq-panel'});
+  }
+  if (typeof window.wbRsiSemCruceInfo === 'function') {
+    var rsi = window.wbRsiSemCruceInfo(d);
+    if (rsi) items.push({emoji:'📶', label:(rsi.tipo==='alcista' ? 'Cruce alcista' : 'Cruce bajista') + ' del RSI Semanal en su SMA14' + (rsi.destacado ? ' (destacado)' : ''), panelId:'wb-rsi-sem-panel', panelTipo:rsi.tipo});
+  }
+  if (typeof window.wbMacdCruceInfo === 'function') {
+    var macd = window.wbMacdCruceInfo(d);
+    if (macd) items.push({emoji:'📊', label:'Cruce ' + macd.tipo + ' del MACD con su señal (diario)', panelId:'wb-macd-panel', panelTipo:macd.tipo});
+  }
+  if (typeof window.wbMacdSemCruceInfo === 'function') {
+    var macdSem = window.wbMacdSemCruceInfo(d);
+    if (macdSem) items.push({emoji:'📊', label:'Cruce ' + macdSem.tipo + ' del MACD Semanal con su señal', panelId:'wb-macd-sem-panel', panelTipo:macdSem.tipo});
   }
   var volInu = d['Vol Inusual %'];
   if (volInu !== null && volInu !== undefined && volInu > 50) {
@@ -10470,13 +10523,25 @@ window.wbmCloseDetail = function(){
 };
 
 /* ── Ir al panel de origen de un ítem de "También destaca en" (Rebotes
-   EMA200 / Bases VCP de Alta Calidad) -- cierra la card (que ya hace su
-   propio scrollTo al restaurar la posición previa) y recién después
-   lleva al panel, en un timeout corto para no pisarse con ese scroll. ── */
+   EMA200/EMA200 Semanal, RSI Semanal, MACD/MACD Semanal, Bases VCP de
+   Alta Calidad) -- cierra la card (que ya hace su propio scrollTo al
+   restaurar la posición previa) y recién después lleva al panel, en un
+   timeout corto para no pisarse con ese scroll. Mapa panelId -> nombre
+   del tab-setter de ese panel (2026-09-19, ampliado de solo EMA200
+   diario a los 4 paneles nuevos de cruces -- todos comparten el mismo
+   patrón de 2 pestañas alcista/bajista o rebote/cruce). ── */
+var WBM_PANEL_TAB_SETTERS = {
+  'wb-ema200-panel':     'wbEMA200SetTab',
+  'wb-ema200-sem-panel': 'wbEMA200SemSetTab',
+  'wb-rsi-sem-panel':    'wbRSISemSetTab',
+  'wb-macd-panel':       'wbMACDSetTab',
+  'wb-macd-sem-panel':   'wbMACDSemSetTab'
+};
 window.wbmGoToPanel = function(panelId, tipo){
   wbmCloseDetail();
-  if (panelId === 'wb-ema200-panel' && tipo && typeof window.wbEMA200SetTab === 'function') {
-    window.wbEMA200SetTab(tipo);
+  var setterName = WBM_PANEL_TAB_SETTERS[panelId];
+  if (tipo && setterName && typeof window[setterName] === 'function') {
+    window[setterName](tipo);
   }
   setTimeout(function(){
     var panel = document.getElementById(panelId);
