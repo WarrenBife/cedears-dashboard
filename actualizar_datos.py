@@ -3468,23 +3468,31 @@ def vela_rechazo_maximos(hist, dist_max52):
 VELA_RECHAZO_VENTANA_MAX = 40  # ruedas hacia atrás para reconstruir si un episodio confirmado sigue vigente
 
 def vela_rechazo_confirmada(hist):
-    """True si HOY hay un episodio VIGENTE de vela de rechazo CONFIRMADA:
-    disparó (ver vela_rechazo_maximos) y el día siguiente cerró en rojo
-    (confirma), y desde entonces no pasó nada de lo que lo levanta -- 2
-    días verdes seguidos, o un nuevo máximo por encima del máximo del día
-    del disparo. Sin estado persistido entre corridas (mismo patrón que
+    """True si HOY el tope del Warren Score en 70 por vela de rechazo está
+    VIGENTE. Sin estado persistido entre corridas (mismo patrón que
     no_demand_ruptura): se reconstruye desde el histórico en cada corrida.
 
-    2026-09-1, a pedido del usuario: esto (no 'vela_rechazo_maximos', el
-    disparo crudo del día) es lo que debe topear el Warren Score en 70 --
-    el día del disparo SOLO, sin confirmar, en el 59% de los casos (Score
-    >70, 2026, 297 tickers) es en realidad señal BUENA (+2,03/+2,16/+2,60%
-    a 10/15/20r); toparlo ahí penalizaría de más a la mayoría de los casos
-    que iban a andar bien. Separado además por vía de liberación: 'nuevo
-    máximo' rinde bien (+4,17% a 10r, 100% sube, n=6) y '2 verdes
-    seguidos' rinde mal (-2,36%, solo 26% sube, n=23) -- de ahí el tope al
-    score en vez de puntos fijos, dado lo chica que es la muestra (29
-    días confirmados en 2026)."""
+    2026-09-19, a pedido del usuario, caso GM: el tope arranca el MISMO
+    día del disparo crudo (ver vela_rechazo_maximos), no al confirmar al
+    día siguiente -- con la lógica vieja (topear solo al confirmar), GM
+    disparó la vela de rechazo el 17/9 pero el tope recién entraba en
+    vigencia el 18/9, el mismo día del quiebre de -5,1% -- cero aviso
+    previo. Ahora, al día siguiente del disparo: si cierra verde, se
+    libera enseguida (un solo verde alcanza, no hace falta esperar 2); si
+    cierra rojo, queda "confirmado" y de ahí en más rige la regla de
+    siempre (se libera con 2 verdes seguidos o un nuevo máximo por encima
+    del máximo del día del disparo).
+
+    Nota: el día del disparo crudo, sin confirmar, en el 59% de los casos
+    históricos (Score >70, 2026, 297 tickers) terminó siendo señal BUENA
+    (+2,03/+2,16/+2,60% a 10/15/20r) -- pero como acá el tope se libera al
+    primer verde, el costo para esos casos es como mucho 1 rueda de score
+    de más capeado, no una penalización que se arrastra. Vía de
+    liberación del tramo confirmado sin cambios: 'nuevo máximo' rinde
+    bien (+4,17% a 10r, 100% sube, n=6), '2 verdes seguidos' rinde mal
+    (-2,36%, solo 26% sube, n=23) -- de ahí el tope al score en vez de
+    puntos fijos, dado lo chica que es la muestra (29 días confirmados en
+    2026)."""
     try:
         n = len(hist)
         piso_min = VELA_RECHAZO_VENTANA_RECIENTE + 21 + VELA_RECHAZO_VENTANA_MAX + 5
@@ -3499,25 +3507,25 @@ def vela_rechazo_confirmada(hist):
         idx_ini = n - VELA_RECHAZO_VENTANA_MAX - 5
         activo = False
         high_disparo = None
-        esperando_confirmacion = None  # índice del día que disparó, esperando el cierre del día siguiente
+        dia_disparo = None  # índice del día que disparó (para el chequeo especial del día siguiente)
 
         for t in range(idx_ini, n):
-            # 1) resolver liberación del episodio vigente (2 verdes seguidos o nuevo máximo)
+            # 1) resolver liberación del episodio vigente
             if activo:
-                verde_2_seguidos = t >= 2 and c[t] > c[t - 1] and c[t - 1] > c[t - 2]
-                nuevo_max = h[t] > high_disparo
-                if verde_2_seguidos or nuevo_max:
-                    activo = False
-                    high_disparo = None
+                if dia_disparo is not None and t == dia_disparo + 1:
+                    # día siguiente al disparo: alcanza con un solo verde
+                    if c[t] > c[t - 1]:
+                        activo = False
+                        high_disparo = None
+                    dia_disparo = None
+                else:
+                    verde_2_seguidos = t >= 2 and c[t] > c[t - 1] and c[t - 1] > c[t - 2]
+                    nuevo_max = h[t] > high_disparo
+                    if verde_2_seguidos or nuevo_max:
+                        activo = False
+                        high_disparo = None
 
-            # 2) resolver confirmación del disparo de ayer (cierre de hoy vs. cierre de ayer)
-            if esperando_confirmacion is not None:
-                if c[t] < c[t - 1]:
-                    activo = True
-                    high_disparo = h[esperando_confirmacion]
-                esperando_confirmacion = None
-
-            # 3) evaluar si HOY (t) dispara, para confirmar mañana
+            # 2) evaluar si HOY (t) dispara -- topea desde HOY mismo
             rng = h[t] - l[t]
             if rng <= 0 or t < VELA_RECHAZO_VENTANA_RECIENTE or t < 20:
                 continue
@@ -3541,7 +3549,9 @@ def vela_rechazo_confirmada(hist):
                        and close_pos <= VELA_RECHAZO_CIERRE_MAX
                        and vol_ratio >= VELA_RECHAZO_VOL_MIN)
             if trigger:
-                esperando_confirmacion = t
+                activo = True
+                high_disparo = h[t]
+                dia_disparo = t
 
         return activo
     except Exception:

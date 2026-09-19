@@ -9390,10 +9390,11 @@ function _penalizacionesV50(d){
 
   // ⚠️ Posible toma de ganancias -- ver vela_rechazo_maximos()/
   // vela_rechazo_confirmada() en actualizar_datos.py (caso de origen:
-  // XYZ 27/8/2026). Se muestra tanto el día del disparo crudo (recién
-  // pasó, todavía sin confirmar) como durante todo el tramo confirmado
-  // (el que tapa el score en 70, ver más abajo) -- para que la bandera
-  // siga visible mientras el tope esté activo, no solo el primer día.
+  // XYZ 27/8/2026, tope movido al día del disparo 2026-09-19 caso GM).
+  // Se muestra tanto el día del disparo (ya topea el score, ver más
+  // abajo) como durante todo el tramo confirmado si el día siguiente
+  // cierra rojo -- para que la bandera siga visible mientras el tope
+  // esté activo, no solo el primer día.
   if (_bool(d['Vela Rechazo Maximos']) || _bool(d['Vela Rechazo Confirmada'])) { flags.push('⚠️'); }
 
   return { pen, flags };
@@ -9445,14 +9446,15 @@ window.calcWarrenDetalleV50 = function(d){
   // card) se sacó entera junto con el gate -- ver historial de commits
   // si hace falta reponer cualquiera de los dos.
 
-  // Tope por ⚠️ vela de rechazo CONFIRMADA (2026-09-1, a pedido del
-  // usuario, caso XYZ) -- ojo: usa 'Vela Rechazo Confirmada' (dispara +
-  // el día siguiente cerró en rojo, vigente hasta 2 verdes seguidos o un
-  // nuevo máximo), NO 'Vela Rechazo Maximos' (el disparo crudo del día,
-  // sin confirmar). Toparlo con el disparo crudo penalizaría de más: ese
-  // día solo, sin confirmar, es en el 59% de los casos señal BUENA
-  // (+2 a +2,6% a 10-20r) -- ver vela_rechazo_confirmada() en
-  // actualizar_datos.py para la validación completa.
+  // Tope por ⚠️ vela de rechazo (2026-09-1, a pedido del usuario, caso
+  // XYZ; movido al día del disparo el 2026-09-19, caso GM) -- usa
+  // 'Vela Rechazo Confirmada', que en Python arranca en True el mismo
+  // día del disparo crudo. Se libera al día siguiente si cierra verde
+  // (1 solo verde alcanza); si cierra rojo, sigue vigente hasta 2 verdes
+  // seguidos o un nuevo máximo por encima del máximo del día del
+  // disparo. Ver vela_rechazo_confirmada() en actualizar_datos.py para
+  // la validación completa (por qué el disparo crudo sin confirmar no
+  // se penaliza más allá de esta única rueda).
   if (_bool(d['Vela Rechazo Confirmada']) && score > 70) score = 70;
 
   // Cap "estirado sin pausa/agotándose" (capeaba a 40 si Dist SMA50/ATR14
@@ -10006,7 +10008,7 @@ function wbmSignalItems(d){
   }
   if (_bool(d['Vela Rechazo Maximos']) || _bool(d['Vela Rechazo Confirmada'])) {
     var velaConf = _bool(d['Vela Rechazo Confirmada']);
-    items.push({emoji:'⚠️', label:'Posible toma de ganancias: vela de rechazo en zona de máximos' + (velaConf ? ' — confirmada, Score topeado en 70' : ' — recién disparó, todavía sin confirmar')});
+    items.push({emoji:'⚠️', label:'Posible toma de ganancias: vela de rechazo en zona de máximos' + (velaConf ? ' — Score topeado en 70' : ' — en observación')});
   }
   return items;
 }
